@@ -7,7 +7,6 @@ import {
     Text,
     TouchableOpacity,
     View,
-    useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PROVIDER_INFO, PROVIDER_PRESETS } from '../../config/providerPresets';
@@ -17,6 +16,7 @@ import { LLMConfig, LLMProvider } from '../../core/types';
 import { useLLMStore } from '../../state';
 import { showError, showInfo } from '../../utils/alert';
 import { Button, Dropdown, Input } from '../components/common';
+import { useAppColorScheme, useLocale } from '../hooks';
 
 interface LLMEditorScreenProps {
     configId?: string;
@@ -25,8 +25,9 @@ interface LLMEditorScreenProps {
 }
 
 export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorScreenProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
+    const { t } = useLocale();
 
     const { createConfig, updateConfig, testConnection, getConfigById } = useLLMStore();
 
@@ -126,7 +127,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
 
     const handleTestConnection = async () => {
         if (!baseUrl) {
-            showError('Error', 'Please enter a base URL');
+            showError(t('common.error'), t('llm.editor.error.url'));
             return;
         }
 
@@ -151,13 +152,13 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             const success = await client.testConnection(tempConfig);
 
             showInfo(
-                success ? 'Success' : 'Failed',
+                success ? t('common.success') : t('common.error'),
                 success
-                    ? 'Connection successful!'
-                    : 'Could not connect. Check your settings.'
+                    ? t('llm.editor.test.success')
+                    : t('llm.editor.test.failed')
             );
         } catch (error) {
-            showError('Error', 'Connection test failed');
+            showError(t('common.error'), t('llm.editor.error.test'));
         } finally {
             setIsTesting(false);
         }
@@ -166,19 +167,19 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
     const handleSave = async () => {
         // Validation
         if (!name.trim()) {
-            showError('Error', 'Please enter a name');
+            showError(t('common.error'), t('llm.editor.error.name'));
             return;
         }
         if (!baseUrl.trim()) {
-            showError('Error', 'Please enter a base URL');
+            showError(t('common.error'), t('llm.editor.error.url'));
             return;
         }
         if (!defaultModel.trim()) {
-            showError('Error', 'Please select a default model');
+            showError(t('common.error'), t('llm.editor.error.model'));
             return;
         }
         if (providerInfo.apiKeyRequired && !apiKey.trim()) {
-            showError('Error', 'API key is required for this provider');
+            showError(t('common.error'), t('llm.editor.error.apiKey'));
             return;
         }
 
@@ -206,22 +207,28 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
 
             onBack();
         } catch (error) {
-            showError('Error', 'Failed to save configuration');
+            showError(t('common.error'), t('llm.editor.error.save'));
         } finally {
             setIsSaving(false);
         }
     };
 
     const providerOptions = [
-        { label: 'OpenAI', value: 'openai' as LLMProvider },
-        { label: 'OpenAI Compatible', value: 'openai-spec' as LLMProvider },
-        { label: 'Ollama', value: 'ollama' as LLMProvider },
+        { label: t('provider.openai'), value: 'openai' as LLMProvider },
+        { label: t('provider.openai-spec'), value: 'openai-spec' as LLMProvider },
+        { label: t('provider.ollama'), value: 'ollama' as LLMProvider },
     ];
 
     const modelOptions = availableModels.map((model) => ({
         label: model,
         value: model,
     }));
+
+    const getModelHint = () => {
+        if (!baseUrl) return t('llm.editor.model.hint.noUrl');
+        if (providerInfo.apiKeyRequired && !apiKey) return t('llm.editor.model.hint.noKey');
+        return t('llm.editor.model.hint.manual');
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -231,7 +238,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.title, { color: colors.text }]}>
-                    {isEditing ? 'Edit Provider' : 'Add Provider'}
+                    {isEditing ? t('llm.editor.edit.title') : t('llm.editor.add.title')}
                 </Text>
                 <View style={styles.placeholder} />
             </View>
@@ -239,7 +246,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
                 {/* Provider Type */}
                 <Dropdown
-                    label="Provider Type"
+                    label={t('llm.editor.providerType')}
                     value={provider}
                     options={providerOptions}
                     onSelect={handleProviderChange}
@@ -255,24 +262,24 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
 
                 {/* Name */}
                 <Input
-                    label="Name"
+                    label={t('llm.editor.name')}
                     value={name}
                     onChangeText={setName}
-                    placeholder="e.g., My OpenAI"
+                    placeholder={t('llm.editor.name.placeholder')}
                 />
 
                 {/* Base URL - only editable for certain providers */}
                 {providerInfo.urlEditable ? (
                     <Input
-                        label="Base URL"
+                        label={t('llm.editor.baseUrl')}
                         value={baseUrl}
                         onChangeText={setBaseUrl}
                         placeholder={provider === 'ollama' ? 'http://localhost:11434' : 'https://api.example.com/v1'}
-                        hint="The API endpoint URL"
+                        hint={t('llm.editor.baseUrl.hint')}
                     />
                 ) : (
                     <View style={styles.fixedField}>
-                        <Text style={[styles.fieldLabel, { color: colors.text }]}>Base URL</Text>
+                        <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('llm.editor.baseUrl')}</Text>
                         <Text style={[styles.fixedValue, { color: colors.textSecondary }]}>
                             {baseUrl}
                         </Text>
@@ -282,19 +289,19 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 {/* API Key - required for some providers */}
                 {providerInfo.apiKeyRequired && (
                     <Input
-                        label="API Key"
+                        label={t('llm.editor.apiKey')}
                         value={apiKey}
                         onChangeText={setApiKey}
                         placeholder="sk-..."
                         secureTextEntry
-                        hint="Required for authentication"
+                        hint={t('llm.editor.apiKey.hint')}
                     />
                 )}
 
                 {/* Default Model - Dropdown if models are available */}
                 <View style={styles.modelSection}>
                     <View style={styles.modelHeader}>
-                        <Text style={[styles.fieldLabel, { color: colors.text }]}>Default Model</Text>
+                        <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('llm.editor.defaultModel')}</Text>
                         {isLoadingModels && (
                             <ActivityIndicator size="small" color={colors.tint} />
                         )}
@@ -310,20 +317,14 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                             value={defaultModel}
                             options={modelOptions}
                             onSelect={setDefaultModel}
-                            placeholder="Select a model..."
+                            placeholder={t('llm.editor.model.select')}
                         />
                     ) : (
                         <Input
                             value={defaultModel}
                             onChangeText={setDefaultModel}
                             placeholder={provider === 'ollama' ? 'llama2' : 'gpt-4o'}
-                            hint={
-                                !baseUrl
-                                    ? 'Enter URL to fetch available models'
-                                    : providerInfo.apiKeyRequired && !apiKey
-                                        ? 'Enter API key to fetch available models'
-                                        : 'Enter model name or fetch models above'
-                            }
+                            hint={getModelHint()}
                         />
                     )}
                 </View>
@@ -331,7 +332,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 {/* Test Connection */}
                 <View style={styles.testSection}>
                     <Button
-                        title={isTesting ? 'Testing...' : 'Test Connection'}
+                        title={isTesting ? t('llm.editor.testing') : t('llm.editor.test')}
                         onPress={handleTestConnection}
                         variant="secondary"
                         loading={isTesting}
@@ -343,7 +344,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 {/* Save Button */}
                 <View style={styles.saveSection}>
                     <Button
-                        title={isSaving ? 'Saving...' : isEditing ? 'Update Provider' : 'Add Provider'}
+                        title={isSaving ? t('llm.editor.saving') : isEditing ? t('llm.editor.update') : t('llm.editor.save')}
                         onPress={handleSave}
                         loading={isSaving}
                         fullWidth

@@ -7,10 +7,10 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    useColorScheme,
     View,
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
+import { useAppColorScheme } from '../../hooks';
 
 interface DropdownOption<T> {
     label: string;
@@ -36,7 +36,7 @@ export function Dropdown<T>({
     disabled = false,
 }: DropdownProps<T>) {
     const [isOpen, setIsOpen] = useState(false);
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const shadows = Shadows[colorScheme];
 

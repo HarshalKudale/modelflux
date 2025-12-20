@@ -5,11 +5,11 @@ import {
     TextInput,
     TextInputProps,
     TextStyle,
-    useColorScheme,
     View,
     ViewStyle,
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
+import { useAppColorScheme } from '../../hooks';
 
 interface InputProps extends Omit<TextInputProps, 'style'> {
     value: string;
@@ -36,7 +36,7 @@ export function Input({
     multiline,
     ...rest
 }: InputProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     return (

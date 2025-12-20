@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { BorderRadius, Colors, Spacing } from '../../../config/theme';
+import { useAppColorScheme } from '../../hooks';
 
 interface UserInfoProps {
     onSettingsPress: () => void;
 }
 
 export function UserInfo({ onSettingsPress }: UserInfoProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     return (

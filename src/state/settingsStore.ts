@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { settingsRepository } from '../core/storage';
 import { AppSettings, DEFAULT_SETTINGS, ThemeMode } from '../core/types';
+import { localeService } from '../services/LocaleService';
 
 interface SettingsStoreState {
     settings: AppSettings;
@@ -16,6 +17,7 @@ interface SettingsStoreActions {
     toggleStreaming: () => Promise<void>;
     toggleSidebar: () => Promise<void>;
     setDefaultLLM: (llmId: string | null) => Promise<void>;
+    setLanguage: (language: string) => Promise<void>;
     clearError: () => void;
 }
 
@@ -32,6 +34,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             const settings = await settingsRepository.get();
+            // Sync locale service with persisted language setting
+            localeService.setLanguage(settings.language);
             set({ settings, isLoading: false });
         } catch (error) {
             set({
@@ -79,6 +83,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
     setDefaultLLM: async (llmId) => {
         await get().updateSettings({ defaultLLMId: llmId });
+    },
+
+    setLanguage: async (language) => {
+        localeService.setLanguage(language);
+        await get().updateSettings({ language });
     },
 
     clearError: () => {

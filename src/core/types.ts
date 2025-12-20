@@ -104,6 +104,7 @@ export interface AppSettings {
     defaultLLMId: string | null;
     sidebarCollapsed: boolean;
     lastAppVersion: string;
+    language: string;
 }
 
 /**
@@ -128,4 +129,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     defaultLLMId: null,
     sidebarCollapsed: false,
     lastAppVersion: '1.0.0',
+    language: 'en',
 };

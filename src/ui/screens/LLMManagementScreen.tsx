@@ -5,7 +5,6 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    useColorScheme,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +14,7 @@ import { LLMProvider } from '../../core/types';
 import { useLLMStore } from '../../state';
 import { showConfirm } from '../../utils/alert';
 import { LLMConfigCard } from '../components/settings';
+import { useAppColorScheme, useLocale } from '../hooks';
 
 interface LLMManagementScreenProps {
     onNavigate: (screen: 'llm-editor', params?: { configId?: string; provider?: LLMProvider }) => void;
@@ -22,8 +22,9 @@ interface LLMManagementScreenProps {
 }
 
 export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
+    const { t } = useLocale();
 
     const { configs, updateConfig, deleteConfig, testConnection } = useLLMStore();
 
@@ -38,10 +39,10 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
     const handleDelete = async (configId: string) => {
         const config = configs.find((c) => c.id === configId);
         const confirmed = await showConfirm(
-            'Delete Provider',
-            `Are you sure you want to delete "${config?.name}"?`,
-            'Delete',
-            'Cancel',
+            t('llm.management.delete.title'),
+            t('llm.management.delete.confirm', { name: config?.name || '' }),
+            t('common.delete'),
+            t('common.cancel'),
             true
         );
         if (confirmed) {
@@ -69,7 +70,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                 <TouchableOpacity onPress={onBack} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={[styles.title, { color: colors.text }]}>LLM Providers</Text>
+                <Text style={[styles.title, { color: colors.text }]}>{t('llm.management.title')}</Text>
                 <View style={styles.placeholder} />
             </View>
 
@@ -77,7 +78,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                 {/* Quick Add Section */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                        Add Provider
+                        {t('llm.management.add')}
                     </Text>
                     <View style={styles.quickAddGrid}>
                         {providerOptions.map((provider) => {
@@ -111,7 +112,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                 {configs.length > 0 && (
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                            Your Providers ({configs.length})
+                            {t('llm.management.yourProviders', { count: configs.length })}
                         </Text>
                         {configs.map((config) => (
                             <LLMConfigCard
@@ -131,10 +132,10 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                     <View style={styles.emptyState}>
                         <Ionicons name="cloud-outline" size={64} color={colors.textMuted} />
                         <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                            No providers yet
+                            {t('llm.management.empty.title')}
                         </Text>
                         <Text style={[styles.emptyDescription, { color: colors.textMuted }]}>
-                            Add an LLM provider above to start chatting with AI models.
+                            {t('llm.management.empty.description')}
                         </Text>
                     </View>
                 )}

@@ -6,12 +6,12 @@ import {
     Switch,
     Text,
     TouchableOpacity,
-    useColorScheme,
     View,
 } from 'react-native';
 import { PROVIDER_INFO } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
 import { LLMConfig } from '../../../core/types';
+import { useAppColorScheme } from '../../hooks';
 
 interface LLMConfigCardProps {
     config: LLMConfig;
@@ -31,7 +31,7 @@ export function LLMConfigCard({
     const [isTesting, setIsTesting] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     const providerInfo = PROVIDER_INFO[config.provider] || PROVIDER_INFO.openai;

@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
 import { Message } from '../../../core/types';
+import { useAppColorScheme } from '../../hooks';
 import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
@@ -17,7 +18,7 @@ export function MessageList({
     isLoading,
     isProcessing = false,
 }: MessageListProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const flatListRef = useRef<FlatList>(null);
 

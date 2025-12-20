@@ -6,11 +6,11 @@ import {
     Text,
     TextStyle,
     TouchableOpacity,
-    useColorScheme,
     View,
     ViewStyle,
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
+import { useAppColorScheme } from '../../hooks';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -42,7 +42,7 @@ export function Button({
     textStyle,
     fullWidth = false,
 }: ButtonProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     const getVariantStyles = (): { container: ViewStyle; text: TextStyle } => {

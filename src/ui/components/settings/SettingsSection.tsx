@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
+import { useAppColorScheme } from '../../hooks';
 
 interface SettingsSectionProps {
     title: string;
@@ -8,7 +9,7 @@ interface SettingsSectionProps {
 }
 
 export function SettingsSection({ title, children }: SettingsSectionProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     return (

@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, StyleSheet, useColorScheme } from 'react-native';
+import { useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { Colors } from '../../config/theme';
 import { useConversationStore, useLLMStore } from '../../state';
 import { ChatHeader, MessageInput, MessageList } from '../components/chat';
+import { useAppColorScheme } from '../hooks';
+
+// Maximum width for chat content on web (similar to ChatGPT/Claude interfaces)
+const MAX_CONTENT_WIDTH = 800;
 
 interface ChatScreenProps {
     onMenuPress?: () => void;
@@ -10,7 +14,10 @@ interface ChatScreenProps {
 
 export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const [inputValue, setInputValue] = useState('');
-    const colorScheme = useColorScheme() ?? 'dark';
+    // Track pending model selection for when no conversation exists yet
+    const [pendingLLMId, setPendingLLMId] = useState<string | null>(null);
+    const [pendingModel, setPendingModel] = useState<string | null>(null);
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     const {
@@ -42,10 +49,13 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         // Dismiss keyboard to give more screen space
         Keyboard.dismiss();
 
-        // If no conversation exists, create one first
+        // If no conversation exists, create one first with pending model selection
         if (!currentConversationId) {
             try {
-                await createConversation();
+                await createConversation(pendingLLMId || undefined, pendingModel || undefined);
+                // Clear pending selections
+                setPendingLLMId(null);
+                setPendingModel(null);
                 // Small delay to ensure state is updated
                 setTimeout(async () => {
                     await sendMessage(message);
@@ -59,11 +69,13 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     };
 
     const handleChangeModel = async (llmId: string, model: string) => {
-        // If no conversation, create one first with the selected LLM
-        if (!currentConversationId) {
-            await createConversation(llmId, model);
-        } else {
+        if (currentConversationId) {
+            // Update existing conversation
             await setActiveLLM(llmId, model);
+        } else {
+            // No conversation yet - store pending selection for when conversation is created
+            setPendingLLMId(llmId);
+            setPendingModel(model);
         }
     };
 
@@ -91,24 +103,28 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                 onMenuPress={onMenuPress}
             />
 
-            <MessageList
-                messages={currentMessages}
-                streamingContent={isStreaming ? streamingContent : undefined}
-                isLoading={false}
-                isProcessing={isProcessing}
-            />
+            <View style={styles.contentWrapper}>
+                <View style={styles.contentContainer}>
+                    <MessageList
+                        messages={currentMessages}
+                        streamingContent={isStreaming ? streamingContent : undefined}
+                        isLoading={false}
+                        isProcessing={isProcessing}
+                    />
 
-            <MessageInput
-                value={inputValue}
-                onChange={setInputValue}
-                onSend={handleSend}
-                onStop={cancelStreaming}
-                isStreaming={isStreaming || isSendingMessage}
-                disabled={isInputDisabled}
-                selectedLLMId={conversation?.activeLLMId || ''}
-                selectedModel={conversation?.activeModel || ''}
-                onChangeModel={handleChangeModel}
-            />
+                    <MessageInput
+                        value={inputValue}
+                        onChange={setInputValue}
+                        onSend={handleSend}
+                        onStop={cancelStreaming}
+                        isStreaming={isStreaming || isSendingMessage}
+                        disabled={isInputDisabled}
+                        selectedLLMId={conversation?.activeLLMId || pendingLLMId || ''}
+                        selectedModel={conversation?.activeModel || pendingModel || ''}
+                        onChangeModel={handleChangeModel}
+                    />
+                </View>
+            </View>
         </KeyboardAvoidingView>
     );
 }
@@ -116,5 +132,14 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+    },
+    contentWrapper: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    contentContainer: {
+        flex: 1,
+        width: '100%',
+        maxWidth: Platform.OS === 'web' ? MAX_CONTENT_WIDTH : undefined,
     },
 });

@@ -1,7 +1,8 @@
 import React from 'react';
-import { FlatList, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
 import { Conversation } from '../../../core/types';
+import { useAppColorScheme } from '../../hooks';
 import { ConversationItem } from './ConversationItem';
 
 interface ConversationListProps {
@@ -17,7 +18,7 @@ export function ConversationList({
     onSelect,
     onDelete,
 }: ConversationListProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     if (conversations.length === 0) {

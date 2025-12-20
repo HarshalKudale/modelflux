@@ -7,13 +7,13 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    useColorScheme,
     View
 } from 'react-native';
 import { POPULAR_MODELS, PROVIDER_INFO } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
 import { LLMConfig } from '../../../core/types';
 import { useLLMStore } from '../../../state';
+import { useAppColorScheme } from '../../hooks';
 
 interface ModelSelectorProps {
     selectedLLMId: string;
@@ -29,7 +29,7 @@ export function ModelSelector({
     const [isOpen, setIsOpen] = useState(false);
     const [expandedConfigId, setExpandedConfigId] = useState<string | null>(null);
 
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const shadows = Shadows[colorScheme];
 

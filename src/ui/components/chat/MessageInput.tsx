@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     Platform,
     StyleSheet,
     TextInput,
     TouchableOpacity,
-    useColorScheme,
     View
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
 import { useLLMStore } from '../../../state';
+import { useAppColorScheme, useLocale } from '../../hooks';
 import { ModelSelector } from './ModelSelector';
 
 interface MessageInputProps {
@@ -35,8 +35,9 @@ export function MessageInput({
     selectedModel = '',
     onChangeModel,
 }: MessageInputProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
+    const { t } = useLocale();
     const [inputHeight, setInputHeight] = useState(44);
 
     const { configs } = useLLMStore();
@@ -83,7 +84,7 @@ export function MessageInput({
                 <TextInput
                     value={value}
                     onChangeText={onChange}
-                    placeholder={disabled ? 'Select an LLM to start chatting...' : 'Type a message...'}
+                    placeholder={disabled ? t('chat.input.placeholder.noLlm') : t('chat.input.placeholder')}
                     placeholderTextColor={colors.textMuted}
                     multiline
                     editable={!disabled}
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
     container: {
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
-        paddingBottom: Platform.OS === 'ios' ? Spacing.lg : Spacing.sm,
+        paddingBottom: Platform.OS === 'ios' ? Spacing.lg : Spacing.lg,
     },
     modelRow: {
         marginBottom: Spacing.xs,

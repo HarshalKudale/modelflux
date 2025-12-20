@@ -6,11 +6,11 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    useColorScheme,
     View,
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
 import { Conversation } from '../../../core/types';
+import { useAppColorScheme } from '../../hooks';
 
 interface ChatHeaderProps {
     conversation: Conversation | null;
@@ -25,7 +25,7 @@ export function ChatHeader({
 }: ChatHeaderProps) {
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     const handleStartEdit = () => {

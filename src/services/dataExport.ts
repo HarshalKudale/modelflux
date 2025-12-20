@@ -1,14 +1,10 @@
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform, Share } from 'react-native';
 import { conversationRepository, llmConfigRepository, messageRepository, settingsRepository } from '../core/storage';
 import { AppSettings, Conversation, LLMConfig, Message } from '../core/types';
-
-// Conditionally import expo-file-system for native only
-let ExpoFileSystem: any = null;
-if (Platform.OS !== 'web') {
-    ExpoFileSystem = require('expo-file-system');
-}
 
 /**
  * Export data structure
@@ -57,39 +53,44 @@ class DataExportService {
 
         // Convert to JSON
         const jsonString = JSON.stringify(exportData, null, 2);
+        const fileName = `llmhub-backup-${this.getDateString()}.json`;
 
         if (Platform.OS === 'web') {
             // Web: Download as file
-            this.downloadJsonWeb(jsonString, `llmhub-backup-${this.getDateString()}.json`);
+            this.downloadJsonWeb(jsonString, fileName);
             return 'File downloaded';
         } else {
-            // Native: Save to file and share
-            const fileName = `llmhub-backup-${this.getDateString()}.json`;
-            const docDir = ExpoFileSystem?.documentDirectory;
+            // Native: Write to cache directory using new File API and share
+            try {
+                // Create file in cache directory using new API
+                const file = new File(Paths.cache, fileName);
 
-            if (!docDir) {
-                throw new Error('Document directory not available');
-            }
+                // Delete if exists, then create and write
+                if (file.exists) {
+                    file.delete();
+                }
+                file.create();
+                file.write(jsonString);
 
-            const filePath = `${docDir}${fileName}`;
+                console.log('File written to:', file.uri);
 
-            await ExpoFileSystem.writeAsStringAsync(filePath, jsonString);
-
-            // Check if sharing is available
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(filePath, {
+                // Share the file
+                await Sharing.shareAsync(file.uri, {
                     mimeType: 'application/json',
-                    dialogTitle: 'Export LLM Hub Data',
+                    dialogTitle: 'Export LLM Hub Backup',
+                    UTI: 'public.json',
                 });
-            } else {
-                // Fallback to Share API
+
+                return 'File shared';
+            } catch (error) {
+                console.log('File export failed:', error);
+                // Fallback to Share API with text
                 await Share.share({
                     message: jsonString,
-                    title: 'LLM Hub Backup',
+                    title: fileName,
                 });
+                return 'Data shared as text (file sharing unavailable)';
             }
-
-            return filePath;
         }
     }
 
@@ -115,7 +116,7 @@ class DataExportService {
                 }
 
                 const fileUri = result.assets[0].uri;
-                jsonString = await ExpoFileSystem.readAsStringAsync(fileUri);
+                jsonString = await FileSystem.readAsStringAsync(fileUri);
             }
 
             // Parse and validate
@@ -130,7 +131,7 @@ class DataExportService {
 
             return {
                 success: true,
-                message: `Import successful!`,
+                message: 'Import successful!',
                 stats,
             };
         } catch (error) {

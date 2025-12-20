@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
 import { useConversationStore } from '../../../state';
+import { useAppColorScheme, useLocale } from '../../hooks';
 import { ConversationList } from './ConversationList';
 import { NewChatButton } from './NewChatButton';
 import { UserInfo } from './UserInfo';
@@ -19,8 +20,9 @@ export function Sidebar({
     onToggleCollapse,
     onNavigate,
 }: SidebarProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
+    const { t } = useLocale();
 
     const {
         conversations,
@@ -48,7 +50,7 @@ export function Sidebar({
         <SafeAreaView style={[styles.container, { backgroundColor: colors.sidebar }]} edges={['top', 'bottom']}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>LLM Hub</Text>
+                <Text style={[styles.title, { color: colors.text }]}>{t('app.name')}</Text>
                 <TouchableOpacity onPress={onToggleCollapse} style={styles.collapseButton}>
                     <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
                 </TouchableOpacity>

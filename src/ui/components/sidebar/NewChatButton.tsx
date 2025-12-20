@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, useColorScheme } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
+import { useAppColorScheme } from '../../hooks';
 
 interface NewChatButtonProps {
     onPress: () => void;
 }
 
 export function NewChatButton({ onPress }: NewChatButtonProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     return (

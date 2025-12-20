@@ -4,11 +4,11 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    useColorScheme,
     View,
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
 import { Conversation } from '../../../core/types';
+import { useAppColorScheme } from '../../hooks';
 
 interface ConversationItemProps {
     conversation: Conversation;
@@ -23,7 +23,7 @@ export const ConversationItem = memo(function ConversationItem({
     onPress,
     onDelete,
 }: ConversationItemProps) {
-    const colorScheme = useColorScheme() ?? 'dark';
+    const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     const formatDate = (timestamp: number) => {
