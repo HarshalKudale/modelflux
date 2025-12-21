@@ -37,7 +37,8 @@ export abstract class BaseLLMProvider implements ILLMClient {
         model: string,
         stream: boolean,
         temperature?: number,
-        maxTokens?: number
+        maxTokens?: number,
+        thinkingEnabled?: boolean
     ): Record<string, unknown>;
 
     protected abstract getCompletionsEndpoint(config: LLMConfig): string;
@@ -55,7 +56,7 @@ export abstract class BaseLLMProvider implements ILLMClient {
     }
 
     async sendMessage(request: LLMRequest): Promise<LLMResponse> {
-        const { llmConfig, messages, model, stream = false, temperature, maxTokens, signal } = request;
+        const { llmConfig, messages, model, stream = false, temperature, maxTokens, signal, thinkingEnabled } = request;
         const actualModel = model || llmConfig.defaultModel;
 
         try {
@@ -63,7 +64,7 @@ export abstract class BaseLLMProvider implements ILLMClient {
                 method: 'POST',
                 headers: this.buildHeaders(llmConfig),
                 body: JSON.stringify(
-                    this.buildRequestBody(messages, actualModel, stream, temperature, maxTokens)
+                    this.buildRequestBody(messages, actualModel, stream, temperature, maxTokens, thinkingEnabled)
                 ),
                 signal: signal || createTimeoutSignal(TIMEOUTS.LLM_REQUEST),
             });
@@ -83,7 +84,7 @@ export abstract class BaseLLMProvider implements ILLMClient {
     async *sendMessageStream(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { llmConfig, messages, model, temperature, maxTokens, signal } = request;
+        const { llmConfig, messages, model, temperature, maxTokens, signal, thinkingEnabled } = request;
         const actualModel = model || llmConfig.defaultModel;
 
         // Use XMLHttpRequest for React Native as it supports streaming via onprogress
@@ -98,7 +99,7 @@ export abstract class BaseLLMProvider implements ILLMClient {
                 method: 'POST',
                 headers: this.buildHeaders(llmConfig),
                 body: JSON.stringify(
-                    this.buildRequestBody(messages, actualModel, true, temperature, maxTokens)
+                    this.buildRequestBody(messages, actualModel, true, temperature, maxTokens, thinkingEnabled)
                 ),
                 signal: signal || createTimeoutSignal(TIMEOUTS.LLM_REQUEST),
             });
@@ -148,7 +149,7 @@ export abstract class BaseLLMProvider implements ILLMClient {
     private async *sendMessageStreamNative(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { llmConfig, messages, model, temperature, maxTokens, signal } = request;
+        const { llmConfig, messages, model, temperature, maxTokens, signal, thinkingEnabled } = request;
         const actualModel = model || llmConfig.defaultModel;
 
         // Create a queue for chunks
@@ -168,7 +169,7 @@ export abstract class BaseLLMProvider implements ILLMClient {
 
         const headers = this.buildHeaders(llmConfig);
         const body = JSON.stringify(
-            this.buildRequestBody(messages, actualModel, true, temperature, maxTokens)
+            this.buildRequestBody(messages, actualModel, true, temperature, maxTokens, thinkingEnabled)
         );
 
         let lastProcessedIndex = 0;

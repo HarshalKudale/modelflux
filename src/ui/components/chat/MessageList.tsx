@@ -11,6 +11,7 @@ import { MessageBubble } from './MessageBubble';
 interface MessageListProps {
     messages: Message[];
     streamingContent?: string;
+    streamingThinkingContent?: string;
     isLoading: boolean;
     isProcessing?: boolean;
     // Provider/Model/Persona selection props
@@ -25,6 +26,8 @@ interface MessageListProps {
     personas?: Persona[];
     selectedPersonaId?: string;
     onPersonaChange?: (personaId: string | undefined) => void;
+    thinkingEnabled?: boolean;
+    onThinkingChange?: (enabled: boolean) => void;
     onNavigateToProviders?: () => void;
     onNavigateToPersonas?: () => void;
     hasConfigs?: boolean;
@@ -34,6 +37,7 @@ interface MessageListProps {
 export function MessageList({
     messages,
     streamingContent,
+    streamingThinkingContent,
     isLoading,
     isProcessing = false,
     isNewConversation = false,
@@ -47,6 +51,8 @@ export function MessageList({
     personas = [],
     selectedPersonaId,
     onPersonaChange,
+    thinkingEnabled = false,
+    onThinkingChange,
     onNavigateToProviders,
     onNavigateToPersonas,
     hasConfigs = true,
@@ -122,7 +128,7 @@ export function MessageList({
     }
 
     // Empty state with dropdowns for new conversations
-    if (messages.length === 0 && !isProcessing) {
+    if (messages.length === 0 && !isProcessing && !streamingContent) {
         return (
             <View style={styles.centerContainer}>
                 <Text style={[styles.emptyTitle, { color: colors.text }]}>
@@ -208,6 +214,43 @@ export function MessageList({
                                 <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
                             </TouchableOpacity>
                         </View>
+
+                        {/* Thinking Mode Toggle */}
+                        <View style={styles.dropdownSection}>
+                            <Text style={[styles.dropdownLabel, { color: colors.textMuted }]}>
+                                Thinking Mode
+                            </Text>
+                            <TouchableOpacity
+                                style={[
+                                    styles.dropdownButton,
+                                    {
+                                        backgroundColor: thinkingEnabled ? colors.tint : colors.backgroundSecondary,
+                                        borderColor: thinkingEnabled ? colors.tint : colors.border,
+                                    }
+                                ]}
+                                onPress={() => onThinkingChange?.(!thinkingEnabled)}
+                            >
+                                <Ionicons
+                                    name="bulb"
+                                    size={20}
+                                    color={thinkingEnabled ? '#FFFFFF' : colors.tint}
+                                    style={{ marginRight: Spacing.sm }}
+                                />
+                                <Text
+                                    style={[
+                                        styles.dropdownText,
+                                        { color: thinkingEnabled ? '#FFFFFF' : colors.text }
+                                    ]}
+                                >
+                                    {thinkingEnabled ? 'Enabled' : 'Disabled'}
+                                </Text>
+                                <Ionicons
+                                    name={thinkingEnabled ? 'toggle' : 'toggle-outline'}
+                                    size={24}
+                                    color={thinkingEnabled ? '#FFFFFF' : colors.textMuted}
+                                />
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 )}
 
@@ -263,36 +306,71 @@ export function MessageList({
         );
     }
 
+    // Show a processing state if we're waiting for LLM but have no messages yet
+    // This handles the edge case of the first message being sent
+    if (messages.length === 0 && (isProcessing || streamingContent)) {
+        return (
+            <View style={styles.initialProcessingContainer}>
+                {streamingContent ? (
+                    <View style={styles.streamingContainer}>
+                        <MessageBubble
+                            message={{
+                                id: 'streaming',
+                                conversationId: '',
+                                role: 'assistant',
+                                content: streamingContent,
+                                contentType: 'text',
+                                timestamp: Date.now(),
+                                llmIdUsed: '',
+                                modelUsed: '',
+                            }}
+                            showLLMBadge={false}
+                        />
+                    </View>
+                ) : (
+                    <View style={styles.processingContainer}>
+                        <View style={[styles.processingBubble, { backgroundColor: colors.backgroundSecondary }]}>
+                            <ActivityIndicator size="small" color={colors.tint} />
+                            <Text style={[styles.processingText, { color: colors.textSecondary }]}>
+                                Thinking...
+                            </Text>
+                        </View>
+                    </View>
+                )}
+            </View>
+        );
+    }
+
     const renderItem = ({ item }: { item: Message }) => (
         <MessageBubble message={item} showLLMBadge={item.role === 'assistant'} />
     );
 
     // Determine footer content: processing indicator, streaming content, or nothing
     const renderFooter = () => {
-        // Show processing indicator when waiting for LLM to start responding
-        if (isProcessing && !streamingContent) {
-            return (
-                <View style={styles.processingContainer}>
-                    <View style={[styles.processingBubble, { backgroundColor: colors.backgroundSecondary }]}>
-                        <ActivityIndicator size="small" color={colors.tint} />
-                        <Text style={[styles.processingText, { color: colors.textSecondary }]}>
-                            Thinking...
-                        </Text>
-                    </View>
-                </View>
-            );
-        }
-
-        // Show streaming content when response is coming in
-        if (streamingContent) {
+        // Show streaming content when response is coming in (either thinking or actual content)
+        if (streamingContent || streamingThinkingContent) {
             return (
                 <View style={styles.streamingContainer}>
+                    {/* Show streaming thinking content if available */}
+                    {streamingThinkingContent && (
+                        <View style={[styles.streamingThinkingContainer, { backgroundColor: colors.backgroundSecondary }]}>
+                            <View style={styles.streamingThinkingHeader}>
+                                <Ionicons name="bulb" size={16} color={colors.tint} />
+                                <Text style={[styles.streamingThinkingTitle, { color: colors.tint }]}>
+                                    Thinking...
+                                </Text>
+                            </View>
+                            <Text style={[styles.streamingThinkingContent, { color: colors.textSecondary }]}>
+                                {streamingThinkingContent}
+                            </Text>
+                        </View>
+                    )}
                     <MessageBubble
                         message={{
                             id: 'streaming',
                             conversationId: '',
                             role: 'assistant',
-                            content: streamingContent,
+                            content: streamingContent || '',
                             contentType: 'text',
                             timestamp: Date.now(),
                             llmIdUsed: '',
@@ -314,6 +392,21 @@ export function MessageList({
                         <View
                             style={[styles.typingDot, { backgroundColor: colors.tint }]}
                         />
+                    </View>
+                </View>
+            );
+        }
+
+        // Show processing indicator when waiting for LLM to start responding
+        // isProcessing = isSendingMessage && !isStreaming && !streamingContent
+        if (isProcessing) {
+            return (
+                <View style={styles.processingContainer}>
+                    <View style={[styles.processingBubble, { backgroundColor: colors.backgroundSecondary }]}>
+                        <ActivityIndicator size="small" color={colors.tint} />
+                        <Text style={[styles.processingText, { color: colors.textSecondary }]}>
+                            Thinking...
+                        </Text>
                     </View>
                 </View>
             );
@@ -353,6 +446,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: Spacing.xl,
+    },
+    initialProcessingContainer: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        paddingBottom: Spacing.md,
     },
     emptyTitle: {
         fontSize: FontSizes.xl,
@@ -451,5 +549,26 @@ const styles = StyleSheet.create({
     typingDotMiddle: {
         marginHorizontal: 4,
         opacity: 0.4,
+    },
+    streamingThinkingContainer: {
+        marginHorizontal: Spacing.md,
+        marginBottom: Spacing.sm,
+        padding: Spacing.md,
+        borderRadius: 12,
+    },
+    streamingThinkingHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+        marginBottom: Spacing.xs,
+    },
+    streamingThinkingTitle: {
+        fontSize: FontSizes.sm,
+        fontWeight: '600',
+    },
+    streamingThinkingContent: {
+        fontSize: FontSizes.sm,
+        lineHeight: 20,
+        fontStyle: 'italic',
     },
 });

@@ -28,13 +28,18 @@ export class OpenAIProvider extends BaseLLMProvider {
         model: string,
         stream: boolean,
         temperature?: number,
-        maxTokens?: number
+        maxTokens?: number,
+        _thinkingEnabled?: boolean
     ): Record<string, unknown> {
         const body: Record<string, unknown> = {
             model,
             messages,
             stream,
         };
+
+        // Note: OpenAI o1 models have implicit reasoning/thinking
+        // For other models, reasoning is not directly supported via API
+        // The thinkingEnabled flag is passed but OpenAI doesn't have a standard parameter for it
 
         if (temperature !== undefined) {
             body.temperature = temperature;

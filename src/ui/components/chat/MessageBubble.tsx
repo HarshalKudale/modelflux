@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import {
     Image,
     Platform,
@@ -107,6 +107,9 @@ export const MessageBubble = memo(function MessageBubble({
     const isSystem = message.role === 'system';
 
     const llmConfig = message.llmIdUsed ? getConfigById(message.llmIdUsed) : null;
+
+    // State for thinking content expansion
+    const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
 
     const handleCopyMessage = useCallback(async () => {
         await Clipboard.setStringAsync(message.content);
@@ -269,6 +272,45 @@ export const MessageBubble = memo(function MessageBubble({
             ]}
         >
             <View style={[styles.bubble, getBubbleStyle()]}>
+                {/* Collapsible Thinking Section for assistant messages */}
+                {!isUser && !isSystem && message.thinkingContent && (
+                    <TouchableOpacity
+                        style={[
+                            styles.thinkingContainer,
+                            { backgroundColor: colors.backgroundSecondary }
+                        ]}
+                        onPress={() => setIsThinkingExpanded(!isThinkingExpanded)}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.thinkingHeader}>
+                            <Ionicons
+                                name="bulb"
+                                size={16}
+                                color={colors.tint}
+                            />
+                            <Text style={[styles.thinkingTitle, { color: colors.tint }]}>
+                                Thinking
+                            </Text>
+                            <Ionicons
+                                name={isThinkingExpanded ? 'chevron-up' : 'chevron-down'}
+                                size={16}
+                                color={colors.textMuted}
+                            />
+                        </View>
+                        {isThinkingExpanded && (
+                            <Text
+                                style={[
+                                    styles.thinkingContent,
+                                    { color: colors.textSecondary }
+                                ]}
+                                selectable
+                            >
+                                {message.thinkingContent}
+                            </Text>
+                        )}
+                    </TouchableOpacity>
+                )}
+
                 {/* LLM Badge for assistant messages */}
                 {showLLMBadge && !isUser && !isSystem && llmConfig && (
                     <View style={[styles.llmBadge, { backgroundColor: colors.backgroundTertiary }]}>
@@ -384,5 +426,26 @@ const styles = StyleSheet.create({
     },
     copyButton: {
         padding: 2,
+    },
+    thinkingContainer: {
+        borderRadius: BorderRadius.md,
+        padding: Spacing.sm,
+        marginBottom: Spacing.sm,
+    },
+    thinkingHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
+    },
+    thinkingTitle: {
+        fontSize: FontSizes.sm,
+        fontWeight: '600',
+        flex: 1,
+    },
+    thinkingContent: {
+        fontSize: FontSizes.sm,
+        lineHeight: 20,
+        marginTop: Spacing.sm,
+        fontStyle: 'italic',
     },
 });

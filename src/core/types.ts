@@ -47,6 +47,7 @@ export interface Conversation {
     activeLLMId: string;
     activeModel: string;
     personaId?: string;
+    thinkingEnabled?: boolean;
 }
 
 /**
@@ -89,6 +90,7 @@ export interface Message {
     llmIdUsed: string;
     modelUsed: string;
     usage?: TokenUsage;
+    thinkingContent?: string;
 }
 
 /**

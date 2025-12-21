@@ -29,7 +29,8 @@ export class AnthropicProvider extends BaseLLMProvider {
         model: string,
         stream: boolean,
         temperature?: number,
-        maxTokens?: number
+        maxTokens?: number,
+        thinkingEnabled?: boolean
     ): Record<string, unknown> {
         // Extract system message if present
         const systemMessage = messages.find((m) => m.role === 'system');
@@ -51,6 +52,15 @@ export class AnthropicProvider extends BaseLLMProvider {
 
         if (temperature !== undefined) {
             body.temperature = temperature;
+        }
+
+        // Anthropic Claude uses 'thinking' parameter with budget_tokens
+        // Extended thinking is available on Claude 3.5 Sonnet and newer
+        if (thinkingEnabled) {
+            body.thinking = {
+                type: 'enabled',
+                budget_tokens: 5000, // Allow up to 10k tokens for thinking
+            };
         }
 
         return body;

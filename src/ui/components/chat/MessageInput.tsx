@@ -26,6 +26,8 @@ interface MessageInputProps {
     showPersonaSelector?: boolean;
     currentPersonaName?: string;
     onPersonaPress?: () => void;
+    thinkingEnabled?: boolean;
+    onThinkingChange?: (enabled: boolean) => void;
 }
 
 export function MessageInput({
@@ -41,6 +43,8 @@ export function MessageInput({
     showPersonaSelector,
     currentPersonaName,
     onPersonaPress,
+    thinkingEnabled = false,
+    onThinkingChange,
 }: MessageInputProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
@@ -78,6 +82,24 @@ export function MessageInput({
                         selectedModel={selectedModel}
                         onSelect={onChangeModel}
                     />
+                    {/* Thinking toggle button */}
+                    {onThinkingChange && (
+                        <TouchableOpacity
+                            style={[
+                                styles.thinkingButton,
+                                {
+                                    backgroundColor: thinkingEnabled ? colors.tint : colors.backgroundTertiary,
+                                }
+                            ]}
+                            onPress={() => onThinkingChange(!thinkingEnabled)}
+                        >
+                            <Ionicons
+                                name="bulb"
+                                size={16}
+                                color={thinkingEnabled ? '#FFFFFF' : colors.textMuted}
+                            />
+                        </TouchableOpacity>
+                    )}
                 </View>
             )}
 
@@ -153,7 +175,17 @@ const styles = StyleSheet.create({
         paddingBottom: Platform.OS === 'ios' ? Spacing.lg : Spacing.lg,
     },
     modelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
         marginBottom: Spacing.xs,
+        gap: Spacing.sm,
+    },
+    thinkingButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     inputContainer: {
         flexDirection: 'row',

@@ -19,6 +19,7 @@ export interface LLMRequest {
     temperature?: number;
     maxTokens?: number;
     signal?: AbortSignal;
+    thinkingEnabled?: boolean;
 }
 
 /**
@@ -42,6 +43,7 @@ export interface LLMResponse {
         completionTokens: number;
         totalTokens: number;
     };
+    thinking?: string;
     metadata?: Record<string, unknown>;
 }
 
@@ -52,6 +54,7 @@ export interface LLMStreamChunk {
     content: string;
     done: boolean;
     usage?: LLMResponse['usage'];
+    thinking?: string;
 }
 
 /**

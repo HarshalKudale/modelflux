@@ -20,6 +20,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const [pendingProviderId, setPendingProviderId] = useState<string | undefined>(undefined);
     const [pendingModel, setPendingModel] = useState<string | undefined>(undefined);
     const [pendingPersonaId, setPendingPersonaId] = useState<string | undefined>(undefined);
+    const [pendingThinkingEnabled, setPendingThinkingEnabled] = useState(false);
     // Provider connection status cache
     const [providerConnectionStatus, setProviderConnectionStatus] = useState<Record<string, boolean>>({});
 
@@ -31,11 +32,13 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         isStreaming,
         isSendingMessage,
         streamingContent,
+        streamingThinkingContent,
         getCurrentConversation,
         getCurrentMessages,
         sendMessage,
         cancelStreaming,
         setActiveLLM,
+        setThinkingEnabled,
         updateConversationTitle,
         createConversation,
     } = useConversationStore();
@@ -109,11 +112,12 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         // If no conversation exists, create one first with pending selections
         if (!currentConversationId) {
             try {
-                await createConversation(pendingProviderId, pendingModel, pendingPersonaId);
+                await createConversation(pendingProviderId, pendingModel, pendingPersonaId, pendingThinkingEnabled);
                 // Clear pending selections
                 setPendingProviderId(undefined);
                 setPendingModel(undefined);
                 setPendingPersonaId(undefined);
+                setPendingThinkingEnabled(false);
                 // Small delay to ensure state is updated
                 setTimeout(async () => {
                     await sendMessage(message);
@@ -151,8 +155,9 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     // Input should be disabled only if no LLM is configured
     const isInputDisabled = hasNoLLM;
 
-    // Show processing indicator when sending message but streaming hasn't started yet
-    const isProcessing = isSendingMessage && !isStreaming && !streamingContent;
+    // Show processing indicator when sending message - this stays true until response completes
+    // The MessageList will decide whether to show spinner or streaming content based on streamingContent
+    const isProcessing = isSendingMessage;
 
     // Get current persona name for display
     const currentPersona = conversation?.personaId
@@ -181,6 +186,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                     <MessageList
                         messages={currentMessages}
                         streamingContent={isStreaming ? streamingContent : undefined}
+                        streamingThinkingContent={isStreaming ? streamingThinkingContent : undefined}
                         isLoading={false}
                         isProcessing={isProcessing}
                         isNewConversation={isNewConversation}
@@ -198,6 +204,9 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         personas={personas}
                         selectedPersonaId={pendingPersonaId}
                         onPersonaChange={handlePersonaChange}
+                        // Thinking mode
+                        thinkingEnabled={pendingThinkingEnabled}
+                        onThinkingChange={setPendingThinkingEnabled}
                         onNavigateToProviders={() => router.push('/llm-management')}
                         onNavigateToPersonas={() => router.push('/persona-list')}
                         hasConfigs={!hasNoLLM}
@@ -216,6 +225,9 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         onChangeModel={isNewConversation ? undefined : async (llmId, model) => {
                             await setActiveLLM(llmId, model);
                         }}
+                        // Thinking mode for existing conversations
+                        thinkingEnabled={isNewConversation ? pendingThinkingEnabled : (conversation?.thinkingEnabled || false)}
+                        onThinkingChange={isNewConversation ? undefined : setThinkingEnabled}
                         showPersonaSelector={false}
                     />
                 </View>

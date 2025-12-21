@@ -24,7 +24,8 @@ export class OllamaProvider extends BaseLLMProvider {
         model: string,
         stream: boolean,
         temperature?: number,
-        _maxTokens?: number
+        _maxTokens?: number,
+        thinkingEnabled?: boolean
     ): Record<string, unknown> {
         const body: Record<string, unknown> = {
             model,
@@ -34,6 +35,8 @@ export class OllamaProvider extends BaseLLMProvider {
             })),
             stream,
         };
+
+        body.think = thinkingEnabled;
 
         if (temperature !== undefined) {
             body.options = { temperature };
@@ -54,6 +57,7 @@ export class OllamaProvider extends BaseLLMProvider {
         return {
             content: data.message?.content || '',
             model: data.model || '',
+            thinking: data.message?.thinking || undefined,
             usage: data.eval_count
                 ? {
                     promptTokens: data.prompt_eval_count || 0,
@@ -73,6 +77,7 @@ export class OllamaProvider extends BaseLLMProvider {
 
             return {
                 content: parsed.message?.content || '',
+                thinking: parsed.message?.thinking || undefined,
                 done: parsed.done === true,
                 usage: parsed.done && parsed.eval_count
                     ? {

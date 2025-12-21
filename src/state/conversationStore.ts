@@ -14,16 +14,18 @@ interface ConversationStoreState {
     isSendingMessage: boolean;
     isStreaming: boolean;
     streamingContent: string;
+    streamingThinkingContent: string;
     error: string | null;
 }
 
 interface ConversationStoreActions {
     loadConversations: () => Promise<void>;
-    createConversation: (llmId?: string, model?: string, personaId?: string) => Promise<Conversation>;
+    createConversation: (llmId?: string, model?: string, personaId?: string, thinkingEnabled?: boolean) => Promise<Conversation>;
     startNewConversation: () => void;
     selectConversation: (id: string | null) => Promise<void>;
     deleteConversation: (id: string) => Promise<void>;
     updateConversationTitle: (id: string, title: string) => Promise<void>;
+    setThinkingEnabled: (enabled: boolean) => Promise<void>;
     loadMessages: (conversationId: string) => Promise<void>;
     sendMessage: (content: string) => Promise<void>;
     cancelStreaming: () => void;
@@ -46,6 +48,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     isSendingMessage: false,
     isStreaming: false,
     streamingContent: '',
+    streamingThinkingContent: '',
     error: null,
 
     // Actions
@@ -62,7 +65,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         }
     },
 
-    createConversation: async (llmId, model, personaId) => {
+    createConversation: async (llmId, model, personaId, thinkingEnabled) => {
         const settings = useSettingsStore.getState().settings;
         const llmConfigs = useLLMStore.getState().configs;
 
@@ -80,6 +83,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             activeLLMId,
             activeModel,
             personaId,
+            thinkingEnabled,
         };
 
         try {
@@ -146,6 +150,30 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         } catch (error) {
             set({
                 error: error instanceof Error ? error.message : 'Failed to update title',
+            });
+        }
+    },
+
+    setThinkingEnabled: async (enabled) => {
+        const { currentConversationId, conversations } = get();
+        if (!currentConversationId) return;
+
+        const conversation = conversations.find((c) => c.id === currentConversationId);
+        if (!conversation) return;
+
+        try {
+            const updated = await conversationRepository.update({
+                ...conversation,
+                thinkingEnabled: enabled,
+            });
+            set((state) => ({
+                conversations: state.conversations.map((c) =>
+                    c.id === currentConversationId ? updated : c
+                ),
+            }));
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update thinking mode',
             });
         }
     },
@@ -245,24 +273,45 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             const streamingEnabled = useSettingsStore.getState().settings.streamingEnabled;
 
             if (streamingEnabled) {
-                set({ isStreaming: true, streamingContent: '' });
+                // Don't set isStreaming yet - wait for first chunk to arrive
+                // This keeps isSendingMessage = true && isStreaming = false, so spinner shows
+                set({ streamingContent: '', streamingThinkingContent: '' });
 
                 let fullContent = '';
+                let thinkingContent = '';
+                let firstChunkReceived = false;
                 const stream = client.sendMessageStream({
                     llmConfig,
                     messages: chatMessages,
                     model: conversation.activeModel,
                     signal: abortController.signal,
+                    thinkingEnabled: conversation.thinkingEnabled,
                 });
 
                 for await (const chunk of stream) {
+                    // Set isStreaming true on first chunk so we switch from spinner to streaming UI
+                    if (!firstChunkReceived) {
+                        firstChunkReceived = true;
+                        set({ isStreaming: true });
+                    }
                     fullContent += chunk.content;
-                    set({ streamingContent: fullContent });
+                    if (chunk.thinking) {
+                        thinkingContent += chunk.thinking;
+                    }
+                    set({
+                        streamingContent: fullContent,
+                        streamingThinkingContent: thinkingContent,
+                    });
 
                     if (chunk.done) break;
                 }
 
                 // Save assistant message
+                // If thinking was enabled but no thinking content, indicate model doesn't support it
+                const finalThinkingContent = conversation.thinkingEnabled
+                    ? (thinkingContent || 'Model does not support thinking')
+                    : undefined;
+
                 const assistantMessage: Message = {
                     id: generateId(),
                     conversationId: currentConversationId,
@@ -272,6 +321,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                     timestamp: Date.now(),
                     llmIdUsed: conversation.activeLLMId,
                     modelUsed: conversation.activeModel,
+                    thinkingContent: finalThinkingContent,
                 };
 
                 await messageRepository.create(assistantMessage);
@@ -286,6 +336,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                     isStreaming: false,
                     isSendingMessage: false,
                     streamingContent: '',
+                    streamingThinkingContent: '',
                 }));
             } else {
                 // Non-streaming request
@@ -294,7 +345,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                     messages: chatMessages,
                     model: conversation.activeModel,
                     signal: abortController.signal,
+                    thinkingEnabled: conversation.thinkingEnabled,
                 });
+
+                // If thinking was enabled but no thinking content, indicate model doesn't support it
+                const finalThinkingContent = conversation.thinkingEnabled
+                    ? (response.thinking || 'Model does not support thinking')
+                    : undefined;
 
                 const assistantMessage: Message = {
                     id: generateId(),
@@ -311,6 +368,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                     llmIdUsed: conversation.activeLLMId,
                     modelUsed: conversation.activeModel,
                     usage: response.usage,
+                    thinkingContent: finalThinkingContent,
                 };
 
                 await messageRepository.create(assistantMessage);
