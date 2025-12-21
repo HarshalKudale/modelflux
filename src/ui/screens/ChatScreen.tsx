@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { Colors } from '../../config/theme';
-import { useConversationStore, useLLMStore } from '../../state';
+import { useConversationStore, useLLMStore, usePersonaStore } from '../../state';
 import { ChatHeader, MessageInput, MessageList } from '../components/chat';
 import { useAppColorScheme } from '../hooks';
 
@@ -13,10 +14,15 @@ interface ChatScreenProps {
 }
 
 export function ChatScreen({ onMenuPress }: ChatScreenProps) {
+    const router = useRouter();
     const [inputValue, setInputValue] = useState('');
-    // Track pending model selection for when no conversation exists yet
-    const [pendingLLMId, setPendingLLMId] = useState<string | null>(null);
-    const [pendingModel, setPendingModel] = useState<string | null>(null);
+    // Track pending selections for when no conversation exists yet
+    const [pendingProviderId, setPendingProviderId] = useState<string | undefined>(undefined);
+    const [pendingModel, setPendingModel] = useState<string | undefined>(undefined);
+    const [pendingPersonaId, setPendingPersonaId] = useState<string | undefined>(undefined);
+    // Provider connection status cache
+    const [providerConnectionStatus, setProviderConnectionStatus] = useState<Record<string, boolean>>({});
+
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
@@ -34,12 +40,63 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         createConversation,
     } = useConversationStore();
 
-    const { configs } = useLLMStore();
+    const { configs, availableModels, fetchModels, isLoadingModels, testConnection } = useLLMStore();
+    const { personas, loadPersonas, getPersonaById } = usePersonaStore();
+
+    // Load personas on mount
+    useEffect(() => {
+        loadPersonas();
+    }, []);
+
+    // Set initial provider if configs exist
+    useEffect(() => {
+        if (!pendingProviderId && configs.length > 0) {
+            const enabledConfigs = configs.filter(c => c.isEnabled);
+            if (enabledConfigs.length > 0) {
+                setPendingProviderId(enabledConfigs[0].id);
+            }
+        }
+    }, [configs, pendingProviderId]);
+
+    // Fetch models when provider changes
+    useEffect(() => {
+        if (pendingProviderId) {
+            fetchModels(pendingProviderId);
+        }
+    }, [pendingProviderId]);
+
+    // Set initial model when models are loaded
+    useEffect(() => {
+        if (pendingProviderId && availableModels[pendingProviderId]?.length > 0 && !pendingModel) {
+            setPendingModel(availableModels[pendingProviderId][0]);
+        }
+    }, [availableModels, pendingProviderId, pendingModel]);
+
+    // Test provider connections on mount
+    useEffect(() => {
+        const testProviders = async () => {
+            const enabledConfigs = configs.filter(c => c.isEnabled);
+            for (const config of enabledConfigs) {
+                try {
+                    const isOnline = await testConnection(config.id);
+                    setProviderConnectionStatus(prev => ({ ...prev, [config.id]: isOnline }));
+                } catch {
+                    setProviderConnectionStatus(prev => ({ ...prev, [config.id]: false }));
+                }
+            }
+        };
+        if (configs.length > 0) {
+            testProviders();
+        }
+    }, [configs]);
 
     const conversation = getCurrentConversation();
     const currentMessages = getCurrentMessages();
     const enabledConfigs = configs.filter((c) => c.isEnabled);
     const hasNoLLM = enabledConfigs.length === 0;
+
+    // Determine if this is a new conversation (no messages yet)
+    const isNewConversation = currentMessages.length === 0;
 
     const handleSend = async () => {
         if (!inputValue.trim()) return;
@@ -49,13 +106,14 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         // Dismiss keyboard to give more screen space
         Keyboard.dismiss();
 
-        // If no conversation exists, create one first with pending model selection
+        // If no conversation exists, create one first with pending selections
         if (!currentConversationId) {
             try {
-                await createConversation(pendingLLMId || undefined, pendingModel || undefined);
+                await createConversation(pendingProviderId, pendingModel, pendingPersonaId);
                 // Clear pending selections
-                setPendingLLMId(null);
-                setPendingModel(null);
+                setPendingProviderId(undefined);
+                setPendingModel(undefined);
+                setPendingPersonaId(undefined);
                 // Small delay to ensure state is updated
                 setTimeout(async () => {
                     await sendMessage(message);
@@ -68,15 +126,20 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         }
     };
 
-    const handleChangeModel = async (llmId: string, model: string) => {
-        if (currentConversationId) {
-            // Update existing conversation
-            await setActiveLLM(llmId, model);
-        } else {
-            // No conversation yet - store pending selection for when conversation is created
-            setPendingLLMId(llmId);
-            setPendingModel(model);
+    const handleProviderChange = (providerId: string | undefined) => {
+        setPendingProviderId(providerId);
+        setPendingModel(undefined); // Reset model when provider changes
+        if (providerId) {
+            fetchModels(providerId);
         }
+    };
+
+    const handleModelChange = (model: string | undefined) => {
+        setPendingModel(model);
+    };
+
+    const handlePersonaChange = (personaId: string | undefined) => {
+        setPendingPersonaId(personaId);
     };
 
     const handleEditTitle = async (title: string) => {
@@ -90,6 +153,16 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
 
     // Show processing indicator when sending message but streaming hasn't started yet
     const isProcessing = isSendingMessage && !isStreaming && !streamingContent;
+
+    // Get current persona name for display
+    const currentPersona = conversation?.personaId
+        ? getPersonaById(conversation.personaId)
+        : pendingPersonaId
+            ? getPersonaById(pendingPersonaId)
+            : null;
+
+    // Get available models for selected provider
+    const currentModels = pendingProviderId ? (availableModels[pendingProviderId] || []) : [];
 
     return (
         <KeyboardAvoidingView
@@ -110,6 +183,24 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         streamingContent={isStreaming ? streamingContent : undefined}
                         isLoading={false}
                         isProcessing={isProcessing}
+                        isNewConversation={isNewConversation}
+                        // Provider selection
+                        providers={enabledConfigs}
+                        selectedProviderId={pendingProviderId}
+                        onProviderChange={handleProviderChange}
+                        providerConnectionStatus={providerConnectionStatus}
+                        // Model selection  
+                        availableModels={currentModels}
+                        isLoadingModels={isLoadingModels}
+                        selectedModel={pendingModel}
+                        onModelChange={handleModelChange}
+                        // Persona selection
+                        personas={personas}
+                        selectedPersonaId={pendingPersonaId}
+                        onPersonaChange={handlePersonaChange}
+                        onNavigateToProviders={() => router.push('/llm-management')}
+                        onNavigateToPersonas={() => router.push('/persona-list')}
+                        hasConfigs={!hasNoLLM}
                     />
 
                     <MessageInput
@@ -119,9 +210,13 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         onStop={cancelStreaming}
                         isStreaming={isStreaming || isSendingMessage}
                         disabled={isInputDisabled}
-                        selectedLLMId={conversation?.activeLLMId || pendingLLMId || ''}
-                        selectedModel={conversation?.activeModel || pendingModel || ''}
-                        onChangeModel={handleChangeModel}
+                        // Don't show model selector in input for new conversations
+                        selectedLLMId={isNewConversation ? '' : (conversation?.activeLLMId || '')}
+                        selectedModel={isNewConversation ? '' : (conversation?.activeModel || '')}
+                        onChangeModel={isNewConversation ? undefined : async (llmId, model) => {
+                            await setActiveLLM(llmId, model);
+                        }}
+                        showPersonaSelector={false}
                     />
                 </View>
             </View>

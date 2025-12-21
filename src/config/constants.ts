@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
     MESSAGES_PREFIX: 'llmhub:messages:',
     LLM_CONFIGS: 'llmhub:llm_configs',
     SETTINGS: 'llmhub:settings',
+    PERSONAS: 'llmhub:personas',
+    MCP_SERVERS: 'llmhub:mcp_servers',
 } as const;
 
 // Validation limits

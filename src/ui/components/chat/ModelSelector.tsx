@@ -89,7 +89,7 @@ export function ModelSelector({
                         {selectedModel && ` • ${selectedModel}`}
                     </Text>
                 </View>
-                <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+                <Ionicons name="chevron-down" size={16} color={colors.textMuted} style={styles.triggerChevron} />
             </TouchableOpacity>
 
             <Modal
@@ -209,16 +209,21 @@ const styles = StyleSheet.create({
     trigger: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: Spacing.sm,
         paddingVertical: Spacing.xs,
         borderRadius: BorderRadius.md,
-        maxWidth: 250,
+        minWidth: 150,
     },
     triggerContent: {
         flexDirection: 'row',
         alignItems: 'center',
         flex: 1,
         marginRight: Spacing.xs,
+        minWidth: 0,
+    },
+    triggerChevron: {
+        flexShrink: 0,
     },
     providerBadge: {
         width: 20,

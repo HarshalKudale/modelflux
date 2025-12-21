@@ -13,7 +13,7 @@ import { PROVIDER_INFO, PROVIDER_PRESETS } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { llmClientFactory } from '../../core/llm';
 import { LLMConfig, LLMProvider } from '../../core/types';
-import { useLLMStore } from '../../state';
+import { useLLMStore, useSettingsStore } from '../../state';
 import { showError, showInfo } from '../../utils/alert';
 import { Button, Dropdown, Input } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
@@ -29,7 +29,8 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const { createConfig, updateConfig, testConnection, getConfigById } = useLLMStore();
+    const { configs, createConfig, updateConfig, testConnection, getConfigById } = useLLMStore();
+    const { settings, setDefaultLLM } = useSettingsStore();
 
     const isEditing = Boolean(configId);
     const existingConfig = configId ? getConfigById(configId) : null;
@@ -202,7 +203,11 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                     ...configData,
                 });
             } else {
-                await createConfig(configData);
+                const newConfig = await createConfig(configData);
+                // If this is the first provider, set it as default
+                if (configs.length === 0) {
+                    await setDefaultLLM(newConfig.id);
+                }
             }
 
             onBack();

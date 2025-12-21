@@ -3,8 +3,8 @@ import * as FileSystem from 'expo-file-system';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Platform, Share } from 'react-native';
-import { conversationRepository, llmConfigRepository, messageRepository, settingsRepository } from '../core/storage';
-import { AppSettings, Conversation, LLMConfig, Message } from '../core/types';
+import { conversationRepository, llmConfigRepository, messageRepository, personaRepository, settingsRepository } from '../core/storage';
+import { AppSettings, Conversation, LLMConfig, Message, Persona } from '../core/types';
 
 /**
  * Export data structure
@@ -16,6 +16,7 @@ export interface ExportData {
     conversations: Conversation[];
     messages: Message[];
     settings: AppSettings;
+    personas?: Persona[];
 }
 
 /**
@@ -40,6 +41,7 @@ class DataExportService {
         }
 
         const settings = await settingsRepository.get();
+        const personas = await personaRepository.findAll();
 
         // Create export object
         const exportData: ExportData = {
@@ -49,6 +51,7 @@ class DataExportService {
             conversations,
             messages: allMessages,
             settings,
+            personas,
         };
 
         // Convert to JSON
@@ -151,6 +154,7 @@ class DataExportService {
             llmConfigs: 0,
             conversations: 0,
             messages: 0,
+            personas: 0,
         };
 
         // Import LLM configs
@@ -204,6 +208,23 @@ class DataExportService {
                 await settingsRepository.update(data.settings);
             } catch (error) {
                 console.error('Failed to import settings:', error);
+            }
+        }
+
+        // Import personas
+        if (data.personas) {
+            for (const persona of data.personas) {
+                try {
+                    const existing = await personaRepository.findById(persona.id);
+                    if (existing) {
+                        await personaRepository.update(persona);
+                    } else {
+                        await personaRepository.create(persona);
+                    }
+                    stats.personas++;
+                } catch (error) {
+                    console.error('Failed to import persona:', persona.id, error);
+                }
             }
         }
 
@@ -288,6 +309,7 @@ export interface ImportStats {
     llmConfigs: number;
     conversations: number;
     messages: number;
+    personas: number;
 }
 
 export interface ExportSummary {

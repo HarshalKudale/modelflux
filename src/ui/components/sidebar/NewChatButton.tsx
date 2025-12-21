@@ -6,20 +6,25 @@ import { useAppColorScheme } from '../../hooks';
 
 interface NewChatButtonProps {
     onPress: () => void;
+    disabled?: boolean;
 }
 
-export function NewChatButton({ onPress }: NewChatButtonProps) {
+export function NewChatButton({ onPress, disabled = false }: NewChatButtonProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
     return (
         <TouchableOpacity
             onPress={onPress}
-            style={[styles.container, { backgroundColor: colors.tint }]}
+            disabled={disabled}
+            style={[
+                styles.container,
+                { backgroundColor: disabled ? colors.backgroundTertiary : colors.tint }
+            ]}
             activeOpacity={0.8}
         >
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-            <Text style={styles.text}>New Chat</Text>
+            <Ionicons name="add" size={20} color={disabled ? colors.textMuted : '#FFFFFF'} />
+            <Text style={[styles.text, { color: disabled ? colors.textMuted : '#FFFFFF' }]}>New Chat</Text>
         </TouchableOpacity>
     );
 }
@@ -36,7 +41,6 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.md,
     },
     text: {
-        color: '#FFFFFF',
         fontSize: FontSizes.md,
         fontWeight: '600',
         marginLeft: Spacing.xs,

@@ -1,10 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Modal,
     ScrollView,
     StyleSheet,
     Switch,
@@ -15,15 +12,24 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { ThemeMode } from '../../core/types';
-import { LanguageInfo, SUPPORTED_LANGUAGES } from '../../locales';
+import { SUPPORTED_LANGUAGES } from '../../locales';
 import { dataExportService } from '../../services';
-import { useLLMStore, useSettingsStore } from '../../state';
+import { useLLMStore, useMCPStore, usePersonaStore, useSettingsStore } from '../../state';
 import { showError, showInfo } from '../../utils/alert';
 import { SettingsSection } from '../components/settings';
 import { useAppColorScheme, useLocale } from '../hooks';
 
+type ScreenType =
+    | 'llm-management'
+    | 'llm-editor'
+    | 'persona-list'
+    | 'persona-editor'
+    | 'mcp-list'
+    | 'mcp-editor'
+    | 'language-select';
+
 interface SettingsScreenProps {
-    onNavigate: (screen: 'llm-management' | 'llm-editor') => void;
+    onNavigate: (screen: ScreenType, params?: Record<string, string>) => void;
     onBack: () => void;
 }
 
@@ -33,36 +39,26 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
     const { t } = useLocale();
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
-    const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
-    const flatListRef = useRef<FlatList<LanguageInfo>>(null);
 
-    const { settings, setTheme, toggleStreaming, setLanguage } = useSettingsStore();
-    const { configs, loadConfigs } = useLLMStore();
+    const { settings, setTheme, toggleStreaming } = useSettingsStore();
+    const { configs } = useLLMStore();
+    const { personas, loadPersonas } = usePersonaStore();
+    const { servers, loadServers } = useMCPStore();
+
+    // Load data on mount
+    useEffect(() => {
+        loadPersonas();
+        loadServers();
+    }, []);
+
+    // Get current language info
+    const currentLanguage = SUPPORTED_LANGUAGES.find(lang => lang.code === settings.language) || SUPPORTED_LANGUAGES[0];
 
     const themeOptions: { label: string; value: ThemeMode; icon: keyof typeof Ionicons.glyphMap }[] = [
         { label: t('settings.theme.light'), value: 'light', icon: 'sunny' },
         { label: t('settings.theme.dark'), value: 'dark', icon: 'moon' },
         { label: t('settings.theme.system'), value: 'system', icon: 'phone-portrait' },
     ];
-
-    // Get current language info
-    const currentLanguage = SUPPORTED_LANGUAGES.find(lang => lang.code === settings.language) || SUPPORTED_LANGUAGES[0];
-
-    // Scroll to selected language when modal opens
-    useEffect(() => {
-        if (isLanguageModalVisible && flatListRef.current) {
-            const index = SUPPORTED_LANGUAGES.findIndex(lang => lang.code === settings.language);
-            if (index >= 0) {
-                setTimeout(() => {
-                    flatListRef.current?.scrollToIndex({
-                        index,
-                        animated: true,
-                        viewPosition: 0.5, // Center the item
-                    });
-                }, 100);
-            }
-        }
-    }, [isLanguageModalVisible, settings.language]);
 
     const handleExport = async () => {
         setIsExporting(true);
@@ -101,8 +97,6 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                         })
                         : result.message
                 );
-                // Reload data
-                await loadConfigs();
             } else {
                 showError(t('settings.import.title'), result.message);
             }
@@ -112,48 +106,6 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
         } finally {
             setIsImporting(false);
         }
-    };
-
-    const handleLanguageChange = async (languageCode: string) => {
-        await setLanguage(languageCode);
-        setIsLanguageModalVisible(false);
-    };
-
-    const renderLanguageItem = ({ item }: { item: LanguageInfo }) => {
-        const isSelected = item.code === settings.language;
-        return (
-            <TouchableOpacity
-                style={[
-                    styles.languageModalItem,
-                    {
-                        backgroundColor: isSelected ? colors.tint : 'transparent',
-                    },
-                ]}
-                onPress={() => handleLanguageChange(item.code)}
-            >
-                <Text
-                    style={[
-                        styles.languageModalItemText,
-                        {
-                            color: isSelected ? '#FFFFFF' : colors.text,
-                            fontWeight: isSelected ? '700' : '500',
-                        },
-                    ]}
-                >
-                    {item.nativeName}
-                </Text>
-                <Text
-                    style={[
-                        styles.languageModalItemSubtext,
-                        {
-                            color: isSelected ? 'rgba(255,255,255,0.7)' : colors.textMuted,
-                        },
-                    ]}
-                >
-                    {item.name}
-                </Text>
-            </TouchableOpacity>
-        );
     };
 
     return (
@@ -168,7 +120,7 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
             </View>
 
             <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-                {/* General Settings */}
+                {/* ===== GENERAL SECTION ===== */}
                 <SettingsSection title={t('settings.general')}>
                     {/* Theme Selection */}
                     <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
@@ -200,10 +152,10 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                         </View>
                     </View>
 
-                    {/* Language Selection - Dropdown */}
+                    {/* Language Selection - Navigate to full screen */}
                     <TouchableOpacity
                         style={[styles.settingItem, { borderBottomColor: colors.border }]}
-                        onPress={() => setIsLanguageModalVisible(true)}
+                        onPress={() => onNavigate('language-select')}
                     >
                         <View style={styles.settingInfo}>
                             <Text style={[styles.settingLabel, { color: colors.text }]}>{t('settings.language')}</Text>
@@ -212,12 +164,15 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                             <Text style={[styles.languageDropdownText, { color: colors.text }]}>
                                 {currentLanguage.nativeName}
                             </Text>
-                            <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+                            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                         </View>
                     </TouchableOpacity>
+                </SettingsSection>
 
+                {/* ===== LLM SECTION ===== */}
+                <SettingsSection title={t('settings.llm.title')}>
                     {/* Streaming Toggle */}
-                    <View style={styles.settingItem}>
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
                         <View style={styles.settingInfo}>
                             <Text style={[styles.settingLabel, { color: colors.text }]}>
                                 {t('settings.streaming.title')}
@@ -233,12 +188,10 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                             thumbColor={settings.streamingEnabled ? colors.tint : colors.textMuted}
                         />
                     </View>
-                </SettingsSection>
 
-                {/* LLM Settings */}
-                <SettingsSection title={t('settings.providers.title')}>
+                    {/* Manage Providers → Navigate to list */}
                     <TouchableOpacity
-                        style={[styles.settingItem, styles.linkItem]}
+                        style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
                         onPress={() => onNavigate('llm-management')}
                     >
                         <View style={styles.settingInfo}>
@@ -251,9 +204,45 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                     </TouchableOpacity>
+
+                    {/* Personas → Navigate to list */}
+                    <TouchableOpacity
+                        style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
+                        onPress={() => onNavigate('persona-list')}
+                    >
+                        <View style={styles.settingInfo}>
+                            <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                {t('settings.personas.title')}
+                            </Text>
+                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                {personas.length === 0
+                                    ? t('settings.personas.empty')
+                                    : t('settings.personas.count', { count: personas.length })}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
+
+                    {/* MCP Servers → Navigate to list */}
+                    <TouchableOpacity
+                        style={[styles.settingItem, styles.linkItem]}
+                        onPress={() => onNavigate('mcp-list')}
+                    >
+                        <View style={styles.settingInfo}>
+                            <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                {t('settings.mcp.title')}
+                            </Text>
+                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                {servers.length === 0
+                                    ? t('settings.mcp.empty')
+                                    : t('settings.mcp.count', { count: servers.length })}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
                 </SettingsSection>
 
-                {/* Data Management */}
+                {/* ===== DATA MANAGEMENT SECTION ===== */}
                 <SettingsSection title={t('settings.data.title')}>
                     <TouchableOpacity
                         style={[styles.settingItem, { borderBottomColor: colors.border }]}
@@ -296,7 +285,7 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                     </TouchableOpacity>
                 </SettingsSection>
 
-                {/* About */}
+                {/* ===== ABOUT SECTION ===== */}
                 <SettingsSection title={t('settings.about.title')}>
                     <View style={styles.settingItem}>
                         <View style={styles.settingInfo}>
@@ -310,55 +299,6 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                     </View>
                 </SettingsSection>
             </ScrollView>
-
-            {/* Language Selection Modal */}
-            <Modal
-                visible={isLanguageModalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setIsLanguageModalVisible(false)}
-            >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setIsLanguageModalVisible(false)}
-                >
-                    <View
-                        style={[
-                            styles.languageModal,
-                            { backgroundColor: colors.cardBackground },
-                        ]}
-                    >
-                        <View style={[styles.languageModalHeader, { borderBottomColor: colors.border }]}>
-                            <Text style={[styles.languageModalTitle, { color: colors.text }]}>
-                                {t('settings.language')}
-                            </Text>
-                            <TouchableOpacity
-                                onPress={() => setIsLanguageModalVisible(false)}
-                                style={styles.languageModalClose}
-                            >
-                                <Ionicons name="close" size={24} color={colors.textMuted} />
-                            </TouchableOpacity>
-                        </View>
-                        <FlatList
-                            ref={flatListRef}
-                            data={SUPPORTED_LANGUAGES}
-                            keyExtractor={(item) => item.code}
-                            renderItem={renderLanguageItem}
-                            contentContainerStyle={styles.languageModalList}
-                            showsVerticalScrollIndicator={false}
-                            getItemLayout={(_, index) => ({
-                                length: 60,
-                                offset: 60 * index,
-                                index,
-                            })}
-                            onScrollToIndexFailed={() => {
-                                // Fallback if scroll fails
-                            }}
-                        />
-                    </View>
-                </TouchableOpacity>
-            </Modal>
         </SafeAreaView>
     );
 }
@@ -437,50 +377,5 @@ const styles = StyleSheet.create({
     languageDropdownText: {
         fontSize: FontSizes.md,
         fontWeight: '500',
-    },
-    // Modal styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    languageModal: {
-        width: Math.min(Dimensions.get('window').width - 48, 320),
-        maxHeight: 360,
-        borderRadius: BorderRadius.lg,
-        overflow: 'hidden',
-    },
-    languageModalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        borderBottomWidth: 1,
-    },
-    languageModalTitle: {
-        fontSize: FontSizes.lg,
-        fontWeight: '600',
-    },
-    languageModalClose: {
-        padding: Spacing.xs,
-    },
-    languageModalList: {
-        paddingVertical: Spacing.xs,
-    },
-    languageModalItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
-        height: 60,
-    },
-    languageModalItemText: {
-        fontSize: FontSizes.md,
-    },
-    languageModalItemSubtext: {
-        fontSize: FontSizes.sm,
     },
 });

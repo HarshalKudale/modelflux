@@ -46,6 +46,7 @@ export interface Conversation {
     updatedAt: number;
     activeLLMId: string;
     activeModel: string;
+    personaId?: string;
 }
 
 /**
@@ -91,6 +92,42 @@ export interface Message {
 }
 
 /**
+ * Persona for customizing LLM behavior
+ */
+export interface Persona {
+    id: string;
+    name: string;
+    description?: string;
+    systemPrompt: string;
+    age?: string;
+    location?: string;
+    job?: string;
+    createdAt: number;
+    updatedAt: number;
+}
+
+/**
+ * MCP Transport type
+ */
+export type MCPTransport = 'http' | 'stdio';
+
+/**
+ * MCP Server configuration
+ */
+export interface MCPServer {
+    id: string;
+    name: string;
+    transport: MCPTransport;
+    endpoint?: string;        // For HTTP transport
+    command?: string;         // For STDIO transport
+    args?: string[];          // For STDIO transport
+    envVars: Record<string, string>;
+    isEnabled: boolean;
+    createdAt: number;
+    updatedAt: number;
+}
+
+/**
  * Theme options
  */
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -102,6 +139,7 @@ export interface AppSettings {
     theme: ThemeMode;
     streamingEnabled: boolean;
     defaultLLMId: string | null;
+    defaultPersonaId: string | null;
     sidebarCollapsed: boolean;
     lastAppVersion: string;
     language: string;
@@ -118,6 +156,7 @@ export interface ExportedData {
         messages: Message[];
     }>;
     llmConfigs: Array<Omit<LLMConfig, 'apiKey'>>;
+    personas?: Persona[];
 }
 
 /**
@@ -127,6 +166,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     theme: 'system',
     streamingEnabled: true,
     defaultLLMId: null,
+    defaultPersonaId: null,
     sidebarCollapsed: false,
     lastAppVersion: '1.0.0',
     language: 'en',

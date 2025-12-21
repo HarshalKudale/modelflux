@@ -17,6 +17,7 @@ interface SettingsStoreActions {
     toggleStreaming: () => Promise<void>;
     toggleSidebar: () => Promise<void>;
     setDefaultLLM: (llmId: string | null) => Promise<void>;
+    setDefaultPersona: (personaId: string | null) => Promise<void>;
     setLanguage: (language: string) => Promise<void>;
     clearError: () => void;
 }
@@ -83,6 +84,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
     setDefaultLLM: async (llmId) => {
         await get().updateSettings({ defaultLLMId: llmId });
+    },
+
+    setDefaultPersona: async (personaId) => {
+        await get().updateSettings({ defaultPersonaId: personaId });
     },
 
     setLanguage: async (language) => {

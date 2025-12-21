@@ -7,8 +7,17 @@ export default function SettingsPage() {
 
     return (
         <SettingsScreen
-            onNavigate={(screen) => {
-                router.push(`/${screen}`);
+            onNavigate={(screen, params) => {
+                let path = `/${screen}`;
+                if (params) {
+                    const queryString = Object.entries(params)
+                        .map(([key, value]) => `${key}=${value}`)
+                        .join('&');
+                    if (queryString) {
+                        path += `?${queryString}`;
+                    }
+                }
+                router.push(path as any);
             }}
             onBack={() => router.back()}
         />

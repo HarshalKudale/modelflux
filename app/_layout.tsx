@@ -93,6 +93,41 @@ function RootLayoutNav() {
               presentation: 'modal',
             }}
           />
+          <Stack.Screen
+            name="persona-list"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="persona-editor"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="mcp-list"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="mcp-editor"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="language-select"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
         </Stack>
       </ThemeProvider>
     </GestureHandlerRootView>

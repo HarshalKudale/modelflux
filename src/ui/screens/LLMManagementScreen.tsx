@@ -10,10 +10,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PROVIDER_INFO } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
-import { LLMProvider } from '../../core/types';
-import { useLLMStore } from '../../state';
-import { showConfirm } from '../../utils/alert';
-import { LLMConfigCard } from '../components/settings';
+import { LLMConfig, LLMProvider } from '../../core/types';
+import { useLLMStore, useSettingsStore } from '../../state';
+import { showConfirm, showError, showInfo } from '../../utils/alert';
+import { ResourceCard } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 interface LLMManagementScreenProps {
@@ -26,39 +26,66 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const { configs, updateConfig, deleteConfig, testConnection } = useLLMStore();
+    const { configs, deleteConfig, testConnection } = useLLMStore();
+    const { settings, setDefaultLLM } = useSettingsStore();
 
     const handleAddProvider = (provider: LLMProvider) => {
         onNavigate('llm-editor', { provider });
     };
 
-    const handleEdit = (configId: string) => {
-        onNavigate('llm-editor', { configId });
+    const handleEdit = (config: LLMConfig) => {
+        onNavigate('llm-editor', { configId: config.id });
     };
 
-    const handleDelete = async (configId: string) => {
-        const config = configs.find((c) => c.id === configId);
+    const handleSetDefault = async (config: LLMConfig) => {
+        await setDefaultLLM(config.id);
+        showInfo(t('common.success'), `${config.name} is now the default provider.`);
+    };
+
+    const handleDelete = async (config: LLMConfig) => {
+        const isDefault = settings.defaultLLMId === config.id;
+        const confirmMessage = isDefault
+            ? `${t('llm.management.delete.confirm', { name: config.name })}\n\nThis is the default provider. Another provider will be set as default.`
+            : t('llm.management.delete.confirm', { name: config.name });
+
         const confirmed = await showConfirm(
             t('llm.management.delete.title'),
-            t('llm.management.delete.confirm', { name: config?.name || '' }),
+            confirmMessage,
             t('common.delete'),
             t('common.cancel'),
             true
         );
+
         if (confirmed) {
-            deleteConfig(configId);
+            try {
+                await deleteConfig(config.id);
+
+                // If we deleted the default, set a new default
+                if (isDefault && configs.length > 1) {
+                    const remaining = configs.filter(c => c.id !== config.id);
+                    if (remaining.length > 0) {
+                        await setDefaultLLM(remaining[0].id);
+                    }
+                } else if (isDefault) {
+                    await setDefaultLLM(null);
+                }
+            } catch (error) {
+                showError(t('common.error'), error instanceof Error ? error.message : t('alert.error.default'));
+            }
         }
     };
 
-    const handleToggleEnabled = async (configId: string, enabled: boolean) => {
-        const config = configs.find((c) => c.id === configId);
-        if (config) {
-            await updateConfig({ ...config, isEnabled: enabled });
-        }
+    const handleTestConnection = async (config: LLMConfig): Promise<boolean> => {
+        return testConnection(config.id);
     };
 
-    const handleTestConnection = async (configId: string): Promise<boolean> => {
-        return testConnection(configId);
+    const getProviderIcon = (config: LLMConfig) => {
+        const info = PROVIDER_INFO[config.provider];
+        return (
+            <Text style={{ color: '#FFFFFF', fontSize: FontSizes.lg, fontWeight: '700' }}>
+                {config.provider.charAt(0).toUpperCase()}
+            </Text>
+        );
     };
 
     const providerOptions: LLMProvider[] = ['openai', 'openai-spec', 'ollama'];
@@ -114,16 +141,24 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
                             {t('llm.management.yourProviders', { count: configs.length })}
                         </Text>
-                        {configs.map((config) => (
-                            <LLMConfigCard
-                                key={config.id}
-                                config={config}
-                                onEdit={() => handleEdit(config.id)}
-                                onDelete={() => handleDelete(config.id)}
-                                onToggleEnabled={(enabled) => handleToggleEnabled(config.id, enabled)}
-                                onTestConnection={() => handleTestConnection(config.id)}
-                            />
-                        ))}
+                        {configs.map((config) => {
+                            const info = PROVIDER_INFO[config.provider];
+                            return (
+                                <ResourceCard
+                                    key={config.id}
+                                    title={config.name}
+                                    subtitle={info.displayName}
+                                    description={`${config.baseUrl}\nModel: ${config.defaultModel}`}
+                                    icon={getProviderIcon(config)}
+                                    iconColor={info.color}
+                                    isDefault={settings.defaultLLMId === config.id}
+                                    onPress={() => handleEdit(config)}
+                                    onTest={() => handleTestConnection(config)}
+                                    onSetDefault={() => handleSetDefault(config)}
+                                    onDelete={() => handleDelete(config)}
+                                />
+                            );
+                        })}
                     </View>
                 )}
 

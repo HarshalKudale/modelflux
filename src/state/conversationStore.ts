@@ -3,6 +3,7 @@ import { ChatMessage, LLMError, llmClientFactory } from '../core/llm';
 import { conversationRepository, messageRepository } from '../core/storage';
 import { Conversation, Message, generateId } from '../core/types';
 import { useLLMStore } from './llmStore';
+import { usePersonaStore } from './personaStore';
 import { useSettingsStore } from './settingsStore';
 
 interface ConversationStoreState {
@@ -18,7 +19,8 @@ interface ConversationStoreState {
 
 interface ConversationStoreActions {
     loadConversations: () => Promise<void>;
-    createConversation: (llmId?: string, model?: string) => Promise<Conversation>;
+    createConversation: (llmId?: string, model?: string, personaId?: string) => Promise<Conversation>;
+    startNewConversation: () => void;
     selectConversation: (id: string | null) => Promise<void>;
     deleteConversation: (id: string) => Promise<void>;
     updateConversationTitle: (id: string, title: string) => Promise<void>;
@@ -60,7 +62,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         }
     },
 
-    createConversation: async (llmId, model) => {
+    createConversation: async (llmId, model, personaId) => {
         const settings = useSettingsStore.getState().settings;
         const llmConfigs = useLLMStore.getState().configs;
 
@@ -77,6 +79,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             updatedAt: now,
             activeLLMId,
             activeModel,
+            personaId,
         };
 
         try {
@@ -100,6 +103,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         if (id && !get().messages[id]) {
             await get().loadMessages(id);
         }
+    },
+
+    startNewConversation: () => {
+        // Just clear the current conversation - don't create anything in database
+        // The actual conversation will be created when the first message is sent
+        set({ currentConversationId: null });
     },
 
     deleteConversation: async (id) => {
@@ -205,6 +214,29 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 role: m.role,
                 content: m.content,
             }));
+
+            // Prepend persona system prompt if persona is assigned
+            if (conversation.personaId) {
+                const persona = usePersonaStore.getState().getPersonaById(conversation.personaId);
+                if (persona) {
+                    // Build system prompt from persona details
+                    const personaDetails: string[] = [];
+                    if (persona.name) personaDetails.push(`Name: ${persona.name}`);
+                    if (persona.age) personaDetails.push(`Age: ${persona.age}`);
+                    if (persona.location) personaDetails.push(`Location: ${persona.location}`);
+                    if (persona.job) personaDetails.push(`Job: ${persona.job}`);
+
+                    let systemContent = persona.systemPrompt;
+                    if (personaDetails.length > 0) {
+                        systemContent = `${personaDetails.join(', ')}\n\n${persona.systemPrompt}`;
+                    }
+
+                    chatMessages.unshift({
+                        role: 'system',
+                        content: systemContent,
+                    });
+                }
+            }
 
             // Create abort controller
             abortController = new AbortController();

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import {
     Platform,
     StyleSheet,
+    Text,
     TextInput,
     TouchableOpacity,
     View
@@ -22,6 +23,9 @@ interface MessageInputProps {
     selectedLLMId?: string;
     selectedModel?: string;
     onChangeModel?: (llmId: string, model: string) => void;
+    showPersonaSelector?: boolean;
+    currentPersonaName?: string;
+    onPersonaPress?: () => void;
 }
 
 export function MessageInput({
@@ -34,6 +38,9 @@ export function MessageInput({
     selectedLLMId = '',
     selectedModel = '',
     onChangeModel,
+    showPersonaSelector,
+    currentPersonaName,
+    onPersonaPress,
 }: MessageInputProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
@@ -72,6 +79,17 @@ export function MessageInput({
                         onSelect={onChangeModel}
                     />
                 </View>
+            )}
+
+            {/* Persona selector row */}
+            {showPersonaSelector && onPersonaPress && (
+                <TouchableOpacity style={styles.personaRow} onPress={onPersonaPress}>
+                    <Ionicons name="person-circle-outline" size={16} color={colors.tint} />
+                    <Text style={[styles.personaText, { color: colors.tint }]}>
+                        {currentPersonaName || t('chat.persona.select')}
+                    </Text>
+                    <Ionicons name="chevron-down" size={14} color={colors.tint} />
+                </TouchableOpacity>
             )}
 
             {/* Input row */}
@@ -164,5 +182,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginLeft: Spacing.sm,
+    },
+    personaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: Spacing.xs,
+        gap: Spacing.xs,
+    },
+    personaText: {
+        fontSize: FontSizes.sm,
+        fontWeight: '500',
     },
 });

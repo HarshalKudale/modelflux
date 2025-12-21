@@ -27,13 +27,20 @@ export function Sidebar({
     const {
         conversations,
         currentConversationId,
-        createConversation,
+        startNewConversation,
         selectConversation,
         deleteConversation,
+        getCurrentMessages,
     } = useConversationStore();
 
-    const handleNewChat = async () => {
-        await createConversation();
+    // Check if we're already on a new (empty) conversation
+    const currentMessages = getCurrentMessages();
+    const isOnNewConversation = currentConversationId === null;
+
+    const handleNewChat = () => {
+        // Don't go to new conversation if we're already on one
+        if (isOnNewConversation) return;
+        startNewConversation();
     };
 
     if (isCollapsed) {
@@ -57,7 +64,7 @@ export function Sidebar({
             </View>
 
             {/* New Chat Button */}
-            <NewChatButton onPress={handleNewChat} />
+            <NewChatButton onPress={handleNewChat} disabled={isOnNewConversation} />
 
             {/* Conversation List */}
             <ConversationList
