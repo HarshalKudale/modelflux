@@ -4,18 +4,20 @@ import {
     ActivityIndicator,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EXECUTORCH_MODELS } from '../../config/executorchModels';
 import { PROVIDER_INFO, PROVIDER_PRESETS } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { llmClientFactory } from '../../core/llm';
-import { LLMConfig, LLMProvider } from '../../core/types';
-import { useLLMStore, useSettingsStore } from '../../state';
-import { showError, showInfo } from '../../utils/alert';
-import { Button, Dropdown, Input } from '../components/common';
+import { LLMConfig, LLMProvider, LocalModel } from '../../core/types';
+import { useLLMStore, useLocalLLMStore, useSettingsStore } from '../../state';
+import { showConfirm, showError, showInfo } from '../../utils/alert';
+import { Button, Dropdown, Input, LocalModelList, LocalModelPicker } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 interface LLMEditorScreenProps {
@@ -24,33 +26,61 @@ interface LLMEditorScreenProps {
     onBack: () => void;
 }
 
+/**
+ * Helper to determine if a provider is a local on-device provider
+ */
+function isLocalProvider(provider: LLMProvider): boolean {
+    return provider === 'executorch' || provider === 'llama-rn';
+}
+
 export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorScreenProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const { configs, createConfig, updateConfig, testConnection, getConfigById } = useLLMStore();
-    const { settings, setDefaultLLM } = useSettingsStore();
+    const { configs, createConfig, updateConfig, getConfigById } = useLLMStore();
+    const { setDefaultLLM } = useSettingsStore();
+
+    // Local model loading state
+    const {
+        selectedModelId,
+        selectedModelName,
+        isLoading: isLoadingLocalModel,
+        downloadProgress,
+        isReady: isLocalModelReady,
+        error: loadError,
+        selectModel,
+        unload,
+    } = useLocalLLMStore();
 
     const isEditing = Boolean(configId);
     const existingConfig = configId ? getConfigById(configId) : null;
 
-    // Form state
+    // Form state - Common fields
     const [name, setName] = useState('');
     const [provider, setProvider] = useState<LLMProvider>('openai');
+    const [supportsStreaming, setSupportsStreaming] = useState(true);
+
+    // Form state - Remote provider fields
     const [baseUrl, setBaseUrl] = useState('');
     const [apiKey, setApiKey] = useState('');
     const [defaultModel, setDefaultModel] = useState('');
-    const [isLocal, setIsLocal] = useState(false);
+
+    // Form state - Local provider fields
+    const [localModels, setLocalModels] = useState<LocalModel[]>([]);
+    const [defaultLocalModelId, setDefaultLocalModelId] = useState<string | undefined>(undefined);
+
+    // UI state
     const [isTesting, setIsTesting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Model fetching state
+    // Model fetching state (remote providers only)
     const [availableModels, setAvailableModels] = useState<string[]>([]);
     const [isLoadingModels, setIsLoadingModels] = useState(false);
 
     // Get provider info
     const providerInfo = PROVIDER_INFO[provider];
+    const isLocal = isLocalProvider(provider);
 
     // Initialize form with existing config or preset
     useEffect(() => {
@@ -60,25 +90,35 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             setBaseUrl(existingConfig.baseUrl);
             setApiKey(existingConfig.apiKey || '');
             setDefaultModel(existingConfig.defaultModel);
-            setIsLocal(existingConfig.isLocal);
+            setSupportsStreaming(existingConfig.supportsStreaming ?? true);
+            setLocalModels(existingConfig.localModels || []);
+            // Find default local model
+            if (existingConfig.localModels?.length) {
+                const defaultLocalModel = existingConfig.localModels.find(
+                    m => m.name === existingConfig.defaultModel
+                );
+                setDefaultLocalModelId(defaultLocalModel?.id);
+            }
         } else if (presetProvider) {
             const preset = PROVIDER_PRESETS[presetProvider];
             setName(preset.name || '');
             setProvider(presetProvider);
             setBaseUrl(preset.baseUrl || '');
             setDefaultModel(preset.defaultModel || '');
-            setIsLocal(preset.isLocal || false);
+            setSupportsStreaming(preset.supportsStreaming ?? true);
+            setLocalModels([]);
+            setDefaultLocalModelId(undefined);
         }
     }, [existingConfig, presetProvider]);
 
-    // Fetch models when URL and API key are available
+    // Fetch models when URL and API key are available (remote providers only)
     const fetchModels = async () => {
+        if (isLocal) return;
         if (!baseUrl) return;
         if (providerInfo.apiKeyRequired && !apiKey) return;
 
         setIsLoadingModels(true);
         try {
-            // Create a temporary config for fetching models
             const tempConfig: LLMConfig = {
                 id: 'temp',
                 name,
@@ -86,7 +126,8 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 baseUrl,
                 apiKey: apiKey || undefined,
                 defaultModel: '',
-                isLocal,
+                supportsStreaming,
+                isLocal: false,
                 isEnabled: true,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
@@ -103,96 +144,242 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         }
     };
 
-    // Auto-fetch models when relevant fields change
+    // Auto-fetch models when relevant fields change (remote providers only)
     useEffect(() => {
+        if (isLocal) return;
+
         const canFetchModels = baseUrl && (!providerInfo.apiKeyRequired || apiKey);
         if (canFetchModels) {
             const timer = setTimeout(() => {
                 fetchModels();
-            }, 500); // Debounce
+            }, 500);
             return () => clearTimeout(timer);
         }
-    }, [baseUrl, apiKey, provider]);
+    }, [baseUrl, apiKey, provider, isLocal]);
 
-    const handleProviderChange = (newProvider: LLMProvider) => {
+    const handleProviderChange = async (newProvider: LLMProvider) => {
+        const wasLocal = isLocalProvider(provider);
+        const willBeLocal = isLocalProvider(newProvider);
+        const isTypeChangingLocality = wasLocal !== willBeLocal;
+
+        // Warn if changing from local to remote or vice versa while editing
+        if (isEditing && isTypeChangingLocality) {
+            const confirmed = await showConfirm(
+                t('llm.editor.changeType.title') || 'Change Provider Type?',
+                t('llm.editor.changeType.warning') || 'Changing provider type will remove incompatible settings.',
+                t('common.continue') || 'Continue',
+                t('common.cancel') || 'Cancel'
+            );
+
+            if (!confirmed) return;
+
+            // Clear incompatible fields
+            if (willBeLocal) {
+                setBaseUrl('');
+                setApiKey('');
+                setAvailableModels([]);
+            } else {
+                setLocalModels([]);
+                setDefaultLocalModelId(undefined);
+            }
+        }
+
         setProvider(newProvider);
         const preset = PROVIDER_PRESETS[newProvider];
+
         if (!isEditing) {
             setName(preset.name || '');
             setBaseUrl(preset.baseUrl || '');
             setDefaultModel(preset.defaultModel || '');
-            setIsLocal(preset.isLocal || false);
+            setSupportsStreaming(preset.supportsStreaming ?? true);
             setAvailableModels([]);
+            setLocalModels([]);
+            setDefaultLocalModelId(undefined);
+        } else {
+            // Apply streaming support from preset
+            setSupportsStreaming(preset.supportsStreaming ?? true);
         }
     };
 
-    const handleTestConnection = async () => {
-        if (!baseUrl) {
-            showError(t('common.error'), t('llm.editor.error.url'));
+    const handleAddLocalModel = (model: LocalModel) => {
+        setLocalModels(prev => [...prev, model]);
+        // Auto-set as default if it's the first model
+        if (localModels.length === 0) {
+            setDefaultLocalModelId(model.id);
+            setDefaultModel(model.name);
+        }
+    };
+
+    const handleSetDefaultLocalModel = (modelId: string) => {
+        setDefaultLocalModelId(modelId);
+        const model = localModels.find(m => m.id === modelId);
+        if (model) {
+            setDefaultModel(model.name);
+        }
+    };
+
+    const handleDeleteLocalModel = (modelId: string) => {
+        // Don't allow deleting selected/loading model
+        if (modelId === selectedModelId) {
+            showError(t('common.error'), 'Cannot delete a selected model. Unload it first.');
             return;
         }
 
-        setIsTesting(true);
+        setLocalModels(prev => prev.filter(m => m.id !== modelId));
+        // If we deleted the default, clear or pick a new one
+        if (defaultLocalModelId === modelId) {
+            const remaining = localModels.filter(m => m.id !== modelId);
+            if (remaining.length > 0) {
+                setDefaultLocalModelId(remaining[0].id);
+                setDefaultModel(remaining[0].name);
+            } else {
+                setDefaultLocalModelId(undefined);
+                setDefaultModel('');
+            }
+        }
+    };
 
-        try {
-            // Create a temporary config for testing
-            const tempConfig: LLMConfig = {
-                id: existingConfig?.id || 'temp',
-                name,
-                provider,
-                baseUrl,
-                apiKey: apiKey || undefined,
-                defaultModel,
-                isLocal,
-                isEnabled: true,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            };
+    // Load/unload local model
+    const handleLoadLocalModel = (modelId: string) => {
+        // For ExecuTorch, look in EXECUTORCH_MODELS
+        if (provider === 'executorch') {
+            const executorchModel = EXECUTORCH_MODELS.find(m => m.id === modelId);
+            if (executorchModel) {
+                // Select the model - BackgroundModelLoader will load it
+                selectModel(modelId, executorchModel.name);
+            }
+            return;
+        }
 
-            const client = llmClientFactory.getClient(tempConfig);
-            const success = await client.testConnection(tempConfig);
+        // For llama-rn, look in localModels array
+        const model = localModels.find(m => m.id === modelId);
+        if (model) {
+            selectModel(modelId, model.name);
+        }
+    };
 
-            showInfo(
-                success ? t('common.success') : t('common.error'),
-                success
-                    ? t('llm.editor.test.success')
-                    : t('llm.editor.test.failed')
-            );
-        } catch (error) {
-            showError(t('common.error'), t('llm.editor.error.test'));
-        } finally {
-            setIsTesting(false);
+    const handleUnloadLocalModel = () => {
+        unload();
+    };
+
+    const handleTestConnection = async () => {
+        if (isLocal) {
+            // Local provider test: validate model files
+            if (localModels.length === 0) {
+                showError(t('common.error'), t('llm.editor.error.noModels') || 'At least one model is required');
+                return;
+            }
+
+            setIsTesting(true);
+            try {
+                // For now, just check that files exist (runtime validation would need actual runtime integration)
+                const hasValidModel = localModels.some(m => m.status === 'ready');
+                showInfo(
+                    hasValidModel ? t('common.success') : t('common.error'),
+                    hasValidModel
+                        ? (t('llm.editor.test.local.success') || 'Local model validated successfully')
+                        : (t('llm.editor.test.local.failed') || 'Failed to validate local model')
+                );
+            } finally {
+                setIsTesting(false);
+            }
+        } else {
+            // Remote provider test
+            if (!baseUrl) {
+                showError(t('common.error'), t('llm.editor.error.url'));
+                return;
+            }
+
+            setIsTesting(true);
+            try {
+                const tempConfig: LLMConfig = {
+                    id: existingConfig?.id || 'temp',
+                    name,
+                    provider,
+                    baseUrl,
+                    apiKey: apiKey || undefined,
+                    defaultModel,
+                    supportsStreaming,
+                    isLocal: false,
+                    isEnabled: true,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                };
+
+                const client = llmClientFactory.getClient(tempConfig);
+                const success = await client.testConnection(tempConfig);
+
+                showInfo(
+                    success ? t('common.success') : t('common.error'),
+                    success
+                        ? t('llm.editor.test.success')
+                        : t('llm.editor.test.failed')
+                );
+            } catch (error) {
+                showError(t('common.error'), t('llm.editor.error.test'));
+            } finally {
+                setIsTesting(false);
+            }
         }
     };
 
     const handleSave = async () => {
-        // Validation
-        if (!name.trim()) {
+        // Common validation
+        // Name validation - not required for ExecuTorch (only one allowed)
+        if (provider !== 'executorch' && !name.trim()) {
             showError(t('common.error'), t('llm.editor.error.name'));
             return;
         }
-        if (!baseUrl.trim()) {
-            showError(t('common.error'), t('llm.editor.error.url'));
-            return;
-        }
-        if (!defaultModel.trim()) {
-            showError(t('common.error'), t('llm.editor.error.model'));
-            return;
-        }
-        if (providerInfo.apiKeyRequired && !apiKey.trim()) {
-            showError(t('common.error'), t('llm.editor.error.apiKey'));
-            return;
+
+        if (isLocal) {
+            // Local provider validation
+            if (provider === 'executorch') {
+                // ExecuTorch: just need a model selected
+                if (!defaultModel) {
+                    showError(t('common.error'), t('llm.editor.error.model') || 'Please select a model');
+                    return;
+                }
+            } else {
+                // llama-rn: needs custom models added
+                if (localModels.length === 0) {
+                    showError(t('common.error'), t('llm.editor.error.noModels') || 'At least one model is required');
+                    return;
+                }
+                if (!defaultLocalModelId) {
+                    showError(t('common.error'), t('llm.editor.error.model') || 'A default model must be selected');
+                    return;
+                }
+            }
+        } else {
+            // Remote provider validation
+            if (!baseUrl.trim()) {
+                showError(t('common.error'), t('llm.editor.error.url'));
+                return;
+            }
+            if (!defaultModel.trim()) {
+                showError(t('common.error'), t('llm.editor.error.model'));
+                return;
+            }
+            if (providerInfo.apiKeyRequired && !apiKey.trim()) {
+                showError(t('common.error'), t('llm.editor.error.apiKey'));
+                return;
+            }
         }
 
         setIsSaving(true);
 
         try {
+            // For ExecuTorch, use fixed name since only one provider allowed
+            const providerName = provider === 'executorch' ? 'ExecuTorch' : name.trim();
+
             const configData = {
-                name: name.trim(),
+                name: providerName,
                 provider,
-                baseUrl: baseUrl.trim(),
-                apiKey: apiKey.trim() || undefined,
+                baseUrl: isLocal ? '' : baseUrl.trim(),
+                apiKey: isLocal ? undefined : (apiKey.trim() || undefined),
                 defaultModel: defaultModel.trim(),
+                localModels: isLocal && provider !== 'executorch' ? localModels : undefined,
+                supportsStreaming,
                 isLocal,
                 isEnabled: existingConfig?.isEnabled ?? true,
             };
@@ -218,10 +405,12 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         }
     };
 
+    // Local providers (executorch, llama-rn) are NOT listed here
+    // They are available directly in the model selector as built-in options
     const providerOptions = [
-        { label: t('provider.openai'), value: 'openai' as LLMProvider },
-        { label: t('provider.openai-spec'), value: 'openai-spec' as LLMProvider },
-        { label: t('provider.ollama'), value: 'ollama' as LLMProvider },
+        { label: t('provider.openai') || 'OpenAI', value: 'openai' as LLMProvider },
+        { label: t('provider.openai-spec') || 'OpenAI Compatible', value: 'openai-spec' as LLMProvider },
+        { label: t('provider.ollama') || 'Ollama', value: 'ollama' as LLMProvider },
     ];
 
     const modelOptions = availableModels.map((model) => ({
@@ -234,6 +423,9 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         if (providerInfo.apiKeyRequired && !apiKey) return t('llm.editor.model.hint.noKey');
         return t('llm.editor.model.hint.manual');
     };
+
+    // Check if streaming is supported by this provider
+    const streamingSupported = providerInfo.supportsStreaming;
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -249,7 +441,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             </View>
 
             <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-                {/* Provider Type */}
+                {/* ============ PROVIDER TYPE (Always visible) ============ */}
                 <Dropdown
                     label={t('llm.editor.providerType')}
                     value={provider}
@@ -265,83 +457,241 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                     </Text>
                 </View>
 
-                {/* Name */}
-                <Input
-                    label={t('llm.editor.name')}
-                    value={name}
-                    onChangeText={setName}
-                    placeholder={t('llm.editor.name.placeholder')}
-                />
-
-                {/* Base URL - only editable for certain providers */}
-                {providerInfo.urlEditable ? (
+                {/* ============ COMMON FIELDS (Always visible) ============ */}
+                {/* Provider Name - Hidden for ExecuTorch (only one allowed) */}
+                {provider !== 'executorch' && (
                     <Input
-                        label={t('llm.editor.baseUrl')}
-                        value={baseUrl}
-                        onChangeText={setBaseUrl}
-                        placeholder={provider === 'ollama' ? 'http://localhost:11434' : 'https://api.example.com/v1'}
-                        hint={t('llm.editor.baseUrl.hint')}
+                        label={t('llm.editor.name')}
+                        value={name}
+                        onChangeText={setName}
+                        placeholder={t('llm.editor.name.placeholder')}
                     />
-                ) : (
-                    <View style={styles.fixedField}>
-                        <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('llm.editor.baseUrl')}</Text>
-                        <Text style={[styles.fixedValue, { color: colors.textSecondary }]}>
-                            {baseUrl}
+                )}
+
+                {/* Streaming Support Toggle */}
+                <View style={[styles.toggleRow, { borderColor: colors.border }]}>
+                    <View style={styles.toggleInfo}>
+                        <Text style={[styles.toggleLabel, { color: colors.text }]}>
+                            {t('llm.editor.streaming') || 'Streaming Support'}
+                        </Text>
+                        <Text style={[styles.toggleHint, { color: colors.textMuted }]}>
+                            {streamingSupported
+                                ? (t('llm.editor.streaming.hint') || 'Enable real-time response streaming')
+                                : (t('llm.editor.streaming.unsupported') || 'Streaming not supported by this provider')
+                            }
                         </Text>
                     </View>
-                )}
-
-                {/* API Key - required for some providers */}
-                {providerInfo.apiKeyRequired && (
-                    <Input
-                        label={t('llm.editor.apiKey')}
-                        value={apiKey}
-                        onChangeText={setApiKey}
-                        placeholder="sk-..."
-                        secureTextEntry
-                        hint={t('llm.editor.apiKey.hint')}
+                    <Switch
+                        value={supportsStreaming && streamingSupported}
+                        onValueChange={setSupportsStreaming}
+                        disabled={!streamingSupported}
+                        trackColor={{ false: colors.border, true: colors.tint }}
+                        thumbColor="#FFFFFF"
                     />
-                )}
-
-                {/* Default Model - Dropdown if models are available */}
-                <View style={styles.modelSection}>
-                    <View style={styles.modelHeader}>
-                        <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('llm.editor.defaultModel')}</Text>
-                        {isLoadingModels && (
-                            <ActivityIndicator size="small" color={colors.tint} />
-                        )}
-                        {!isLoadingModels && baseUrl && (
-                            <TouchableOpacity onPress={fetchModels} style={styles.refreshButton}>
-                                <Ionicons name="refresh" size={16} color={colors.tint} />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {availableModels.length > 0 ? (
-                        <Dropdown
-                            value={defaultModel}
-                            options={modelOptions}
-                            onSelect={setDefaultModel}
-                            placeholder={t('llm.editor.model.select')}
-                        />
-                    ) : (
-                        <Input
-                            value={defaultModel}
-                            onChangeText={setDefaultModel}
-                            placeholder={provider === 'ollama' ? 'llama2' : 'gpt-4o'}
-                            hint={getModelHint()}
-                        />
-                    )}
                 </View>
 
-                {/* Test Connection */}
+                {/* ============ REMOTE PROVIDER FIELDS ============ */}
+                {!isLocal && (
+                    <>
+                        {/* Base URL */}
+                        {providerInfo.urlEditable ? (
+                            <Input
+                                label={t('llm.editor.baseUrl')}
+                                value={baseUrl}
+                                onChangeText={setBaseUrl}
+                                placeholder={provider === 'ollama' ? 'http://localhost:11434' : 'https://api.example.com/v1'}
+                                hint={t('llm.editor.baseUrl.hint')}
+                            />
+                        ) : (
+                            <View style={styles.fixedField}>
+                                <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('llm.editor.baseUrl')}</Text>
+                                <Text style={[styles.fixedValue, { color: colors.textSecondary }]}>
+                                    {baseUrl}
+                                </Text>
+                            </View>
+                        )}
+
+                        {/* API Key */}
+                        {providerInfo.apiKeyRequired && (
+                            <Input
+                                label={t('llm.editor.apiKey')}
+                                value={apiKey}
+                                onChangeText={setApiKey}
+                                placeholder="sk-..."
+                                secureTextEntry
+                                hint={t('llm.editor.apiKey.hint')}
+                            />
+                        )}
+
+                        {/* Default Model Selection */}
+                        <View style={styles.modelSection}>
+                            <View style={styles.modelHeader}>
+                                <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('llm.editor.defaultModel')}</Text>
+                                {isLoadingModels && (
+                                    <ActivityIndicator size="small" color={colors.tint} />
+                                )}
+                                {!isLoadingModels && baseUrl && (
+                                    <TouchableOpacity onPress={fetchModels} style={styles.refreshButton}>
+                                        <Ionicons name="refresh" size={16} color={colors.tint} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            {availableModels.length > 0 ? (
+                                <Dropdown
+                                    value={defaultModel}
+                                    options={modelOptions}
+                                    onSelect={setDefaultModel}
+                                    placeholder={t('llm.editor.model.select')}
+                                />
+                            ) : (
+                                <Input
+                                    value={defaultModel}
+                                    onChangeText={setDefaultModel}
+                                    placeholder={provider === 'ollama' ? 'llama2' : 'gpt-4o'}
+                                    hint={getModelHint()}
+                                />
+                            )}
+                        </View>
+                    </>
+                )}
+
+                {/* ============ LOCAL PROVIDER FIELDS ============ */}
+                {isLocal && (
+                    <View style={styles.localModelsSection}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                            {t('llm.editor.localModels') || 'Model Management'}
+                        </Text>
+
+                        {/* ExecuTorch: Show built-in model dropdown */}
+                        {provider === 'executorch' && (
+                            <>
+                                <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
+                                    {t('llm.editor.localModels.builtIn') || 'Select a pre-configured model to download and use'}
+                                </Text>
+
+                                {/* Built-in model selector */}
+                                <View style={styles.fieldContainer}>
+                                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
+                                        {t('llm.editor.model.select') || 'Select Model'}
+                                    </Text>
+                                    <Dropdown
+                                        value={defaultModel}
+                                        options={EXECUTORCH_MODELS.map(m => ({
+                                            label: `${m.name} (${m.sizeEstimate})`,
+                                            value: m.id,
+                                        }))}
+                                        onSelect={(modelId) => {
+                                            setDefaultModel(modelId);
+                                            const model = EXECUTORCH_MODELS.find(m => m.id === modelId);
+                                            if (model) {
+                                                setDefaultLocalModelId(modelId);
+                                            }
+                                        }}
+                                        placeholder={t('llm.editor.model.selectPlaceholder') || 'Choose a model...'}
+                                    />
+                                </View>
+
+                                {/* Show selected model info and download/load button */}
+                                {defaultModel && EXECUTORCH_MODELS.find(m => m.id === defaultModel) && (
+                                    <View style={[styles.modelInfoCard, { backgroundColor: colors.backgroundSecondary }]}>
+                                        <Text style={[styles.modelInfoName, { color: colors.text }]}>
+                                            {EXECUTORCH_MODELS.find(m => m.id === defaultModel)?.name}
+                                        </Text>
+                                        <Text style={[styles.modelInfoDesc, { color: colors.textMuted }]}>
+                                            {EXECUTORCH_MODELS.find(m => m.id === defaultModel)?.description}
+                                        </Text>
+
+                                        {/* Download/Load/Ready button */}
+                                        <View style={styles.loadButtonContainer}>
+                                            {/* Model loaded and ready */}
+                                            {selectedModelId === defaultModel && isLocalModelReady ? (
+                                                <>
+                                                    <Text style={[styles.readyText, { color: colors.tint }]}>
+                                                        ✓ {t('llm.editor.model.loaded') || 'Model loaded and ready'}
+                                                    </Text>
+                                                    <Button
+                                                        title={t('common.cancel') || 'Unload'}
+                                                        onPress={handleUnloadLocalModel}
+                                                        variant="secondary"
+                                                        icon="close-circle"
+                                                    />
+                                                </>
+                                            ) : isLoadingLocalModel && selectedModelId === defaultModel ? (
+                                                /* Currently loading/downloading */
+                                                <Button
+                                                    title={
+                                                        downloadProgress > 0 && downloadProgress < 100
+                                                            ? t('llm.editor.model.downloading', { progress: downloadProgress }) || `Downloading... ${downloadProgress}%`
+                                                            : t('llm.editor.model.loading') || 'Loading...'
+                                                    }
+                                                    onPress={() => { }}
+                                                    variant="secondary"
+                                                    loading={true}
+                                                    disabled={true}
+                                                />
+                                            ) : (
+                                                /* Not downloaded - show download button */
+                                                <Button
+                                                    title={t('llm.editor.model.download') || 'Download Model'}
+                                                    onPress={() => handleLoadLocalModel(defaultModel)}
+                                                    variant="primary"
+                                                    icon="download"
+                                                />
+                                            )}
+                                        </View>
+
+                                        {/* Show load error if any */}
+                                        {loadError && selectedModelId === defaultModel && (
+                                            <Text style={[styles.errorText, { color: colors.error }]}>
+                                                {loadError}
+                                            </Text>
+                                        )}
+                                    </View>
+                                )}
+                            </>
+                        )}
+
+                        {/* llama-rn: Keep file picker for GGUF files */}
+                        {provider === 'llama-rn' && (
+                            <>
+                                <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
+                                    {t('llm.editor.localModels.formatHint.llama-rn') || 'Supported format: .gguf'}
+                                </Text>
+
+                                {/* Add Model Button */}
+                                <LocalModelPicker
+                                    acceptedFormats={providerInfo.supportedFormats || []}
+                                    onModelSelected={handleAddLocalModel}
+                                />
+
+                                {/* Model List */}
+                                <LocalModelList
+                                    models={localModels}
+                                    defaultModelId={defaultLocalModelId}
+                                    loadedModelId={selectedModelId ?? undefined}
+                                    isLoadingModel={isLoadingLocalModel}
+                                    loadingModelId={selectedModelId || undefined}
+                                    loadError={loadError}
+                                    onSetDefault={handleSetDefaultLocalModel}
+                                    onDeleteModel={handleDeleteLocalModel}
+                                    onLoadModel={handleLoadLocalModel}
+                                    onUnloadModel={handleUnloadLocalModel}
+                                />
+                            </>
+                        )}
+                    </View>
+                )}
+
+                {/* ============ ACTION BUTTONS ============ */}
+                {/* Test Button */}
                 <View style={styles.testSection}>
                     <Button
                         title={isTesting ? t('llm.editor.testing') : t('llm.editor.test')}
                         onPress={handleTestConnection}
                         variant="secondary"
                         loading={isTesting}
-                        icon="wifi"
+                        icon={isLocal ? 'hardware-chip' : 'wifi'}
                         fullWidth
                     />
                 </View>
@@ -396,6 +746,26 @@ const styles = StyleSheet.create({
     providerDescription: {
         fontSize: FontSizes.sm,
     },
+    toggleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: Spacing.md,
+        marginBottom: Spacing.md,
+        borderBottomWidth: 1,
+    },
+    toggleInfo: {
+        flex: 1,
+        marginRight: Spacing.md,
+    },
+    toggleLabel: {
+        fontSize: FontSizes.md,
+        fontWeight: '500',
+    },
+    toggleHint: {
+        fontSize: FontSizes.sm,
+        marginTop: Spacing.xs,
+    },
     fixedField: {
         marginBottom: Spacing.md,
     },
@@ -420,11 +790,52 @@ const styles = StyleSheet.create({
     refreshButton: {
         padding: Spacing.xs,
     },
+    localModelsSection: {
+        marginBottom: Spacing.md,
+    },
+    sectionTitle: {
+        fontSize: FontSizes.md,
+        fontWeight: '600',
+        marginBottom: Spacing.xs,
+    },
+    sectionHint: {
+        fontSize: FontSizes.sm,
+        marginBottom: Spacing.md,
+    },
     testSection: {
         marginTop: Spacing.md,
     },
     saveSection: {
         marginTop: Spacing.lg,
         marginBottom: Spacing.xl,
+    },
+    fieldContainer: {
+        marginBottom: Spacing.md,
+    },
+    modelInfoCard: {
+        padding: Spacing.md,
+        borderRadius: BorderRadius.md,
+        marginTop: Spacing.md,
+    },
+    modelInfoName: {
+        fontSize: FontSizes.md,
+        fontWeight: '600',
+        marginBottom: Spacing.xs,
+    },
+    modelInfoDesc: {
+        fontSize: FontSizes.sm,
+        marginBottom: Spacing.md,
+    },
+    loadButtonContainer: {
+        marginTop: Spacing.sm,
+    },
+    readyText: {
+        fontSize: FontSizes.sm,
+        fontWeight: '600',
+        marginBottom: Spacing.sm,
+    },
+    errorText: {
+        fontSize: FontSizes.sm,
+        marginTop: Spacing.sm,
     },
 });

@@ -133,11 +133,42 @@ export const en: Record<string, string> = {
     "llm.editor.error.apiKey": "API key is required for this provider",
     "llm.editor.error.save": "Failed to save configuration",
     "llm.editor.error.test": "Connection test failed",
+    "llm.editor.error.noModels": "At least one model is required",
+
+    // Local Models
+    "llm.editor.localModels": "Model Management",
+    "llm.editor.localModels.builtIn": "Select a pre-configured model to download and use",
+    "llm.editor.localModels.formatHint.executorch": "Supported format: .pte",
+    "llm.editor.localModels.formatHint.llama-rn": "Supported format: .gguf",
+    "llm.editor.model.selectPlaceholder": "Choose a model...",
+    "llm.editor.model.download": "Download Model",
+    "llm.editor.model.downloading": "Downloading... {progress}%",
+    "llm.editor.model.loading": "Loading model...",
+    "llm.editor.model.loaded": "Model loaded",
+    "llm.editor.model.loadFailed": "Failed to load model",
+
+    // Streaming
+    "llm.editor.streaming": "Streaming Support",
+    "llm.editor.streaming.hint": "Enable real-time response streaming",
+    "llm.editor.streaming.unsupported": "Streaming not supported by this provider",
+
+    // Provider Type Change
+    "llm.editor.changeType.title": "Change Provider Type?",
+    "llm.editor.changeType.warning": "Changing provider type will remove incompatible settings.",
+
+    // Local Provider Testing
+    "llm.editor.test.local.success": "Local model validated successfully",
+    "llm.editor.test.local.failed": "Failed to validate local model",
+
+    // Common
+    "common.continue": "Continue",
 
     // Provider Types
     "provider.openai": "OpenAI",
     "provider.openai-spec": "OpenAI Compatible",
     "provider.ollama": "Ollama",
+    "provider.executorch": "ExecuTorch (Local)",
+    "provider.llama-rn": "llama.rn (Local)",
 
     // Chat Screen
     "chat.input.placeholder": "Type a message...",

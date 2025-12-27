@@ -89,9 +89,10 @@ export class LLMError extends Error {
 }
 
 /**
- * Main LLM Client Interface
+ * Remote LLM Provider Interface
+ * Used by API-based providers: OpenAI, Anthropic, Ollama, OpenRouter
  */
-export interface ILLMClient {
+export interface IRemoteProvider {
     sendMessage(request: LLMRequest): Promise<LLMResponse>;
     sendMessageStream(
         request: LLMRequest
@@ -99,3 +100,9 @@ export interface ILLMClient {
     fetchModels(llmConfig: LLMConfig): Promise<string[]>;
     testConnection(llmConfig: LLMConfig): Promise<boolean>;
 }
+
+/**
+ * Legacy alias for backward compatibility
+ * @deprecated Use IRemoteProvider instead
+ */
+export type ILLMClient = IRemoteProvider;

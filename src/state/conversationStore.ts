@@ -3,6 +3,7 @@ import { ChatMessage, LLMError, llmClientFactory } from '../core/llm';
 import { conversationRepository, messageRepository } from '../core/storage';
 import { Conversation, Message, generateId } from '../core/types';
 import { useLLMStore } from './llmStore';
+import { isLocalProvider, useLocalLLMStore } from './localLLMStore';
 import { usePersonaStore } from './personaStore';
 import { useSettingsStore } from './settingsStore';
 
@@ -106,6 +107,35 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         set({ currentConversationId: id });
         if (id && !get().messages[id]) {
             await get().loadMessages(id);
+        }
+
+        // If conversation uses a local provider, sync with currently loaded local model
+        if (id) {
+            const conversation = get().conversations.find((c) => c.id === id);
+            if (conversation) {
+                const llmConfig = useLLMStore.getState().getConfigById(conversation.activeLLMId);
+                if (llmConfig && isLocalProvider(llmConfig.provider)) {
+                    // Get currently loaded local model from localLLMStore
+                    const { selectedModelId, selectedModelName } = useLocalLLMStore.getState();
+                    if (selectedModelId && selectedModelName && conversation.activeModel !== selectedModelId) {
+                        console.log('[conversationStore] Syncing local model for conversation:', selectedModelId);
+                        // Update conversation to use the currently loaded local model
+                        try {
+                            const updated = await conversationRepository.update({
+                                ...conversation,
+                                activeModel: selectedModelId,
+                            });
+                            set((state) => ({
+                                conversations: state.conversations.map((c) =>
+                                    c.id === id ? updated : c
+                                ),
+                            }));
+                        } catch (error) {
+                            console.error('Failed to sync local model:', error);
+                        }
+                    }
+                }
+            }
         }
     },
 
@@ -280,6 +310,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 let fullContent = '';
                 let thinkingContent = '';
                 let firstChunkReceived = false;
+
+                console.log('[conversationStore] Calling sendMessageStream with', chatMessages.length, 'messages');
+
                 const stream = client.sendMessageStream({
                     llmConfig,
                     messages: chatMessages,

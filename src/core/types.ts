@@ -16,8 +16,34 @@ export const generateId = (): string => {
  * - openai: Official OpenAI API with fixed URL
  * - openai-spec: OpenAI-compatible API with custom URL (for LM Studio, etc.)
  * - ollama: Ollama local server
+ * - executorch: Local on-device AI with Meta ExecuTorch (.pte models)
+ * - llama-rn: Local on-device AI with llama.rn (.gguf models)
  */
-export type LLMProvider = 'openai' | 'openai-spec' | 'ollama';
+export type LLMProvider = 'openai' | 'openai-spec' | 'ollama' | 'executorch' | 'llama-rn';
+
+/**
+ * Supported local model file formats
+ */
+export type LocalModelFormat = 'pte' | 'gguf';
+
+/**
+ * Status of a local model
+ */
+export type LocalModelStatus = 'ready' | 'loading' | 'error';
+
+/**
+ * Local model configuration for on-device providers
+ */
+export interface LocalModel {
+    id: string;
+    name: string;
+    filePath: string;
+    fileSize: number;
+    format: LocalModelFormat;
+    status: LocalModelStatus;
+    errorMessage?: string;
+    addedAt: number;
+}
 
 /**
  * Configuration for an LLM provider instance.
@@ -30,6 +56,8 @@ export interface LLMConfig {
     apiKey?: string;
     defaultModel: string;
     headers?: Record<string, string>;
+    localModels?: LocalModel[];
+    supportsStreaming: boolean;
     isLocal: boolean;
     isEnabled: boolean;
     createdAt: number;

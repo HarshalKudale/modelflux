@@ -1,8 +1,23 @@
+import { Platform } from 'react-native';
 import { create } from 'zustand';
 import { PROVIDER_PRESETS } from '../config/providerPresets';
 import { llmClientFactory } from '../core/llm';
 import { llmConfigRepository } from '../core/storage';
 import { LLMConfig, LLMProvider, generateId } from '../core/types';
+
+// Default ExecuTorch config that's pre-installed on native platforms
+const DEFAULT_EXECUTORCH_CONFIG: LLMConfig = {
+    id: 'executorch-default',
+    name: 'ExecuTorch (Local)',
+    provider: 'executorch',
+    baseUrl: '',
+    defaultModel: '',
+    supportsStreaming: true,
+    isLocal: true,
+    isEnabled: true,
+    createdAt: 0,
+    updatedAt: 0,
+};
 
 interface LLMStoreState {
     configs: LLMConfig[];
@@ -43,7 +58,26 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
     loadConfigs: async () => {
         set({ isLoading: true, error: null });
         try {
-            const configs = await llmConfigRepository.findAll();
+            let configs = await llmConfigRepository.findAll();
+
+            // On native platforms, ensure ExecuTorch is always available as a default config
+            if (Platform.OS !== 'web') {
+                const hasExecuTorch = configs.some(c => c.provider === 'executorch');
+                if (!hasExecuTorch) {
+                    // Add default ExecuTorch config
+                    const now = Date.now();
+                    const execuTorchConfig = {
+                        ...DEFAULT_EXECUTORCH_CONFIG,
+                        createdAt: now,
+                        updatedAt: now,
+                    };
+                    // Save to repository so it persists
+                    await llmConfigRepository.create(execuTorchConfig);
+                    configs = [...configs, execuTorchConfig];
+                    console.log('[LLMStore] Added default ExecuTorch config');
+                }
+            }
+
             set({ configs, isLoading: false });
         } catch (error) {
             set({
@@ -84,6 +118,7 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
             baseUrl: preset.baseUrl || '',
             apiKey,
             defaultModel: preset.defaultModel || '',
+            supportsStreaming: preset.supportsStreaming ?? true,
             isLocal: preset.isLocal || false,
             isEnabled: true,
             createdAt: now,

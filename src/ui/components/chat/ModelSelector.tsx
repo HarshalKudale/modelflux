@@ -9,10 +9,11 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { EXECUTORCH_MODELS } from '../../../config/executorchModels';
 import { POPULAR_MODELS, PROVIDER_INFO } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
 import { LLMConfig } from '../../../core/types';
-import { useLLMStore } from '../../../state';
+import { isLocalProvider, useLLMStore, useLocalLLMStore } from '../../../state';
 import { useAppColorScheme } from '../../hooks';
 
 interface ModelSelectorProps {
@@ -28,12 +29,23 @@ export function ModelSelector({
 }: ModelSelectorProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedConfigId, setExpandedConfigId] = useState<string | null>(null);
+    const [isLocalSectionExpanded, setIsLocalSectionExpanded] = useState(false);
 
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const shadows = Shadows[colorScheme];
 
     const { configs, availableModels, fetchModels, isLoadingModels } = useLLMStore();
+    const {
+        selectedModelName,
+        selectedModelId,
+        isReady: isLocalModelReady,
+        isLoading: isLocalModelLoading,
+        downloadProgress,
+        selectModel
+    } = useLocalLLMStore();
+
+    // Show all enabled configs (including ExecuTorch which is now a real config)
     const enabledConfigs = configs.filter((c) => c.isEnabled);
 
     const selectedConfig = configs.find((c) => c.id === selectedLLMId);
@@ -43,8 +55,8 @@ export function ModelSelector({
             setExpandedConfigId(null);
         } else {
             setExpandedConfigId(config.id);
-            // Fetch models for any provider that we don't have models for yet
-            if (!availableModels[config.id]) {
+            // Fetch models for remote providers only
+            if (!isLocalProvider(config.provider) && !availableModels[config.id]) {
                 await fetchModels(config.id);
             }
         }
@@ -57,12 +69,28 @@ export function ModelSelector({
     };
 
     const getModelsForConfig = (config: LLMConfig): string[] => {
-        // Use fetched models if available
+        // For ExecuTorch, show all available local models
+        if (config.provider === 'executorch') {
+            return EXECUTORCH_MODELS.map(m => m.name);
+        }
+
+        // For remote providers - use fetched models if available
         if (availableModels[config.id] && availableModels[config.id].length > 0) {
             return availableModels[config.id];
         }
         // Fallback to popular models for the provider
         return POPULAR_MODELS[config.provider] || [];
+    };
+
+    // Handle selecting a local ExecuTorch model
+    const handleLocalModelSelect = (modelId: string, modelName: string) => {
+        // Select/load the model
+        selectModel(modelId, modelName);
+        // For now, close the selector - later we can keep it open to show loading progress
+        setIsOpen(false);
+        setIsLocalSectionExpanded(false);
+        // Use a special 'executorch' llmId to indicate local model
+        onSelect('executorch-local', modelName);
     };
 
     return (
@@ -115,6 +143,7 @@ export function ModelSelector({
                         </View>
 
                         <ScrollView style={styles.modalContent}>
+                            {/* Providers and Models */}
                             {enabledConfigs.length === 0 ? (
                                 <View style={styles.emptyState}>
                                     <Ionicons name="settings-outline" size={48} color={colors.textMuted} />
@@ -187,7 +216,9 @@ export function ModelSelector({
 
                                                         {getModelsForConfig(config).length === 0 && !isLoadingModels && (
                                                             <Text style={[styles.noModelsText, { color: colors.textMuted }]}>
-                                                                No models available. Check connection.
+                                                                {isLocalProvider(config.provider)
+                                                                    ? 'No model loaded. Go to Settings to download and load a model.'
+                                                                    : 'No models available. Check connection.'}
                                                             </Text>
                                                         )}
                                                     </>
@@ -339,5 +370,26 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
         padding: Spacing.sm,
         textAlign: 'center',
+    },
+    // Local model section styles
+    loadingBadge: {
+        fontSize: FontSizes.xs,
+        fontWeight: '600',
+        marginRight: Spacing.sm,
+    },
+    localModelInfo: {
+        flex: 1,
+    },
+    modelDescription: {
+        fontSize: FontSizes.xs,
+        marginTop: 2,
+    },
+    modelReadyBadge: {
+        marginLeft: Spacing.sm,
+    },
+    modelLoadingText: {
+        fontSize: FontSizes.xs,
+        fontWeight: '500',
+        marginLeft: Spacing.sm,
     },
 });

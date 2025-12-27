@@ -5,7 +5,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PROVIDER_INFO } from '../../config/providerPresets';
@@ -88,6 +88,8 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
         );
     };
 
+    // Local providers (executorch, llama-rn) are NOT listed here
+    // They are available directly in the model selector as built-in options
     const providerOptions: LLMProvider[] = ['openai', 'openai-spec', 'ollama'];
 
     return (

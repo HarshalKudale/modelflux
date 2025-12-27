@@ -1,9 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
-import { Colors } from '../../config/theme';
-import { useConversationStore, useLLMStore, usePersonaStore } from '../../state';
-import { ChatHeader, MessageInput, MessageList } from '../components/chat';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { EXECUTORCH_MODELS } from '../../config/executorchModels';
+import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../config/theme';
+import { isLocalProvider, useConversationStore, useLLMStore, useLocalLLMStore, usePersonaStore } from '../../state';
+import { ChatHeader, MessageInput, MessageList, ModelSettingsPanel } from '../components/chat';
 import { useAppColorScheme } from '../hooks';
 
 // Maximum width for chat content on web (similar to ChatGPT/Claude interfaces)
@@ -23,9 +25,12 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const [pendingThinkingEnabled, setPendingThinkingEnabled] = useState(false);
     // Provider connection status cache
     const [providerConnectionStatus, setProviderConnectionStatus] = useState<Record<string, boolean>>({});
+    // Settings modal visibility for existing conversations
+    const [showSettingsModal, setShowSettingsModal] = useState(false);
 
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
+    const shadows = Shadows[colorScheme];
 
     const {
         currentConversationId,
@@ -43,7 +48,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         createConversation,
     } = useConversationStore();
 
-    const { configs, availableModels, fetchModels, isLoadingModels, testConnection } = useLLMStore();
+    const { configs, availableModels, fetchModels, isLoadingModels, testConnection, getConfigById } = useLLMStore();
     const { personas, loadPersonas, getPersonaById } = usePersonaStore();
 
     // Load personas on mount
@@ -98,8 +103,44 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const enabledConfigs = configs.filter((c) => c.isEnabled);
     const hasNoLLM = enabledConfigs.length === 0;
 
+    // Get local model state from localLLMStore (must be before functions that use it)
+    const {
+        selectedModelName,
+        selectedModelId,
+        isReady: isLocalModelReady,
+        isLoading: isLocalModelLoading,
+        downloadProgress,
+        selectModel
+    } = useLocalLLMStore();
+
+    // Get selected provider (must be before functions that use it)
+    const selectedProvider = pendingProviderId ? getConfigById(pendingProviderId) : undefined;
+
     // Determine if this is a new conversation (no messages yet)
     const isNewConversation = currentMessages.length === 0;
+
+    // Sync pendingModel and pendingProviderId when switching to conversation with local provider
+    useEffect(() => {
+        if (!conversation) return;
+
+        // Get the LLM config for this conversation
+        const conversationProvider = conversation.activeLLMId
+            ? getConfigById(conversation.activeLLMId)
+            : null;
+
+        if (conversationProvider && isLocalProvider(conversationProvider.provider)) {
+            // For local providers, sync with currently loaded local model
+            if (selectedModelName && isLocalModelReady) {
+                // Sync pendingProviderId and pendingModel
+                if (pendingProviderId !== conversationProvider.id) {
+                    setPendingProviderId(conversationProvider.id);
+                }
+                if (pendingModel !== selectedModelName) {
+                    setPendingModel(selectedModelName);
+                }
+            }
+        }
+    }, [conversation?.id, conversation?.activeLLMId, selectedModelName, isLocalModelReady, getConfigById]);
 
     const handleSend = async () => {
         if (!inputValue.trim()) return;
@@ -140,6 +181,21 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
 
     const handleModelChange = (model: string | undefined) => {
         setPendingModel(model);
+
+        // If this is an ExecuTorch provider, trigger model loading
+        if (selectedProvider && isLocalProvider(selectedProvider.provider) && model) {
+            // Find the model in EXECUTORCH_MODELS to get its ID
+            const localModel = EXECUTORCH_MODELS.find(m => m.name === model);
+            if (localModel) {
+                // Check if this model is already loaded - skip if same model
+                if (selectedModelId === localModel.id && isLocalModelReady) {
+                    console.log('[ChatScreen] Model already loaded:', localModel.id);
+                    return;
+                }
+                console.log('[ChatScreen] Triggering local model load:', localModel.id, localModel.name);
+                selectModel(localModel.id, localModel.name);
+            }
+        }
     };
 
     const handlePersonaChange = (personaId: string | undefined) => {
@@ -152,8 +208,29 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         }
     };
 
-    // Input should be disabled only if no LLM is configured
-    const isInputDisabled = hasNoLLM;
+    // Check if existing conversation uses a local provider
+    const existingConversationProvider = conversation?.activeLLMId
+        ? getConfigById(conversation.activeLLMId)
+        : undefined;
+    const existingUsesLocalProvider = existingConversationProvider
+        ? isLocalProvider(existingConversationProvider.provider)
+        : false;
+
+    // For existing conversations with local provider, require explicit model selection
+    // The local model must be loaded and ready to use
+    const localProviderNeedsSelection = !isNewConversation && existingUsesLocalProvider && !isLocalModelReady;
+
+    // Input should be disabled if:
+    // 1. No LLM is configured
+    // 2. Local model is currently loading
+    // 3. Existing conversation uses local provider but model not ready (needs selection)
+    const isLocalModelLoading_needsLoad = selectedProvider && isLocalProvider(selectedProvider.provider) && !isLocalModelReady && isLocalModelLoading;
+    const isInputDisabled = hasNoLLM || !!isLocalModelLoading_needsLoad || localProviderNeedsSelection;
+
+    // Show loading banner for local model (for both new and existing conversations)
+    const isNewConversationLocalLoading = selectedProvider && isLocalProvider(selectedProvider.provider) && isLocalModelLoading;
+    const isExistingConversationLocalLoading = existingUsesLocalProvider && isLocalModelLoading;
+    const showLocalModelLoadingBanner = !!(isNewConversationLocalLoading || isExistingConversationLocalLoading);
 
     // Show processing indicator when sending message - this stays true until response completes
     // The MessageList will decide whether to show spinner or streaming content based on streamingContent
@@ -166,8 +243,22 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
             ? getPersonaById(pendingPersonaId)
             : null;
 
-    // Get available models for selected provider
-    const currentModels = pendingProviderId ? (availableModels[pendingProviderId] || []) : [];
+
+
+    const currentModels = (() => {
+        if (!pendingProviderId) return [];
+
+        // For local providers, show loaded model if ready
+        if (selectedProvider && isLocalProvider(selectedProvider.provider)) {
+            if (selectedModelName && isLocalModelReady) {
+                return [selectedModelName];
+            }
+            return []; // No model loaded yet
+        }
+
+        // For remote providers, use availableModels
+        return availableModels[pendingProviderId] || [];
+    })();
 
     return (
         <KeyboardAvoidingView
@@ -179,7 +270,23 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                 conversation={conversation}
                 onEditTitle={handleEditTitle}
                 onMenuPress={onMenuPress}
+                thinkingEnabled={isNewConversation ? pendingThinkingEnabled : (conversation?.thinkingEnabled ?? false)}
+                onThinkingChange={isNewConversation ? setPendingThinkingEnabled : setThinkingEnabled}
+                onSettingsPress={!isNewConversation ? () => setShowSettingsModal(true) : undefined}
+                showAlert={localProviderNeedsSelection}
             />
+
+            {/* Local Model Loading Banner */}
+            {showLocalModelLoadingBanner && (
+                <View style={[styles.loadingBanner, { backgroundColor: colors.tint + '15', borderColor: colors.tint }]}>
+                    <ActivityIndicator size="small" color={colors.tint} />
+                    <Text style={[styles.loadingBannerText, { color: colors.tint }]}>
+                        {downloadProgress > 0 && downloadProgress < 1
+                            ? `Downloading model: ${(downloadProgress * 100).toFixed(2)}%`
+                            : `Loading ${selectedModelName || 'model'}...`}
+                    </Text>
+                </View>
+            )}
 
             <View style={styles.contentWrapper}>
                 <View style={styles.contentContainer}>
@@ -219,19 +326,88 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         onStop={cancelStreaming}
                         isStreaming={isStreaming || isSendingMessage}
                         disabled={isInputDisabled}
-                        // Don't show model selector in input for new conversations
-                        selectedLLMId={isNewConversation ? '' : (conversation?.activeLLMId || '')}
-                        selectedModel={isNewConversation ? '' : (conversation?.activeModel || '')}
-                        onChangeModel={isNewConversation ? undefined : async (llmId, model) => {
-                            await setActiveLLM(llmId, model);
-                        }}
-                        // Thinking mode for existing conversations
-                        thinkingEnabled={isNewConversation ? pendingThinkingEnabled : (conversation?.thinkingEnabled || false)}
-                        onThinkingChange={isNewConversation ? undefined : setThinkingEnabled}
-                        showPersonaSelector={false}
                     />
                 </View>
             </View>
+            {/* Settings Modal for Existing Conversations */}
+            <Modal
+                visible={showSettingsModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowSettingsModal(false)}
+            >
+                <Pressable
+                    style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
+                >
+                    <View
+                        style={[styles.modalContent, { backgroundColor: colors.cardBackground }, shadows.lg]}
+                        onStartShouldSetResponder={() => true}
+                    >
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Conversation Settings</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    // Only allow closing if provider and model are selected
+                                    if (conversation?.activeLLMId && conversation?.activeModel) {
+                                        setShowSettingsModal(false);
+                                    }
+                                }}
+                                disabled={!conversation?.activeLLMId || !conversation?.activeModel}
+                                style={[
+                                    styles.modalCloseButton,
+                                    (!conversation?.activeLLMId || !conversation?.activeModel) && { opacity: 0.3 }
+                                ]}
+                            >
+                                <Ionicons name="close" size={24} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
+                        <ModelSettingsPanel
+                            providers={enabledConfigs}
+                            selectedProviderId={conversation?.activeLLMId}
+                            onProviderChange={async (id) => {
+                                if (id) {
+                                    // Clear model when provider changes - user must select new model
+                                    await setActiveLLM(id, '');
+                                    fetchModels(id);
+                                }
+                            }}
+                            providerConnectionStatus={providerConnectionStatus}
+                            onNavigateToProviders={() => {
+                                setShowSettingsModal(false);
+                                router.push('/llm-management');
+                            }}
+                            availableModels={conversation?.activeLLMId ? (availableModels[conversation.activeLLMId] || []) : []}
+                            isLoadingModels={isLoadingModels}
+                            // Show empty if model is empty string or if local provider needs selection
+                            selectedModel={(!conversation?.activeModel || localProviderNeedsSelection) ? undefined : conversation?.activeModel}
+                            onModelChange={async (model) => {
+                                if (model && conversation?.activeLLMId) {
+                                    await setActiveLLM(conversation.activeLLMId, model);
+
+                                    // If this is a local provider, trigger model loading immediately
+                                    if (existingUsesLocalProvider) {
+                                        const localModel = EXECUTORCH_MODELS.find(m => m.name === model);
+                                        if (localModel) {
+                                            console.log('[ChatScreen] Settings modal: Triggering local model load:', localModel.id, localModel.name);
+                                            selectModel(localModel.id, localModel.name);
+                                        }
+                                    }
+                                }
+                            }}
+                            personas={personas}
+                            selectedPersonaId={conversation?.personaId}
+                            onPersonaChange={async (_id: string | undefined) => {
+                                // Persona changes for existing conversations not yet supported
+                                // Could add setPersona to conversationStore if needed
+                            }}
+                            onNavigateToPersonas={() => {
+                                setShowSettingsModal(false);
+                                router.push('/persona-list');
+                            }}
+                        />
+                    </View>
+                </Pressable>
+            </Modal>
         </KeyboardAvoidingView>
     );
 }
@@ -248,5 +424,43 @@ const styles = StyleSheet.create({
         flex: 1,
         width: '100%',
         maxWidth: Platform.OS === 'web' ? MAX_CONTENT_WIDTH : undefined,
+    },
+    loadingBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.md,
+        borderBottomWidth: 1,
+        gap: Spacing.sm,
+    },
+    loadingBannerText: {
+        fontSize: FontSizes.sm,
+        fontWeight: '500',
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: Spacing.lg,
+    },
+    modalContent: {
+        width: '100%',
+        maxWidth: 400,
+        borderRadius: BorderRadius.lg,
+        padding: Spacing.lg,
+    },
+    modalTitle: {
+        fontSize: FontSizes.lg,
+        fontWeight: '600',
+        flex: 1,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: Spacing.md,
+    },
+    modalCloseButton: {
+        padding: Spacing.xs,
     },
 });

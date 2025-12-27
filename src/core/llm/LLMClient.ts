@@ -1,6 +1,9 @@
 import { LLMConfig, LLMProvider } from '../types';
-import { ollamaProvider, openAIProvider } from './providers';
+import { ExecuTorchProvider, ollamaProvider, openAIProvider } from './providers';
 import { ILLMClient } from './types';
+
+// Create a singleton instance of ExecuTorchProvider
+const execuTorchProvider = new ExecuTorchProvider();
 
 /**
  * Factory for creating provider-specific LLM clients
@@ -22,6 +25,13 @@ class LLMClientFactory implements ILLMClientFactory {
                 return this.getOrCreate('openai-spec', () => openAIProvider);
             case 'ollama':
                 return this.getOrCreate('ollama', () => ollamaProvider);
+            case 'executorch':
+                // Local on-device provider using ExecuTorch
+                return this.getOrCreate('executorch', () => execuTorchProvider);
+            case 'llama-rn':
+                // Local on-device provider using llama.rn
+                // For now, uses same provider as ExecuTorch (can be split later)
+                return this.getOrCreate('llama-rn', () => execuTorchProvider);
             default:
                 throw new Error(`Unknown provider: ${config.provider}`);
         }
@@ -39,3 +49,4 @@ class LLMClientFactory implements ILLMClientFactory {
 }
 
 export const llmClientFactory = new LLMClientFactory();
+

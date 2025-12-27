@@ -16,12 +16,20 @@ interface ChatHeaderProps {
     conversation: Conversation | null;
     onEditTitle: (title: string) => void;
     onMenuPress?: () => void;
+    thinkingEnabled?: boolean;
+    onThinkingChange?: (enabled: boolean) => void;
+    onSettingsPress?: () => void;
+    showAlert?: boolean; // Show warning icon instead of settings when local model needs selection
 }
 
 export function ChatHeader({
     conversation,
     onEditTitle,
     onMenuPress,
+    thinkingEnabled = false,
+    onThinkingChange,
+    onSettingsPress,
+    showAlert = false,
 }: ChatHeaderProps) {
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [editedTitle, setEditedTitle] = useState('');
@@ -93,7 +101,32 @@ export function ChatHeader({
                 )}
             </View>
 
-            <View style={styles.rightSection} />
+            <View style={styles.rightSection}>
+                {onThinkingChange && (
+                    <TouchableOpacity
+                        onPress={() => onThinkingChange(!thinkingEnabled)}
+                        style={[
+                            styles.thinkingButton,
+                            thinkingEnabled && { backgroundColor: colors.tint }
+                        ]}
+                    >
+                        <Ionicons
+                            name="bulb"
+                            size={20}
+                            color={thinkingEnabled ? '#FFFFFF' : colors.textMuted}
+                        />
+                    </TouchableOpacity>
+                )}
+                {onSettingsPress && (
+                    <TouchableOpacity onPress={onSettingsPress} style={styles.settingsButton}>
+                        <Ionicons
+                            name={showAlert ? 'alert-circle' : 'settings-outline'}
+                            size={22}
+                            color={showAlert ? colors.warning : colors.textMuted}
+                        />
+                    </TouchableOpacity>
+                )}
+            </View>
         </View>
     );
 }
@@ -150,7 +183,17 @@ const styles = StyleSheet.create({
         minWidth: 150,
     },
     rightSection: {
-        width: 48,
-        alignItems: 'flex-end',
+        width: 80,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: Spacing.xs,
+    },
+    thinkingButton: {
+        padding: Spacing.xs,
+        borderRadius: 16,
+    },
+    settingsButton: {
+        padding: Spacing.xs,
     },
 });

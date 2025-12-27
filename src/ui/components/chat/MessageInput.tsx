@@ -3,15 +3,12 @@ import { useState } from 'react';
 import {
     Platform,
     StyleSheet,
-    Text,
     TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
-import { useLLMStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
-import { ModelSelector } from './ModelSelector';
 
 interface MessageInputProps {
     value: string;
@@ -20,14 +17,6 @@ interface MessageInputProps {
     onStop: () => void;
     isStreaming: boolean;
     disabled: boolean;
-    selectedLLMId?: string;
-    selectedModel?: string;
-    onChangeModel?: (llmId: string, model: string) => void;
-    showPersonaSelector?: boolean;
-    currentPersonaName?: string;
-    onPersonaPress?: () => void;
-    thinkingEnabled?: boolean;
-    onThinkingChange?: (enabled: boolean) => void;
 }
 
 export function MessageInput({
@@ -37,22 +26,11 @@ export function MessageInput({
     onStop,
     isStreaming,
     disabled,
-    selectedLLMId = '',
-    selectedModel = '',
-    onChangeModel,
-    showPersonaSelector,
-    currentPersonaName,
-    onPersonaPress,
-    thinkingEnabled = false,
-    onThinkingChange,
 }: MessageInputProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const { t } = useLocale();
     const [inputHeight, setInputHeight] = useState(44);
-
-    const { configs } = useLLMStore();
-    const selectedConfig = configs.find((c) => c.id === selectedLLMId);
 
     const handleSend = () => {
         if (value.trim() && !disabled) {
@@ -74,46 +52,6 @@ export function MessageInput({
 
     return (
         <View style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
-            {/* Model selector row */}
-            {onChangeModel && (
-                <View style={styles.modelRow}>
-                    <ModelSelector
-                        selectedLLMId={selectedLLMId}
-                        selectedModel={selectedModel}
-                        onSelect={onChangeModel}
-                    />
-                    {/* Thinking toggle button */}
-                    {onThinkingChange && (
-                        <TouchableOpacity
-                            style={[
-                                styles.thinkingButton,
-                                {
-                                    backgroundColor: thinkingEnabled ? colors.tint : colors.backgroundTertiary,
-                                }
-                            ]}
-                            onPress={() => onThinkingChange(!thinkingEnabled)}
-                        >
-                            <Ionicons
-                                name="bulb"
-                                size={16}
-                                color={thinkingEnabled ? '#FFFFFF' : colors.textMuted}
-                            />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            )}
-
-            {/* Persona selector row */}
-            {showPersonaSelector && onPersonaPress && (
-                <TouchableOpacity style={styles.personaRow} onPress={onPersonaPress}>
-                    <Ionicons name="person-circle-outline" size={16} color={colors.tint} />
-                    <Text style={[styles.personaText, { color: colors.tint }]}>
-                        {currentPersonaName || t('chat.persona.select')}
-                    </Text>
-                    <Ionicons name="chevron-down" size={14} color={colors.tint} />
-                </TouchableOpacity>
-            )}
-
             {/* Input row */}
             <View
                 style={[
@@ -174,19 +112,6 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.sm,
         paddingBottom: Platform.OS === 'ios' ? Spacing.lg : Spacing.lg,
     },
-    modelRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: Spacing.xs,
-        gap: Spacing.sm,
-    },
-    thinkingButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'flex-end',
@@ -214,15 +139,5 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginLeft: Spacing.sm,
-    },
-    personaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: Spacing.xs,
-        gap: Spacing.xs,
-    },
-    personaText: {
-        fontSize: FontSizes.sm,
-        fontWeight: '500',
     },
 });
