@@ -129,7 +129,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                                         </Text>
                                     </View>
                                     <Text style={[styles.quickAddLabel, { color: colors.text }]}>
-                                        {info.displayName}
+                                        {t(`provider.${provider}`)}
                                     </Text>
                                 </TouchableOpacity>
                             );
@@ -149,7 +149,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                                 <ResourceCard
                                     key={config.id}
                                     title={config.name}
-                                    subtitle={info.displayName}
+                                    subtitle={t(`provider.${config.provider}`)}
                                     description={`${config.baseUrl}\nModel: ${config.defaultModel}`}
                                     icon={getProviderIcon(config)}
                                     iconColor={info.color}
@@ -157,7 +157,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                                     onPress={() => handleEdit(config)}
                                     onTest={() => handleTestConnection(config)}
                                     onSetDefault={() => handleSetDefault(config)}
-                                    onDelete={() => handleDelete(config)}
+                                    onDelete={config.id === 'executorch-default' ? undefined : () => handleDelete(config)}
                                 />
                             );
                         })}

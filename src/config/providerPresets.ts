@@ -2,16 +2,22 @@ import { LLMConfig, LLMProvider, LocalModelFormat } from '../core/types';
 
 /**
  * Provider display info type
+ * Note: displayName and description are localized using t(`provider.${provider}`) and t(`provider.${provider}.description`)
  */
 export interface ProviderDisplayInfo {
-    displayName: string;
-    description: string;
+    /** Icon name from Ionicons */
     icon: string;
+    /** Theme color for the provider */
     color: string;
+    /** Whether the URL can be edited by user */
     urlEditable: boolean;
+    /** Whether API key is required */
     apiKeyRequired: boolean;
+    /** Whether this is a local on-device provider */
     isLocal: boolean;
+    /** Supported model file formats for local providers */
     supportedFormats?: LocalModelFormat[];
+    /** Whether streaming is supported */
     supportsStreaming: boolean;
 }
 
@@ -84,11 +90,11 @@ export const POPULAR_MODELS: Record<LLMProvider, string[]> = {
 
 /**
  * Provider display info
+ * Note: For localized displayName use t(`provider.${provider}`)
+ * Note: For localized description use t(`provider.${provider}.description`)
  */
 export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
     openai: {
-        displayName: 'OpenAI',
-        description: 'Official OpenAI API (GPT-4, etc.)',
         icon: 'logo-openai',
         color: '#10a37f',
         urlEditable: false,
@@ -97,8 +103,6 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         supportsStreaming: true,
     },
     'openai-spec': {
-        displayName: 'OpenAI Compatible',
-        description: 'OpenAI-compatible API (LM Studio, etc.)',
         icon: 'server',
         color: '#8b5cf6',
         urlEditable: true,
@@ -107,8 +111,6 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         supportsStreaming: true,
     },
     ollama: {
-        displayName: 'Ollama',
-        description: 'Local Ollama server',
         icon: 'hardware-chip',
         color: '#6366f1',
         urlEditable: true,
@@ -117,8 +119,6 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         supportsStreaming: true,
     },
     executorch: {
-        displayName: 'ExecuTorch',
-        description: 'On-device AI with Meta ExecuTorch (.pte models)',
         icon: 'phone-portrait',
         color: '#0668E1',
         urlEditable: false,
@@ -128,8 +128,6 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         supportsStreaming: false,
     },
     'llama-rn': {
-        displayName: 'llama.rn',
-        description: 'Run GGUF models locally with llama.rn',
         icon: 'hardware-chip',
         color: '#FF6B35',
         urlEditable: false,

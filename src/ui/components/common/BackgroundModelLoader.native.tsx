@@ -9,6 +9,7 @@
 import { useEffect, useRef } from 'react';
 import { LLMModule } from 'react-native-executorch';
 import { EXECUTORCH_MODELS } from '../../../config/executorchModels';
+import { useLLMStore } from '../../../state/llmStore';
 import { useLocalLLMStore } from '../../../state/localLLMStore';
 
 export function BackgroundModelLoader() {
@@ -109,6 +110,32 @@ export function BackgroundModelLoader() {
                 );
 
                 console.log('[BackgroundModelLoader] Model loaded successfully');
+
+                // Apply generation config from ExecuTorch provider configuration
+                const executorchConfig = useLLMStore.getState().getConfigById('executorch-default');
+                if (executorchConfig?.executorchConfig) {
+                    const genConfig = executorchConfig.executorchConfig;
+                    console.log('[BackgroundModelLoader] Applying generation config:', genConfig);
+
+                    // Build generationConfig object with only defined values
+                    const generationConfig: {
+                        temperature?: number;
+                        topp?: number;
+                        outputTokenBatchSize?: number;
+                        batchTimeInterval?: number;
+                    } = {};
+
+                    if (genConfig.temperature !== undefined) generationConfig.temperature = genConfig.temperature;
+                    if (genConfig.topp !== undefined) generationConfig.topp = genConfig.topp;
+                    if (genConfig.outputTokenBatchSize !== undefined) generationConfig.outputTokenBatchSize = genConfig.outputTokenBatchSize;
+                    if (genConfig.batchTimeInterval !== undefined) generationConfig.batchTimeInterval = genConfig.batchTimeInterval;
+
+                    if (Object.keys(generationConfig).length > 0) {
+                        llmModule.configure({ generationConfig });
+                        console.log('[BackgroundModelLoader] Generation config applied');
+                    }
+                }
+
                 moduleRef.current = llmModule;
                 loadedModelIdRef.current = selectedModelId;
                 setLLMModule(llmModule);

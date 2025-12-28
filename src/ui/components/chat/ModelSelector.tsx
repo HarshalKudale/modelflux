@@ -14,7 +14,7 @@ import { POPULAR_MODELS, PROVIDER_INFO } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
 import { LLMConfig } from '../../../core/types';
 import { isLocalProvider, useLLMStore, useLocalLLMStore } from '../../../state';
-import { useAppColorScheme } from '../../hooks';
+import { useAppColorScheme, useLocale } from '../../hooks';
 
 interface ModelSelectorProps {
     selectedLLMId: string;
@@ -34,6 +34,7 @@ export function ModelSelector({
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const shadows = Shadows[colorScheme];
+    const { t } = useLocale();
 
     const { configs, availableModels, fetchModels, isLoadingModels } = useLLMStore();
     const {
@@ -135,7 +136,7 @@ export function ModelSelector({
                     >
                         <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                             <Text style={[styles.modalTitle, { color: colors.text }]}>
-                                Select Model
+                                {t('chat.modelSelector.title')}
                             </Text>
                             <TouchableOpacity onPress={() => setIsOpen(false)}>
                                 <Ionicons name="close" size={24} color={colors.textMuted} />
@@ -148,7 +149,7 @@ export function ModelSelector({
                                 <View style={styles.emptyState}>
                                     <Ionicons name="settings-outline" size={48} color={colors.textMuted} />
                                     <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                                        No LLM providers configured.{'\n'}Add one in Settings.
+                                        {t('chat.modelSelector.empty')}
                                     </Text>
                                 </View>
                             ) : (
@@ -176,7 +177,7 @@ export function ModelSelector({
                                                     {config.name}
                                                 </Text>
                                                 <Text style={[styles.configProvider, { color: colors.textMuted }]}>
-                                                    {PROVIDER_INFO[config.provider]?.displayName}
+                                                    {t(`provider.${config.provider}`)}
                                                 </Text>
                                             </View>
                                             <Ionicons
@@ -190,7 +191,7 @@ export function ModelSelector({
                                             <View style={[styles.modelList, { backgroundColor: colors.backgroundSecondary }]}>
                                                 {isLoadingModels ? (
                                                     <Text style={[styles.loadingText, { color: colors.textMuted }]}>
-                                                        Loading models...
+                                                        {t('chat.settings.model.loading')}
                                                     </Text>
                                                 ) : (
                                                     <>
@@ -217,8 +218,8 @@ export function ModelSelector({
                                                         {getModelsForConfig(config).length === 0 && !isLoadingModels && (
                                                             <Text style={[styles.noModelsText, { color: colors.textMuted }]}>
                                                                 {isLocalProvider(config.provider)
-                                                                    ? 'No model loaded. Go to Settings to download and load a model.'
-                                                                    : 'No models available. Check connection.'}
+                                                                    ? t('chat.modelSelector.noModels.local')
+                                                                    : t('chat.modelSelector.noModels.remote')}
                                                             </Text>
                                                         )}
                                                     </>

@@ -22,6 +22,7 @@ import { useAppColorScheme, useLocale } from '../hooks';
 type ScreenType =
     | 'llm-management'
     | 'llm-editor'
+    | 'model-list'
     | 'persona-list'
     | 'persona-editor'
     | 'mcp-list'
@@ -200,6 +201,22 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                             </Text>
                             <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
                                 {t('settings.providers.count', { count: configs.length })}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
+
+                    {/* Models → Navigate to list */}
+                    <TouchableOpacity
+                        style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
+                        onPress={() => onNavigate('model-list')}
+                    >
+                        <View style={styles.settingInfo}>
+                            <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                {t('settings.models.title')}
+                            </Text>
+                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                {t('settings.models.description')}
                             </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />

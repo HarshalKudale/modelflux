@@ -10,10 +10,16 @@ export const en: Record<string, string> = {
     "common.cancel": "Cancel",
     "common.delete": "Delete",
     "common.save": "Save",
+    "common.edit": "Edit",
+    "common.test": "Test",
     "common.error": "Error",
     "common.success": "Success",
     "common.loading": "Loading...",
     "common.version": "Version",
+    "common.local": "Local",
+    "common.model": "Model",
+    "common.connected": "Connected",
+    "common.failed": "Failed",
 
     // Settings Screen
     "settings.title": "Settings",
@@ -147,6 +153,9 @@ export const en: Record<string, string> = {
     "llm.editor.model.loaded": "Model loaded",
     "llm.editor.model.loadFailed": "Failed to load model",
 
+    // ExecuTorch Provider
+    "llm.editor.executorch.hint": "Models are selected in chat. Configure generation settings below.",
+
     // Streaming
     "llm.editor.streaming": "Streaming Support",
     "llm.editor.streaming.hint": "Enable real-time response streaming",
@@ -160,15 +169,34 @@ export const en: Record<string, string> = {
     "llm.editor.test.local.success": "Local model validated successfully",
     "llm.editor.test.local.failed": "Failed to validate local model",
 
+    // ExecuTorch Generation Config
+    "llm.editor.generationConfig.title": "Generation Config",
+    "llm.editor.generationConfig.hint": "These settings are applied when loading the model",
+    "llm.editor.generationConfig.temperature": "Temperature",
+    "llm.editor.generationConfig.temperatureHint": "Controls randomness (0.0-2.0)",
+    "llm.editor.generationConfig.topp": "Top-P",
+    "llm.editor.generationConfig.toppHint": "Nucleus sampling threshold (0.0-1.0)",
+    "llm.editor.generationConfig.batchSize": "Token Batch Size",
+    "llm.editor.generationConfig.batchSizeHint": "Soft upper limit on tokens per batch",
+    "llm.editor.generationConfig.batchInterval": "Batch Interval (ms)",
+    "llm.editor.generationConfig.batchIntervalHint": "Time between consecutive token batches",
+
     // Common
     "common.continue": "Continue",
 
-    // Provider Types
+    // Provider Types - Display Names
     "provider.openai": "OpenAI",
     "provider.openai-spec": "OpenAI Compatible",
     "provider.ollama": "Ollama",
     "provider.executorch": "ExecuTorch (Local)",
     "provider.llama-rn": "llama.rn (Local)",
+
+    // Provider Types - Descriptions
+    "provider.openai.description": "Official OpenAI API (GPT-4, etc.)",
+    "provider.openai-spec.description": "OpenAI-compatible API (LM Studio, etc.)",
+    "provider.ollama.description": "Local Ollama server",
+    "provider.executorch.description": "On-device AI with Meta ExecuTorch (.pte models)",
+    "provider.llama-rn.description": "Run GGUF models locally with llama.rn",
 
     // Chat Screen
     "chat.input.placeholder": "Type a message...",
@@ -179,9 +207,51 @@ export const en: Record<string, string> = {
     "chat.persona.empty": "No personas created yet. Create one in Settings.",
     "chat.persona.current": "Persona: {name}",
 
+    // Model Settings Panel
+    "chat.settings.provider": "Provider",
+    "chat.settings.provider.select": "Select Provider",
+    "chat.settings.provider.empty": "No providers configured. Add one in Settings.",
+    "chat.settings.model": "Model",
+    "chat.settings.model.select": "Select Model",
+    "chat.settings.model.loading": "Loading models...",
+    "chat.settings.model.empty": "No models available. Check provider connection.",
+    "chat.settings.persona": "Persona",
+    "chat.settings.persona.none": "No Persona",
+    "chat.settings.persona.noneDesc": "Use default assistant behavior",
+    "chat.settings.persona.empty": "No personas created yet.",
+
+    // Model Selector
+    "chat.modelSelector.title": "Select Model",
+    "chat.modelSelector.empty": "No LLM providers configured.\nAdd one in Settings.",
+    "chat.modelSelector.noModels.local": "No model loaded. Go to Settings to download and load a model.",
+    "chat.modelSelector.noModels.remote": "No models available. Check connection.",
+
     // Sidebar
     "sidebar.newChat": "New Chat",
 
     // Alerts
     "alert.error.default": "An error occurred",
+
+    // Models Screen (Settings -> Models)
+    "settings.models.title": "Models",
+    "settings.models.description": "Download and manage AI models",
+    "models.title": "Models",
+    "models.search.placeholder": "Search models...",
+    "models.filter.all": "All",
+    "models.filter.downloading": "Downloading",
+    "models.filter.downloaded": "Downloaded",
+    "models.tag.executorch": "ExecuTorch",
+    "models.download.start": "Download",
+    "models.download.cancel": "Cancel Download",
+    "models.download.complete": "Downloaded",
+    "models.download.progress": "Downloading... {progress}%",
+    "models.download.failed": "Download failed",
+    "models.notification.title": "Downloading Model",
+    "models.notification.complete": "Download Complete",
+    "models.notification.failed": "Download Failed",
+    "models.notification.cancelled": "Download Cancelled",
+    "models.notification.permission": "Notification permission required for background downloads",
+    "models.empty": "No models available",
+    "models.empty.search": "No models match your search",
+    "models.web.unsupported": "Model downloads are not supported on web. Use the mobile app.",
 };

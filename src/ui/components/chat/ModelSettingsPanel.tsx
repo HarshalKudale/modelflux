@@ -11,7 +11,7 @@ import { EXECUTORCH_MODELS } from '../../../config/executorchModels';
 import { PROVIDER_INFO } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
 import { LLMConfig, Persona } from '../../../core/types';
-import { useAppColorScheme } from '../../hooks';
+import { useAppColorScheme, useLocale } from '../../hooks';
 import { SelectionModal, SelectionOption } from '../common';
 
 interface ModelSettingsPanelProps {
@@ -52,6 +52,7 @@ export function ModelSettingsPanel({
 }: ModelSettingsPanelProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
+    const { t } = useLocale();
 
     // Modal visibility states
     const [showProviderModal, setShowProviderModal] = useState(false);
@@ -67,7 +68,7 @@ export function ModelSettingsPanel({
         .map(provider => ({
             id: provider.id,
             label: provider.name,
-            subtitle: PROVIDER_INFO[provider.provider]?.displayName || provider.provider,
+            subtitle: t(`provider.${provider.provider}`),
             icon: (
                 <Text style={{ color: '#FFFFFF', fontSize: FontSizes.sm, fontWeight: '700' }}>
                     {provider.provider.charAt(0).toUpperCase()}
@@ -102,17 +103,17 @@ export function ModelSettingsPanel({
     }));
 
     // Get display names
-    const selectedProviderName = selectedProvider?.name || 'Select Provider';
-    const selectedModelName = selectedModel || 'Select Model';
+    const selectedProviderName = selectedProvider?.name || t('chat.settings.provider.select');
+    const selectedModelName = selectedModel || t('chat.settings.model.select');
     const selectedPersona = personas.find(p => p.id === selectedPersonaId);
-    const selectedPersonaName = selectedPersona?.name || 'No Persona';
+    const selectedPersonaName = selectedPersona?.name || t('chat.settings.persona.none');
 
     return (
         <View style={styles.container}>
             {/* Provider Dropdown */}
             <View style={styles.dropdownSection}>
                 <Text style={[styles.dropdownLabel, { color: colors.textMuted }]}>
-                    Provider
+                    {t('chat.settings.provider')}
                 </Text>
                 <TouchableOpacity
                     style={[styles.dropdownButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
@@ -141,7 +142,7 @@ export function ModelSettingsPanel({
             {/* Model Dropdown */}
             <View style={styles.dropdownSection}>
                 <Text style={[styles.dropdownLabel, { color: colors.textMuted }]}>
-                    Model
+                    {t('chat.settings.model')}
                 </Text>
                 <TouchableOpacity
                     style={[
@@ -159,7 +160,7 @@ export function ModelSettingsPanel({
                         <ActivityIndicator size="small" color={colors.tint} style={{ marginRight: Spacing.sm }} />
                     ) : null}
                     <Text style={[styles.dropdownText, { color: selectedModel ? colors.text : colors.textMuted }]} numberOfLines={1}>
-                        {isLoadingModels ? 'Loading models...' : selectedModelName}
+                        {isLoadingModels ? t('chat.settings.model.loading') : selectedModelName}
                     </Text>
                     <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
@@ -168,7 +169,7 @@ export function ModelSettingsPanel({
             {/* Persona Dropdown */}
             <View style={styles.dropdownSection}>
                 <Text style={[styles.dropdownLabel, { color: colors.textMuted }]}>
-                    Persona
+                    {t('chat.settings.persona')}
                 </Text>
                 <TouchableOpacity
                     style={[styles.dropdownButton, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}
@@ -185,7 +186,7 @@ export function ModelSettingsPanel({
             {/* Selection Modals */}
             <SelectionModal
                 visible={showProviderModal}
-                title="Select Provider"
+                title={t('chat.settings.provider.select')}
                 options={providerOptions}
                 selectedId={selectedProviderId}
                 onSelect={(id) => onProviderChange(id)}
@@ -194,22 +195,22 @@ export function ModelSettingsPanel({
                     setShowProviderModal(false);
                     onNavigateToProviders?.();
                 }}
-                emptyMessage="No providers configured. Add one in Settings."
+                emptyMessage={t('chat.settings.provider.empty')}
             />
 
             <SelectionModal
                 visible={showModelModal}
-                title="Select Model"
+                title={t('chat.settings.model.select')}
                 options={modelOptions}
                 selectedId={selectedModel}
                 onSelect={(id) => onModelChange(id)}
                 onClose={() => setShowModelModal(false)}
-                emptyMessage={isLoadingModels ? 'Loading models...' : 'No models available. Check provider connection.'}
+                emptyMessage={isLoadingModels ? t('chat.settings.model.loading') : t('chat.settings.model.empty')}
             />
 
             <SelectionModal
                 visible={showPersonaModal}
-                title="Select Persona"
+                title={t('chat.persona.select')}
                 options={personaOptions}
                 selectedId={selectedPersonaId}
                 onSelect={(id) => onPersonaChange(id)}
@@ -219,9 +220,9 @@ export function ModelSettingsPanel({
                     onNavigateToPersonas?.();
                 }}
                 showNoneOption={true}
-                noneOptionLabel="No Persona"
-                noneOptionSubtitle="Use default assistant behavior"
-                emptyMessage="No personas created yet."
+                noneOptionLabel={t('chat.settings.persona.none')}
+                noneOptionSubtitle={t('chat.settings.persona.noneDesc')}
+                emptyMessage={t('chat.settings.persona.empty')}
             />
         </View>
     );

@@ -32,6 +32,21 @@ export type LocalModelFormat = 'pte' | 'gguf';
 export type LocalModelStatus = 'ready' | 'loading' | 'error';
 
 /**
+ * ExecuTorch generation configuration
+ * Settings used when generating text with ExecuTorch models
+ */
+export interface ExecutorChGenerationConfig {
+    /** Soft upper limit on the number of tokens in each token batch */
+    outputTokenBatchSize?: number;
+    /** Upper limit on the time interval between consecutive token batches (ms) */
+    batchTimeInterval?: number;
+    /** Scales output logits by inverse of temperature. Controls randomness/creativity (0.0-2.0) */
+    temperature?: number;
+    /** Top-P sampling: only samples from smallest set of tokens whose cumulative probability exceeds topp (0.0-1.0) */
+    topp?: number;
+}
+
+/**
  * Local model configuration for on-device providers
  */
 export interface LocalModel {
@@ -57,6 +72,7 @@ export interface LLMConfig {
     defaultModel: string;
     headers?: Record<string, string>;
     localModels?: LocalModel[];
+    executorchConfig?: ExecutorChGenerationConfig;
     supportsStreaming: boolean;
     isLocal: boolean;
     isEnabled: boolean;
@@ -187,6 +203,37 @@ export interface ExportedData {
     }>;
     llmConfigs: Array<Omit<LLMConfig, 'apiKey'>>;
     personas?: Persona[];
+}
+
+/**
+ * Tag for categorizing models
+ */
+export type ModelTag = 'executorch' | 'llama-rn' | 'custom';
+
+/**
+ * Download status for models
+ */
+export type ModelDownloadStatus = 'pending' | 'downloading' | 'completed' | 'failed' | 'cancelled';
+
+/**
+ * Downloaded model with storage details
+ */
+export interface DownloadedModel {
+    id: string;                      // Unique identifier
+    modelId: string;                 // Reference to source model (e.g., ExecutorchModel id)
+    name: string;
+    description: string;
+    tags: ModelTag[];                // Tags like ['executorch']
+    localPath: string;               // Local file system path to model folder
+    modelFilePath: string;           // Path to .pte file
+    tokenizerFilePath: string;       // Path to tokenizer file
+    tokenizerConfigFilePath: string; // Path to tokenizer config
+    sizeEstimate: string;            // Human readable size
+    downloadedSize: number;          // Actual bytes downloaded
+    status: ModelDownloadStatus;
+    progress: number;                // 0-100
+    downloadedAt: number;            // Timestamp
+    errorMessage?: string;
 }
 
 /**

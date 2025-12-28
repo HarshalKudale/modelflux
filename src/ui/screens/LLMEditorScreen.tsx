@@ -4,17 +4,16 @@ import {
     ActivityIndicator,
     ScrollView,
     StyleSheet,
-    Switch,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EXECUTORCH_MODELS } from '../../config/executorchModels';
 import { PROVIDER_INFO, PROVIDER_PRESETS } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { llmClientFactory } from '../../core/llm';
-import { LLMConfig, LLMProvider, LocalModel } from '../../core/types';
+import { ExecutorChGenerationConfig, LLMConfig, LLMProvider, LocalModel } from '../../core/types';
 import { useLLMStore, useLocalLLMStore, useSettingsStore } from '../../state';
 import { showConfirm, showError, showInfo } from '../../utils/alert';
 import { Button, Dropdown, Input, LocalModelList, LocalModelPicker } from '../components/common';
@@ -70,6 +69,12 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
     const [localModels, setLocalModels] = useState<LocalModel[]>([]);
     const [defaultLocalModelId, setDefaultLocalModelId] = useState<string | undefined>(undefined);
 
+    // Form state - ExecuTorch generation config
+    const [genConfigTemperature, setGenConfigTemperature] = useState<string>('');
+    const [genConfigTopp, setGenConfigTopp] = useState<string>('');
+    const [genConfigBatchSize, setGenConfigBatchSize] = useState<string>('');
+    const [genConfigBatchInterval, setGenConfigBatchInterval] = useState<string>('');
+
     // UI state
     const [isTesting, setIsTesting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -98,6 +103,13 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                     m => m.name === existingConfig.defaultModel
                 );
                 setDefaultLocalModelId(defaultLocalModel?.id);
+            }
+            // Initialize ExecuTorch generation config
+            if (existingConfig.executorchConfig) {
+                setGenConfigTemperature(existingConfig.executorchConfig.temperature?.toString() || '');
+                setGenConfigTopp(existingConfig.executorchConfig.topp?.toString() || '');
+                setGenConfigBatchSize(existingConfig.executorchConfig.outputTokenBatchSize?.toString() || '');
+                setGenConfigBatchInterval(existingConfig.executorchConfig.batchTimeInterval?.toString() || '');
             }
         } else if (presetProvider) {
             const preset = PROVIDER_PRESETS[presetProvider];
@@ -334,11 +346,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         if (isLocal) {
             // Local provider validation
             if (provider === 'executorch') {
-                // ExecuTorch: just need a model selected
-                if (!defaultModel) {
-                    showError(t('common.error'), t('llm.editor.error.model') || 'Please select a model');
-                    return;
-                }
+                // ExecuTorch: no validation needed - model is selected in chat, not in provider settings
             } else {
                 // llama-rn: needs custom models added
                 if (localModels.length === 0) {
@@ -372,6 +380,24 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             // For ExecuTorch, use fixed name since only one provider allowed
             const providerName = provider === 'executorch' ? 'ExecuTorch' : name.trim();
 
+            // Build ExecuTorch generation config if any values are set
+            let executorchConfig: ExecutorChGenerationConfig | undefined = undefined;
+            if (provider === 'executorch') {
+                const temp = parseFloat(genConfigTemperature);
+                const topp = parseFloat(genConfigTopp);
+                const batchSize = parseInt(genConfigBatchSize, 10);
+                const batchInterval = parseInt(genConfigBatchInterval, 10);
+
+                if (!isNaN(temp) || !isNaN(topp) || !isNaN(batchSize) || !isNaN(batchInterval)) {
+                    executorchConfig = {
+                        temperature: !isNaN(temp) ? temp : undefined,
+                        topp: !isNaN(topp) ? topp : undefined,
+                        outputTokenBatchSize: !isNaN(batchSize) ? batchSize : undefined,
+                        batchTimeInterval: !isNaN(batchInterval) ? batchInterval : undefined,
+                    };
+                }
+            }
+
             const configData = {
                 name: providerName,
                 provider,
@@ -379,6 +405,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 apiKey: isLocal ? undefined : (apiKey.trim() || undefined),
                 defaultModel: defaultModel.trim(),
                 localModels: isLocal && provider !== 'executorch' ? localModels : undefined,
+                executorchConfig,
                 supportsStreaming,
                 isLocal,
                 isEnabled: existingConfig?.isEnabled ?? true,
@@ -453,7 +480,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 {/* Provider Description */}
                 <View style={[styles.providerInfo, { backgroundColor: colors.backgroundSecondary }]}>
                     <Text style={[styles.providerDescription, { color: colors.textSecondary }]}>
-                        {providerInfo.description}
+                        {t(`provider.${provider}.description`)}
                     </Text>
                 </View>
 
@@ -467,28 +494,6 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                         placeholder={t('llm.editor.name.placeholder')}
                     />
                 )}
-
-                {/* Streaming Support Toggle */}
-                <View style={[styles.toggleRow, { borderColor: colors.border }]}>
-                    <View style={styles.toggleInfo}>
-                        <Text style={[styles.toggleLabel, { color: colors.text }]}>
-                            {t('llm.editor.streaming') || 'Streaming Support'}
-                        </Text>
-                        <Text style={[styles.toggleHint, { color: colors.textMuted }]}>
-                            {streamingSupported
-                                ? (t('llm.editor.streaming.hint') || 'Enable real-time response streaming')
-                                : (t('llm.editor.streaming.unsupported') || 'Streaming not supported by this provider')
-                            }
-                        </Text>
-                    </View>
-                    <Switch
-                        value={supportsStreaming && streamingSupported}
-                        onValueChange={setSupportsStreaming}
-                        disabled={!streamingSupported}
-                        trackColor={{ false: colors.border, true: colors.tint }}
-                        thumbColor="#FFFFFF"
-                    />
-                </View>
 
                 {/* ============ REMOTE PROVIDER FIELDS ============ */}
                 {!isLocal && (
@@ -563,92 +568,58 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                             {t('llm.editor.localModels') || 'Model Management'}
                         </Text>
 
-                        {/* ExecuTorch: Show built-in model dropdown */}
+                        {/* ExecuTorch: Show generation config only (model selection is done in chat) */}
                         {provider === 'executorch' && (
                             <>
                                 <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                                    {t('llm.editor.localModels.builtIn') || 'Select a pre-configured model to download and use'}
+                                    {t('llm.editor.executorch.hint') || 'Models are selected in chat. Configure generation settings below.'}
                                 </Text>
 
-                                {/* Built-in model selector */}
-                                <View style={styles.fieldContainer}>
-                                    <Text style={[styles.fieldLabel, { color: colors.text }]}>
-                                        {t('llm.editor.model.select') || 'Select Model'}
+                                {/* Generation Config Section */}
+                                <View style={[styles.genConfigSection, { borderColor: colors.border }]}>
+                                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                                        {t('llm.editor.generationConfig.title') || 'Generation Config'}
                                     </Text>
-                                    <Dropdown
-                                        value={defaultModel}
-                                        options={EXECUTORCH_MODELS.map(m => ({
-                                            label: `${m.name} (${m.sizeEstimate})`,
-                                            value: m.id,
-                                        }))}
-                                        onSelect={(modelId) => {
-                                            setDefaultModel(modelId);
-                                            const model = EXECUTORCH_MODELS.find(m => m.id === modelId);
-                                            if (model) {
-                                                setDefaultLocalModelId(modelId);
-                                            }
-                                        }}
-                                        placeholder={t('llm.editor.model.selectPlaceholder') || 'Choose a model...'}
+                                    <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
+                                        {t('llm.editor.generationConfig.hint') || 'These settings are applied when loading the model'}
+                                    </Text>
+
+                                    <Input
+                                        label={t('llm.editor.generationConfig.temperature') || 'Temperature'}
+                                        value={genConfigTemperature}
+                                        onChangeText={setGenConfigTemperature}
+                                        placeholder="0.7"
+                                        keyboardType="decimal-pad"
+                                        hint={t('llm.editor.generationConfig.temperatureHint') || 'Controls randomness (0.0-2.0)'}
+                                    />
+
+                                    <Input
+                                        label={t('llm.editor.generationConfig.topp') || 'Top-P'}
+                                        value={genConfigTopp}
+                                        onChangeText={setGenConfigTopp}
+                                        placeholder="0.9"
+                                        keyboardType="decimal-pad"
+                                        hint={t('llm.editor.generationConfig.toppHint') || 'Nucleus sampling threshold (0.0-1.0)'}
+                                    />
+
+                                    <Input
+                                        label={t('llm.editor.generationConfig.batchSize') || 'Token Batch Size'}
+                                        value={genConfigBatchSize}
+                                        onChangeText={setGenConfigBatchSize}
+                                        placeholder="10"
+                                        keyboardType="number-pad"
+                                        hint={t('llm.editor.generationConfig.batchSizeHint') || 'Tokens per batch'}
+                                    />
+
+                                    <Input
+                                        label={t('llm.editor.generationConfig.batchInterval') || 'Batch Interval (ms)'}
+                                        value={genConfigBatchInterval}
+                                        onChangeText={setGenConfigBatchInterval}
+                                        placeholder="100"
+                                        keyboardType="number-pad"
+                                        hint={t('llm.editor.generationConfig.batchIntervalHint') || 'Time between batches in milliseconds'}
                                     />
                                 </View>
-
-                                {/* Show selected model info and download/load button */}
-                                {defaultModel && EXECUTORCH_MODELS.find(m => m.id === defaultModel) && (
-                                    <View style={[styles.modelInfoCard, { backgroundColor: colors.backgroundSecondary }]}>
-                                        <Text style={[styles.modelInfoName, { color: colors.text }]}>
-                                            {EXECUTORCH_MODELS.find(m => m.id === defaultModel)?.name}
-                                        </Text>
-                                        <Text style={[styles.modelInfoDesc, { color: colors.textMuted }]}>
-                                            {EXECUTORCH_MODELS.find(m => m.id === defaultModel)?.description}
-                                        </Text>
-
-                                        {/* Download/Load/Ready button */}
-                                        <View style={styles.loadButtonContainer}>
-                                            {/* Model loaded and ready */}
-                                            {selectedModelId === defaultModel && isLocalModelReady ? (
-                                                <>
-                                                    <Text style={[styles.readyText, { color: colors.tint }]}>
-                                                        ✓ {t('llm.editor.model.loaded') || 'Model loaded and ready'}
-                                                    </Text>
-                                                    <Button
-                                                        title={t('common.cancel') || 'Unload'}
-                                                        onPress={handleUnloadLocalModel}
-                                                        variant="secondary"
-                                                        icon="close-circle"
-                                                    />
-                                                </>
-                                            ) : isLoadingLocalModel && selectedModelId === defaultModel ? (
-                                                /* Currently loading/downloading */
-                                                <Button
-                                                    title={
-                                                        downloadProgress > 0 && downloadProgress < 100
-                                                            ? t('llm.editor.model.downloading', { progress: downloadProgress }) || `Downloading... ${downloadProgress}%`
-                                                            : t('llm.editor.model.loading') || 'Loading...'
-                                                    }
-                                                    onPress={() => { }}
-                                                    variant="secondary"
-                                                    loading={true}
-                                                    disabled={true}
-                                                />
-                                            ) : (
-                                                /* Not downloaded - show download button */
-                                                <Button
-                                                    title={t('llm.editor.model.download') || 'Download Model'}
-                                                    onPress={() => handleLoadLocalModel(defaultModel)}
-                                                    variant="primary"
-                                                    icon="download"
-                                                />
-                                            )}
-                                        </View>
-
-                                        {/* Show load error if any */}
-                                        {loadError && selectedModelId === defaultModel && (
-                                            <Text style={[styles.errorText, { color: colors.error }]}>
-                                                {loadError}
-                                            </Text>
-                                        )}
-                                    </View>
-                                )}
                             </>
                         )}
 
@@ -837,5 +808,10 @@ const styles = StyleSheet.create({
     errorText: {
         fontSize: FontSizes.sm,
         marginTop: Spacing.sm,
+    },
+    genConfigSection: {
+        marginTop: Spacing.lg,
+        paddingTop: Spacing.md,
+        borderTopWidth: 1,
     },
 });

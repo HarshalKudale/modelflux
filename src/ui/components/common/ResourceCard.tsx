@@ -21,7 +21,7 @@ interface ResourceCardProps {
     onPress: () => void;
     onTest?: () => Promise<boolean>;
     onSetDefault?: () => void;
-    onDelete: () => void;
+    onDelete?: () => void;
     testLabel?: string;
     defaultLabel?: string;
     deleteLabel?: string;
@@ -188,12 +188,14 @@ export function ResourceCard({
                 )}
 
                 {/* Delete Button */}
-                <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
-                    <Ionicons name="trash-outline" size={16} color={colors.error} />
-                    <Text style={[styles.actionText, { color: colors.error }]}>
-                        {deleteLabel}
-                    </Text>
-                </TouchableOpacity>
+                {onDelete && (
+                    <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
+                        <Ionicons name="trash-outline" size={16} color={colors.error} />
+                        <Text style={[styles.actionText, { color: colors.error }]}>
+                            {deleteLabel}
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </View>
         </TouchableOpacity>
     );

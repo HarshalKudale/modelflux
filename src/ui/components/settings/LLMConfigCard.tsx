@@ -11,7 +11,7 @@ import {
 import { PROVIDER_INFO } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
 import { LLMConfig } from '../../../core/types';
-import { useAppColorScheme } from '../../hooks';
+import { useAppColorScheme, useLocale } from '../../hooks';
 
 interface LLMConfigCardProps {
     config: LLMConfig;
@@ -33,6 +33,7 @@ export function LLMConfigCard({
 
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
+    const { t } = useLocale();
 
     const providerInfo = PROVIDER_INFO[config.provider] || PROVIDER_INFO.openai;
 
@@ -72,19 +73,19 @@ export function LLMConfigCard({
                         {config.isLocal && (
                             <View style={[styles.localBadge, { backgroundColor: colors.backgroundTertiary }]}>
                                 <Text style={[styles.localBadgeText, { color: colors.textSecondary }]}>
-                                    Local
+                                    {t('common.local')}
                                 </Text>
                             </View>
                         )}
                     </View>
                     <Text style={[styles.provider, { color: colors.textSecondary }]}>
-                        {providerInfo.displayName}
+                        {t(`provider.${config.provider}`)}
                     </Text>
                     <Text style={[styles.detail, { color: colors.textMuted }]} numberOfLines={1}>
                         {config.baseUrl}
                     </Text>
                     <Text style={[styles.detail, { color: colors.textMuted }]}>
-                        Model: {config.defaultModel}
+                        {t('common.model')}: {config.defaultModel}
                     </Text>
                 </View>
 
@@ -137,10 +138,10 @@ export function LLMConfigCard({
                                 ]}
                             >
                                 {connectionStatus === 'success'
-                                    ? 'Connected'
+                                    ? t('common.connected')
                                     : connectionStatus === 'error'
-                                        ? 'Failed'
-                                        : 'Test'}
+                                        ? t('common.failed')
+                                        : t('common.test')}
                             </Text>
                         </>
                     )}
@@ -148,12 +149,12 @@ export function LLMConfigCard({
 
                 <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
                     <Ionicons name="pencil" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.actionText, { color: colors.textSecondary }]}>Edit</Text>
+                    <Text style={[styles.actionText, { color: colors.textSecondary }]}>{t('common.edit')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
                     <Ionicons name="trash-outline" size={16} color={colors.error} />
-                    <Text style={[styles.actionText, { color: colors.error }]}>Delete</Text>
+                    <Text style={[styles.actionText, { color: colors.error }]}>{t('common.delete')}</Text>
                 </TouchableOpacity>
             </View>
         </View>
