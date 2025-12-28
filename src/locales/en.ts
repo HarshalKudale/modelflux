@@ -30,8 +30,6 @@ export const en: Record<string, string> = {
     "settings.theme.system": "System",
     "settings.language": "Language",
     "settings.llm.title": "LLM",
-    "settings.streaming.title": "Streaming Responses",
-    "settings.streaming.description": "Stream responses token by token when supported",
     "settings.providers.title": "LLM Providers",
     "settings.providers.manage": "Manage Providers",
     "settings.providers.count": "{count} provider(s) configured",
@@ -155,11 +153,6 @@ export const en: Record<string, string> = {
 
     // ExecuTorch Provider
     "llm.editor.executorch.hint": "Models are selected in chat. Configure generation settings below.",
-
-    // Streaming
-    "llm.editor.streaming": "Streaming Support",
-    "llm.editor.streaming.hint": "Enable real-time response streaming",
-    "llm.editor.streaming.unsupported": "Streaming not supported by this provider",
 
     // Provider Type Change
     "llm.editor.changeType.title": "Change Provider Type?",

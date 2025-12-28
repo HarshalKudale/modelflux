@@ -9,7 +9,6 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { useConversationStore, useLLMStore, useSettingsStore } from '@/src/state';
-import { BackgroundModelLoader } from '@/src/ui/components/common';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -70,7 +69,6 @@ function RootLayoutNav() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <BackgroundModelLoader />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

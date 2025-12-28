@@ -9,7 +9,7 @@
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { FontSizes, Spacing } from '../../../config/theme';
-import { isLocalProvider, useConversationStore, useLLMStore, useLocalLLMStore } from '../../../state';
+import { isLocalProvider, useConversationStore, useExecutorchLLMStore, useLLMStore } from '../../../state';
 
 interface LocalLLMManagerProps {
     children: React.ReactNode;
@@ -20,7 +20,7 @@ interface LocalLLMManagerProps {
  * Shows warning banner if local provider is selected but no model is loaded
  */
 export function LocalLLMManager({ children }: LocalLLMManagerProps) {
-    const { selectedModelName, selectedModelId, isReady, isLoading, downloadProgress } = useLocalLLMStore();
+    const { selectedModelName, selectedModelId, isReady, isLoading, downloadProgress } = useExecutorchLLMStore();
     const { getConfigById } = useLLMStore();
     const { getCurrentConversation } = useConversationStore();
 

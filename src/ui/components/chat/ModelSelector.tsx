@@ -12,7 +12,7 @@ import {
 import { POPULAR_MODELS, PROVIDER_INFO } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
 import { LLMConfig } from '../../../core/types';
-import { isLocalProvider, useLLMStore, useLocalLLMStore, useModelDownloadStore } from '../../../state';
+import { isLocalProvider, useExecutorchLLMStore, useLLMStore, useModelDownloadStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
 
 interface ModelSelectorProps {
@@ -44,8 +44,8 @@ export function ModelSelector({
         isReady: isLocalModelReady,
         isLoading: isLocalModelLoading,
         downloadProgress,
-        selectModel
-    } = useLocalLLMStore();
+        loadModel,
+    } = useExecutorchLLMStore();
     const { downloadedModels, loadDownloadedModels } = useModelDownloadStore();
 
     // Load downloaded models on mount
@@ -93,9 +93,13 @@ export function ModelSelector({
 
     // Handle selecting a local ExecuTorch model
     const handleLocalModelSelect = (modelId: string, modelName: string) => {
-        // Select/load the model
-        selectModel(modelId, modelName);
-        // For now, close the selector - later we can keep it open to show loading progress
+        // Find the downloaded model to get paths
+        const downloadedModel = downloadedModels.find(m => m.modelId === modelId);
+        if (downloadedModel) {
+            // Load the model
+            loadModel(modelId, modelName, downloadedModel);
+        }
+        // Close the selector
         setIsOpen(false);
         setIsLocalSectionExpanded(false);
         // Use a special 'executorch' llmId to indicate local model

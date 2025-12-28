@@ -14,7 +14,6 @@ interface SettingsStoreActions {
     updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
     resetSettings: () => Promise<void>;
     setTheme: (theme: ThemeMode) => Promise<void>;
-    toggleStreaming: () => Promise<void>;
     toggleSidebar: () => Promise<void>;
     setDefaultLLM: (llmId: string | null) => Promise<void>;
     setDefaultPersona: (personaId: string | null) => Promise<void>;
@@ -70,11 +69,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
     setTheme: async (theme) => {
         await get().updateSettings({ theme });
-    },
-
-    toggleStreaming: async () => {
-        const current = get().settings.streamingEnabled;
-        await get().updateSettings({ streamingEnabled: !current });
     },
 
     toggleSidebar: async () => {

@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { ChatMessage, LLMError, llmClientFactory } from '../core/llm';
 import { conversationRepository, messageRepository } from '../core/storage';
 import { Conversation, Message, generateId } from '../core/types';
+import { isLocalProvider, useExecutorchLLMStore } from './executorchLLMStore';
 import { useLLMStore } from './llmStore';
-import { isLocalProvider, useLocalLLMStore } from './localLLMStore';
 import { usePersonaStore } from './personaStore';
 import { useSettingsStore } from './settingsStore';
 
@@ -14,8 +14,8 @@ interface ConversationStoreState {
     isLoadingConversations: boolean;
     isSendingMessage: boolean;
     isStreaming: boolean;
-    streamingContent: string;
-    streamingThinkingContent: string;
+    currentMessageMap: Record<string, string>;
+    currentThinkingMessageMap: Record<string, string>;
     error: string | null;
 }
 
@@ -34,6 +34,11 @@ interface ConversationStoreActions {
     getCurrentConversation: () => Conversation | null;
     getCurrentMessages: () => Message[];
     clearError: () => void;
+    updateCurrentMessage: (conversationId: string, content: string) => void;
+    updateCurrentThinkingMessage: (conversationId: string, content: string) => void;
+    clearCurrentMessage: (conversationId: string) => void;
+    getCurrentMessage: (conversationId: string) => string;
+    getCurrentThinkingMessage: (conversationId: string) => string;
 }
 
 type ConversationStore = ConversationStoreState & ConversationStoreActions;
@@ -48,8 +53,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     isLoadingConversations: false,
     isSendingMessage: false,
     isStreaming: false,
-    streamingContent: '',
-    streamingThinkingContent: '',
+    currentMessageMap: {},
+    currentThinkingMessageMap: {},
     error: null,
 
     // Actions
@@ -115,8 +120,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             if (conversation) {
                 const llmConfig = useLLMStore.getState().getConfigById(conversation.activeLLMId);
                 if (llmConfig && isLocalProvider(llmConfig.provider)) {
-                    // Get currently loaded local model from localLLMStore
-                    const { selectedModelId, selectedModelName } = useLocalLLMStore.getState();
+                    // Get currently loaded local model from executorchLLMStore
+                    const { selectedModelId, selectedModelName } = useExecutorchLLMStore.getState();
                     if (selectedModelId && selectedModelName && conversation.activeModel !== selectedModelId) {
                         console.log('[conversationStore] Syncing local model for conversation:', selectedModelId);
                         // Update conversation to use the currently loaded local model
@@ -300,122 +305,77 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             abortController = new AbortController();
 
             const client = llmClientFactory.getClient(llmConfig);
-            const streamingEnabled = useSettingsStore.getState().settings.streamingEnabled;
 
-            if (streamingEnabled) {
-                // Don't set isStreaming yet - wait for first chunk to arrive
-                // This keeps isSendingMessage = true && isStreaming = false, so spinner shows
-                set({ streamingContent: '', streamingThinkingContent: '' });
+            // Clear current message for this conversation
+            get().clearCurrentMessage(currentConversationId);
 
-                let fullContent = '';
-                let thinkingContent = '';
-                let firstChunkReceived = false;
+            let fullContent = '';
+            let thinkingContent = '';
+            let firstChunkReceived = false;
 
-                console.log('[conversationStore] Calling sendMessageStream with', chatMessages.length, 'messages');
+            console.log('[conversationStore] Calling sendMessageStream with', chatMessages.length, 'messages');
 
-                const stream = client.sendMessageStream({
-                    llmConfig,
-                    messages: chatMessages,
-                    model: conversation.activeModel,
-                    signal: abortController.signal,
-                    thinkingEnabled: conversation.thinkingEnabled,
-                });
+            const stream = client.sendMessageStream({
+                llmConfig,
+                messages: chatMessages,
+                model: conversation.activeModel,
+                signal: abortController.signal,
+                thinkingEnabled: conversation.thinkingEnabled,
+                conversationId: currentConversationId,
+            });
 
-                for await (const chunk of stream) {
-                    // Set isStreaming true on first chunk so we switch from spinner to streaming UI
-                    if (!firstChunkReceived) {
-                        firstChunkReceived = true;
-                        set({ isStreaming: true });
-                    }
-                    fullContent += chunk.content;
-                    if (chunk.thinking) {
-                        thinkingContent += chunk.thinking;
-                    }
-                    set({
-                        streamingContent: fullContent,
-                        streamingThinkingContent: thinkingContent,
-                    });
-
-                    if (chunk.done) break;
+            for await (const chunk of stream) {
+                // Set isStreaming true on first chunk so we switch from spinner to streaming UI
+                if (!firstChunkReceived) {
+                    firstChunkReceived = true;
+                    set({ isStreaming: true });
+                }
+                fullContent += chunk.content;
+                if (chunk.thinking) {
+                    thinkingContent += chunk.thinking;
+                }
+                // Update currentMessageMap for this conversation
+                get().updateCurrentMessage(currentConversationId, fullContent);
+                if (thinkingContent) {
+                    get().updateCurrentThinkingMessage(currentConversationId, thinkingContent);
                 }
 
-                // Save assistant message
-                // If thinking was enabled but no thinking content, indicate model doesn't support it
-                const finalThinkingContent = conversation.thinkingEnabled
-                    ? (thinkingContent || 'Model does not support thinking')
-                    : undefined;
-
-                const assistantMessage: Message = {
-                    id: generateId(),
-                    conversationId: currentConversationId,
-                    role: 'assistant',
-                    content: fullContent,
-                    contentType: 'text',
-                    timestamp: Date.now(),
-                    llmIdUsed: conversation.activeLLMId,
-                    modelUsed: conversation.activeModel,
-                    thinkingContent: finalThinkingContent,
-                };
-
-                await messageRepository.create(assistantMessage);
-                set((state) => ({
-                    messages: {
-                        ...state.messages,
-                        [currentConversationId]: [
-                            ...(state.messages[currentConversationId] || []),
-                            assistantMessage,
-                        ],
-                    },
-                    isStreaming: false,
-                    isSendingMessage: false,
-                    streamingContent: '',
-                    streamingThinkingContent: '',
-                }));
-            } else {
-                // Non-streaming request
-                const response = await client.sendMessage({
-                    llmConfig,
-                    messages: chatMessages,
-                    model: conversation.activeModel,
-                    signal: abortController.signal,
-                    thinkingEnabled: conversation.thinkingEnabled,
-                });
-
-                // If thinking was enabled but no thinking content, indicate model doesn't support it
-                const finalThinkingContent = conversation.thinkingEnabled
-                    ? (response.thinking || 'Model does not support thinking')
-                    : undefined;
-
-                const assistantMessage: Message = {
-                    id: generateId(),
-                    conversationId: currentConversationId,
-                    role: 'assistant',
-                    content: response.content,
-                    contentType: response.images?.length ? 'mixed' : 'text',
-                    images: response.images?.map((img) => ({
-                        id: generateId(),
-                        url: img.url,
-                        revisedPrompt: img.revisedPrompt,
-                    })),
-                    timestamp: Date.now(),
-                    llmIdUsed: conversation.activeLLMId,
-                    modelUsed: conversation.activeModel,
-                    usage: response.usage,
-                    thinkingContent: finalThinkingContent,
-                };
-
-                await messageRepository.create(assistantMessage);
-                set((state) => ({
-                    messages: {
-                        ...state.messages,
-                        [currentConversationId]: [
-                            ...(state.messages[currentConversationId] || []),
-                            assistantMessage,
-                        ],
-                    },
-                    isSendingMessage: false,
-                }));
+                if (chunk.done) break;
             }
+
+            // Save assistant message
+            // If thinking was enabled but no thinking content, indicate model doesn't support it
+            const finalThinkingContent = conversation.thinkingEnabled
+                ? (thinkingContent || 'Model does not support thinking')
+                : undefined;
+
+            const assistantMessage: Message = {
+                id: generateId(),
+                conversationId: currentConversationId,
+                role: 'assistant',
+                content: fullContent,
+                contentType: 'text',
+                timestamp: Date.now(),
+                llmIdUsed: conversation.activeLLMId,
+                modelUsed: conversation.activeModel,
+                thinkingContent: finalThinkingContent,
+            };
+
+            await messageRepository.create(assistantMessage);
+
+            // Clear currentMessage for this conversation and update messages list
+            get().clearCurrentMessage(currentConversationId);
+            set((state) => ({
+                messages: {
+                    ...state.messages,
+                    [currentConversationId]: [
+                        ...(state.messages[currentConversationId] || []),
+                        assistantMessage,
+                    ],
+                },
+                isStreaming: false,
+                isSendingMessage: false,
+            }));
 
             // Update conversation timestamp
             await conversationRepository.touch(currentConversationId);
@@ -423,15 +383,20 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         } catch (error) {
             if (error instanceof LLMError && error.code === 'CANCELLED') {
                 // User cancelled, just reset state
-                set({ isSendingMessage: false, isStreaming: false, streamingContent: '' });
+                if (currentConversationId) {
+                    get().clearCurrentMessage(currentConversationId);
+                }
+                set({ isSendingMessage: false, isStreaming: false });
                 return;
             }
 
+            if (currentConversationId) {
+                get().clearCurrentMessage(currentConversationId);
+            }
             set({
                 error: error instanceof Error ? error.message : 'Failed to send message',
                 isSendingMessage: false,
                 isStreaming: false,
-                streamingContent: '',
             });
         } finally {
             abortController = null;
@@ -439,11 +404,15 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     },
 
     cancelStreaming: () => {
+        const { currentConversationId } = get();
         if (abortController) {
             abortController.abort();
             abortController = null;
         }
-        set({ isStreaming: false, isSendingMessage: false, streamingContent: '' });
+        if (currentConversationId) {
+            get().clearCurrentMessage(currentConversationId);
+        }
+        set({ isStreaming: false, isSendingMessage: false });
     },
 
     setActiveLLM: async (llmId, model) => {
@@ -484,4 +453,42 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     clearError: () => {
         set({ error: null });
     },
+
+    updateCurrentMessage: (conversationId, content) => {
+        set((state) => ({
+            currentMessageMap: {
+                ...state.currentMessageMap,
+                [conversationId]: content,
+            },
+        }));
+    },
+
+    updateCurrentThinkingMessage: (conversationId, content) => {
+        set((state) => ({
+            currentThinkingMessageMap: {
+                ...state.currentThinkingMessageMap,
+                [conversationId]: content,
+            },
+        }));
+    },
+
+    clearCurrentMessage: (conversationId) => {
+        set((state) => {
+            const { [conversationId]: _, ...restMessages } = state.currentMessageMap;
+            const { [conversationId]: __, ...restThinking } = state.currentThinkingMessageMap;
+            return {
+                currentMessageMap: restMessages,
+                currentThinkingMessageMap: restThinking,
+            };
+        });
+    },
+
+    getCurrentMessage: (conversationId) => {
+        return get().currentMessageMap[conversationId] || '';
+    },
+
+    getCurrentThinkingMessage: (conversationId) => {
+        return get().currentThinkingMessageMap[conversationId] || '';
+    },
 }));
+

@@ -55,32 +55,6 @@ export abstract class BaseLLMProvider implements ILLMClient {
         return 'unknown';
     }
 
-    async sendMessage(request: LLMRequest): Promise<LLMResponse> {
-        const { llmConfig, messages, model, stream = false, temperature, maxTokens, signal, thinkingEnabled } = request;
-        const actualModel = model || llmConfig.defaultModel;
-
-        try {
-            const response = await fetch(this.getCompletionsEndpoint(llmConfig), {
-                method: 'POST',
-                headers: this.buildHeaders(llmConfig),
-                body: JSON.stringify(
-                    this.buildRequestBody(messages, actualModel, stream, temperature, maxTokens, thinkingEnabled)
-                ),
-                signal: signal || createTimeoutSignal(TIMEOUTS.LLM_REQUEST),
-            });
-
-            if (!response.ok) {
-                throw await this.handleErrorResponse(response);
-            }
-
-            const data = await response.json();
-            return this.parseResponse(data);
-        } catch (error) {
-            if (error instanceof LLMError) throw error;
-            throw this.wrapError(error);
-        }
-    }
-
     async *sendMessageStream(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {

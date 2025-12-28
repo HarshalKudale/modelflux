@@ -56,7 +56,6 @@ erDiagram
 
     AppSettings {
         string theme
-        boolean streamingEnabled
         string defaultLLMId FK
     }
 ```
@@ -294,9 +293,6 @@ interface AppSettings {
   /** Current theme mode */
   theme: ThemeMode;
 
-  /** Enable streaming responses (SSE) */
-  streamingEnabled: boolean;
-
   /** Default LLM config ID for new conversations */
   defaultLLMId: string | null;
 
@@ -312,7 +308,6 @@ interface AppSettings {
  */
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
-  streamingEnabled: true,
   defaultLLMId: null,
   sidebarCollapsed: false,
   lastAppVersion: '1.0.0',

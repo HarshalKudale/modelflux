@@ -183,7 +183,6 @@ export type ThemeMode = 'light' | 'dark' | 'system';
  */
 export interface AppSettings {
     theme: ThemeMode;
-    streamingEnabled: boolean;
     defaultLLMId: string | null;
     defaultPersonaId: string | null;
     sidebarCollapsed: boolean;
@@ -241,7 +240,6 @@ export interface DownloadedModel {
  */
 export const DEFAULT_SETTINGS: AppSettings = {
     theme: 'system',
-    streamingEnabled: true,
     defaultLLMId: null,
     defaultPersonaId: null,
     sidebarCollapsed: false,

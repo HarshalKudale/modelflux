@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../config/theme';
-import { isLocalProvider, useConversationStore, useLLMStore, useLocalLLMStore, useModelDownloadStore, usePersonaStore } from '../../state';
+import { isLocalProvider, useConversationStore, useExecutorchLLMStore, useLLMStore, useModelDownloadStore, usePersonaStore } from '../../state';
 import { ChatHeader, MessageInput, MessageList, ModelSettingsPanel } from '../components/chat';
 import { useAppColorScheme } from '../hooks';
 
@@ -35,8 +35,8 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         currentConversationId,
         isStreaming,
         isSendingMessage,
-        streamingContent,
-        streamingThinkingContent,
+        currentMessageMap,
+        currentThinkingMessageMap,
         getCurrentConversation,
         getCurrentMessages,
         sendMessage,
@@ -102,15 +102,15 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const enabledConfigs = configs.filter((c) => c.isEnabled);
     const hasNoLLM = enabledConfigs.length === 0;
 
-    // Get local model state from localLLMStore (must be before functions that use it)
+    // Get local model state from executorchLLMStore (must be before functions that use it)
     const {
         selectedModelName,
         selectedModelId,
         isReady: isLocalModelReady,
         isLoading: isLocalModelLoading,
         downloadProgress,
-        selectModel
-    } = useLocalLLMStore();
+        loadModel,
+    } = useExecutorchLLMStore();
     const { downloadedModels } = useModelDownloadStore();
 
     // Get selected provider (must be before functions that use it)
@@ -193,7 +193,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                     return;
                 }
                 console.log('[ChatScreen] Triggering local model load:', downloadedModel.modelId, downloadedModel.name);
-                selectModel(downloadedModel.modelId, downloadedModel.name);
+                loadModel(downloadedModel.modelId, downloadedModel.name, downloadedModel);
             }
         }
     };
@@ -292,8 +292,8 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                 <View style={styles.contentContainer}>
                     <MessageList
                         messages={currentMessages}
-                        streamingContent={isStreaming ? streamingContent : undefined}
-                        streamingThinkingContent={isStreaming ? streamingThinkingContent : undefined}
+                        streamingContent={isStreaming && currentConversationId ? currentMessageMap[currentConversationId] : undefined}
+                        streamingThinkingContent={isStreaming && currentConversationId ? currentThinkingMessageMap[currentConversationId] : undefined}
                         isLoading={false}
                         isProcessing={isProcessing}
                         isNewConversation={isNewConversation}
@@ -389,7 +389,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                                         const downloadedModel = downloadedModels.find(m => m.name === model);
                                         if (downloadedModel) {
                                             console.log('[ChatScreen] Settings modal: Triggering local model load:', downloadedModel.modelId, downloadedModel.name);
-                                            selectModel(downloadedModel.modelId, downloadedModel.name);
+                                            loadModel(downloadedModel.modelId, downloadedModel.name, downloadedModel);
                                         }
                                     }
                                 }

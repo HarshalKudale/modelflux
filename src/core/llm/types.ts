@@ -20,6 +20,7 @@ export interface LLMRequest {
     maxTokens?: number;
     signal?: AbortSignal;
     thinkingEnabled?: boolean;
+    conversationId?: string;
 }
 
 /**
@@ -91,9 +92,9 @@ export class LLMError extends Error {
 /**
  * Remote LLM Provider Interface
  * Used by API-based providers: OpenAI, Anthropic, Ollama, OpenRouter
+ * All providers use streaming by default.
  */
 export interface IRemoteProvider {
-    sendMessage(request: LLMRequest): Promise<LLMResponse>;
     sendMessageStream(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown>;

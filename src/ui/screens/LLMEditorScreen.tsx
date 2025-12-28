@@ -14,7 +14,7 @@ import { PROVIDER_INFO, PROVIDER_PRESETS } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { llmClientFactory } from '../../core/llm';
 import { ExecutorChGenerationConfig, LLMConfig, LLMProvider, LocalModel } from '../../core/types';
-import { useLLMStore, useLocalLLMStore, useSettingsStore } from '../../state';
+import { useExecutorchLLMStore, useLLMStore, useSettingsStore } from '../../state';
 import { showConfirm, showError, showInfo } from '../../utils/alert';
 import { Button, Dropdown, Input, LocalModelList, LocalModelPicker } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
@@ -48,9 +48,9 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         downloadProgress,
         isReady: isLocalModelReady,
         error: loadError,
-        selectModel,
+        loadModel,
         unload,
-    } = useLocalLLMStore();
+    } = useExecutorchLLMStore();
 
     const isEditing = Boolean(configId);
     const existingConfig = configId ? getConfigById(configId) : null;
@@ -257,8 +257,9 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         if (provider === 'executorch') {
             const executorchModel = EXECUTORCH_MODELS.find(m => m.id === modelId);
             if (executorchModel) {
-                // Select the model - BackgroundModelLoader will load it
-                selectModel(modelId, executorchModel.name);
+                // Need to find the downloaded model for paths
+                // For now, we just log - the actual model loading happens via ChatScreen/ModelSelector
+                console.log('[LLMEditorScreen] ExecuTorch model selected:', executorchModel.name);
             }
             return;
         }
@@ -266,7 +267,8 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         // For llama-rn, look in localModels array
         const model = localModels.find(m => m.id === modelId);
         if (model) {
-            selectModel(modelId, model.name);
+            // Similar to ExecuTorch, the actual loading would need DownloadedModel data
+            console.log('[LLMEditorScreen] Llama-rn model selected:', model.name);
         }
     };
 

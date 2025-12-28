@@ -4,7 +4,6 @@ import {
     ActivityIndicator,
     ScrollView,
     StyleSheet,
-    Switch,
     Text,
     TouchableOpacity,
     View
@@ -41,7 +40,7 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
 
-    const { settings, setTheme, toggleStreaming } = useSettingsStore();
+    const { settings, setTheme } = useSettingsStore();
     const { configs } = useLLMStore();
     const { personas, loadPersonas } = usePersonaStore();
     const { servers, loadServers } = useMCPStore();
@@ -172,24 +171,6 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
 
                 {/* ===== LLM SECTION ===== */}
                 <SettingsSection title={t('settings.llm.title')}>
-                    {/* Streaming Toggle */}
-                    <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: colors.text }]}>
-                                {t('settings.streaming.title')}
-                            </Text>
-                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                {t('settings.streaming.description')}
-                            </Text>
-                        </View>
-                        <Switch
-                            value={settings.streamingEnabled}
-                            onValueChange={toggleStreaming}
-                            trackColor={{ false: colors.backgroundTertiary, true: colors.tint + '60' }}
-                            thumbColor={settings.streamingEnabled ? colors.tint : colors.textMuted}
-                        />
-                    </View>
-
                     {/* Manage Providers → Navigate to list */}
                     <TouchableOpacity
                         style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
