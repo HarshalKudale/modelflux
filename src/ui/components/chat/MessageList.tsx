@@ -161,7 +161,8 @@ export function MessageList({
     // Determine footer content: processing indicator, streaming content, or nothing
     const renderFooter = () => {
         // Show streaming content when response is coming in (either thinking or actual content)
-        if (streamingContent || streamingThinkingContent) {
+        // Note: Check for !== undefined to handle empty string initial state during streaming
+        if (streamingContent !== undefined || streamingThinkingContent) {
             return (
                 <View style={styles.streamingContainer}>
                     {/* Show streaming thinking content if available */}

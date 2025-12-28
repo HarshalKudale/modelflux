@@ -35,8 +35,6 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         currentConversationId,
         isStreaming,
         isSendingMessage,
-        currentMessageMap,
-        currentThinkingMessageMap,
         getCurrentConversation,
         getCurrentMessages,
         sendMessage,
@@ -46,6 +44,15 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         updateConversationTitle,
         createConversation,
     } = useConversationStore();
+
+    // Subscribe to message maps separately to ensure proper reactive updates
+    // When these maps change, the component will re-render
+    const currentMessageMap = useConversationStore((state) => state.currentMessageMap);
+    const currentThinkingMessageMap = useConversationStore((state) => state.currentThinkingMessageMap);
+
+    // Derive streaming content from the subscribed maps
+    const currentStreamingContent = currentConversationId ? (currentMessageMap[currentConversationId] || '') : '';
+    const currentStreamingThinkingContent = currentConversationId ? (currentThinkingMessageMap[currentConversationId] || '') : '';
 
     const { configs, availableModels, fetchModels, isLoadingModels, testConnection, getConfigById } = useLLMStore();
     const { personas, loadPersonas, getPersonaById } = usePersonaStore();
@@ -292,8 +299,8 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                 <View style={styles.contentContainer}>
                     <MessageList
                         messages={currentMessages}
-                        streamingContent={isStreaming && currentConversationId ? currentMessageMap[currentConversationId] : undefined}
-                        streamingThinkingContent={isStreaming && currentConversationId ? currentThinkingMessageMap[currentConversationId] : undefined}
+                        streamingContent={isStreaming ? currentStreamingContent : undefined}
+                        streamingThinkingContent={isStreaming ? currentStreamingThinkingContent : undefined}
                         isLoading={false}
                         isProcessing={isProcessing}
                         isNewConversation={isNewConversation}

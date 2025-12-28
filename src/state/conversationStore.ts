@@ -315,6 +315,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
             console.log('[conversationStore] Calling sendMessageStream with', chatMessages.length, 'messages');
 
+            // For local providers, set isStreaming=true immediately since tokens come via tokenCallback
+            // rather than through the generator chunks
+            if (isLocalProvider(llmConfig.provider)) {
+                set({ isStreaming: true });
+            }
+
             const stream = client.sendMessageStream({
                 llmConfig,
                 messages: chatMessages,
