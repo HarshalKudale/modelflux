@@ -223,8 +223,9 @@ export const en: Record<string, string> = {
     // Model Selector
     "chat.modelSelector.title": "Select Model",
     "chat.modelSelector.empty": "No LLM providers configured.\nAdd one in Settings.",
-    "chat.modelSelector.noModels.local": "No model loaded. Go to Settings to download and load a model.",
+    "chat.modelSelector.noModels.local": "No models downloaded. Download a model to use it.",
     "chat.modelSelector.noModels.remote": "No models available. Check connection.",
+    "chat.modelSelector.downloadModels": "Download Models",
 
     // Sidebar
     "sidebar.newChat": "New Chat",

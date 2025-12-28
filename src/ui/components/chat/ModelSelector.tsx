@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Modal,
     Pressable,
@@ -9,23 +9,24 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { EXECUTORCH_MODELS } from '../../../config/executorchModels';
 import { POPULAR_MODELS, PROVIDER_INFO } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
 import { LLMConfig } from '../../../core/types';
-import { isLocalProvider, useLLMStore, useLocalLLMStore } from '../../../state';
+import { isLocalProvider, useLLMStore, useLocalLLMStore, useModelDownloadStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
 
 interface ModelSelectorProps {
     selectedLLMId: string;
     selectedModel: string;
     onSelect: (llmId: string, model: string) => void;
+    onNavigateToModels?: () => void;
 }
 
 export function ModelSelector({
     selectedLLMId,
     selectedModel,
     onSelect,
+    onNavigateToModels,
 }: ModelSelectorProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [expandedConfigId, setExpandedConfigId] = useState<string | null>(null);
@@ -45,6 +46,12 @@ export function ModelSelector({
         downloadProgress,
         selectModel
     } = useLocalLLMStore();
+    const { downloadedModels, loadDownloadedModels } = useModelDownloadStore();
+
+    // Load downloaded models on mount
+    useEffect(() => {
+        loadDownloadedModels();
+    }, [loadDownloadedModels]);
 
     // Show all enabled configs (including ExecuTorch which is now a real config)
     const enabledConfigs = configs.filter((c) => c.isEnabled);
@@ -70,9 +77,10 @@ export function ModelSelector({
     };
 
     const getModelsForConfig = (config: LLMConfig): string[] => {
-        // For ExecuTorch, show all available local models
+        // For ExecuTorch, show only downloaded models directly
         if (config.provider === 'executorch') {
-            return EXECUTORCH_MODELS.map(m => m.name);
+            // Return names of all downloaded models (they are already tagged with 'executorch')
+            return downloadedModels.map(dm => dm.name);
         }
 
         // For remote providers - use fetched models if available
@@ -216,11 +224,27 @@ export function ModelSelector({
                                                         ))}
 
                                                         {getModelsForConfig(config).length === 0 && !isLoadingModels && (
-                                                            <Text style={[styles.noModelsText, { color: colors.textMuted }]}>
-                                                                {isLocalProvider(config.provider)
-                                                                    ? t('chat.modelSelector.noModels.local')
-                                                                    : t('chat.modelSelector.noModels.remote')}
-                                                            </Text>
+                                                            <View style={styles.noModelsContainer}>
+                                                                <Text style={[styles.noModelsText, { color: colors.textMuted }]}>
+                                                                    {isLocalProvider(config.provider)
+                                                                        ? t('chat.modelSelector.noModels.local')
+                                                                        : t('chat.modelSelector.noModels.remote')}
+                                                                </Text>
+                                                                {config.provider === 'executorch' && onNavigateToModels && (
+                                                                    <TouchableOpacity
+                                                                        style={[styles.downloadButton, { backgroundColor: colors.tint }]}
+                                                                        onPress={() => {
+                                                                            setIsOpen(false);
+                                                                            onNavigateToModels();
+                                                                        }}
+                                                                    >
+                                                                        <Ionicons name="add" size={20} color="#FFFFFF" />
+                                                                        <Text style={styles.downloadButtonText}>
+                                                                            {t('chat.modelSelector.downloadModels')}
+                                                                        </Text>
+                                                                    </TouchableOpacity>
+                                                                )}
+                                                            </View>
                                                         )}
                                                     </>
                                                 )}
@@ -392,5 +416,23 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.xs,
         fontWeight: '500',
         marginLeft: Spacing.sm,
+    },
+    noModelsContainer: {
+        alignItems: 'center',
+        paddingVertical: Spacing.sm,
+    },
+    downloadButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderRadius: BorderRadius.md,
+        marginTop: Spacing.sm,
+        gap: Spacing.xs,
+    },
+    downloadButtonText: {
+        color: '#FFFFFF',
+        fontSize: FontSizes.sm,
+        fontWeight: '600',
     },
 });

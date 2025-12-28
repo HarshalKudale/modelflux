@@ -2,9 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { EXECUTORCH_MODELS } from '../../config/executorchModels';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../config/theme';
-import { isLocalProvider, useConversationStore, useLLMStore, useLocalLLMStore, usePersonaStore } from '../../state';
+import { isLocalProvider, useConversationStore, useLLMStore, useLocalLLMStore, useModelDownloadStore, usePersonaStore } from '../../state';
 import { ChatHeader, MessageInput, MessageList, ModelSettingsPanel } from '../components/chat';
 import { useAppColorScheme } from '../hooks';
 
@@ -112,6 +111,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         downloadProgress,
         selectModel
     } = useLocalLLMStore();
+    const { downloadedModels } = useModelDownloadStore();
 
     // Get selected provider (must be before functions that use it)
     const selectedProvider = pendingProviderId ? getConfigById(pendingProviderId) : undefined;
@@ -184,16 +184,16 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
 
         // If this is an ExecuTorch provider, trigger model loading
         if (selectedProvider && isLocalProvider(selectedProvider.provider) && model) {
-            // Find the model in EXECUTORCH_MODELS to get its ID
-            const localModel = EXECUTORCH_MODELS.find(m => m.name === model);
-            if (localModel) {
+            // Find the model in downloaded models by name
+            const downloadedModel = downloadedModels.find(m => m.name === model);
+            if (downloadedModel) {
                 // Check if this model is already loaded - skip if same model
-                if (selectedModelId === localModel.id && isLocalModelReady) {
-                    console.log('[ChatScreen] Model already loaded:', localModel.id);
+                if (selectedModelId === downloadedModel.modelId && isLocalModelReady) {
+                    console.log('[ChatScreen] Model already loaded:', downloadedModel.modelId);
                     return;
                 }
-                console.log('[ChatScreen] Triggering local model load:', localModel.id, localModel.name);
-                selectModel(localModel.id, localModel.name);
+                console.log('[ChatScreen] Triggering local model load:', downloadedModel.modelId, downloadedModel.name);
+                selectModel(downloadedModel.modelId, downloadedModel.name);
             }
         }
     };
@@ -386,10 +386,10 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
 
                                     // If this is a local provider, trigger model loading immediately
                                     if (existingUsesLocalProvider) {
-                                        const localModel = EXECUTORCH_MODELS.find(m => m.name === model);
-                                        if (localModel) {
-                                            console.log('[ChatScreen] Settings modal: Triggering local model load:', localModel.id, localModel.name);
-                                            selectModel(localModel.id, localModel.name);
+                                        const downloadedModel = downloadedModels.find(m => m.name === model);
+                                        if (downloadedModel) {
+                                            console.log('[ChatScreen] Settings modal: Triggering local model load:', downloadedModel.modelId, downloadedModel.name);
+                                            selectModel(downloadedModel.modelId, downloadedModel.name);
                                         }
                                     }
                                 }

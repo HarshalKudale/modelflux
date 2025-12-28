@@ -8,9 +8,9 @@
 
 import { useEffect, useRef } from 'react';
 import { LLMModule } from 'react-native-executorch';
-import { EXECUTORCH_MODELS } from '../../../config/executorchModels';
 import { useLLMStore } from '../../../state/llmStore';
 import { useLocalLLMStore } from '../../../state/localLLMStore';
+import { useModelDownloadStore } from '../../../state/modelDownloadStore';
 
 export function BackgroundModelLoader() {
     const {
@@ -23,6 +23,7 @@ export function BackgroundModelLoader() {
         appendToken,
         setGenerating,
     } = useLocalLLMStore();
+    const { getDownloadedModel } = useModelDownloadStore();
 
     const moduleRef = useRef<InstanceType<typeof LLMModule> | null>(null);
     const loadedModelIdRef = useRef<string | null>(null);
@@ -56,13 +57,16 @@ export function BackgroundModelLoader() {
                 loadedModelIdRef.current !== selectedModelId ? `ID mismatch: loaded=${loadedModelIdRef.current} vs selected=${selectedModelId}` :
                     'unknown');
 
-        const modelConfig = EXECUTORCH_MODELS.find(m => m.id === selectedModelId);
-        if (!modelConfig) {
-            setError(`Model not found: ${selectedModelId}`);
+        // Look up the downloaded model to get local file paths
+        const downloadedModel = getDownloadedModel(selectedModelId);
+        if (!downloadedModel) {
+            setError(`Model not downloaded: ${selectedModelId}. Please download it first from Models screen.`);
             return;
         }
 
-        console.log('[BackgroundModelLoader] Loading model:', selectedModelId);
+        console.log('[BackgroundModelLoader] Loading model from local files:', selectedModelId);
+        console.log('[BackgroundModelLoader] Model path:', downloadedModel.modelFilePath);
+        console.log('[BackgroundModelLoader] Tokenizer path:', downloadedModel.tokenizerFilePath);
 
         // Load the model
         const loadModel = async () => {
@@ -98,11 +102,12 @@ export function BackgroundModelLoader() {
                     },
                 });
 
+                // Load using local file paths from downloaded model
                 await llmModule.load(
                     {
-                        modelSource: modelConfig.modelSource,
-                        tokenizerSource: modelConfig.tokenizerSource,
-                        tokenizerConfigSource: modelConfig.tokenizerConfigSource,
+                        modelSource: downloadedModel.modelFilePath,
+                        tokenizerSource: downloadedModel.tokenizerFilePath,
+                        tokenizerConfigSource: downloadedModel.tokenizerConfigFilePath,
                     },
                     (progress: number) => {
                         useLocalLLMStore.getState().setDownloadProgress(progress);

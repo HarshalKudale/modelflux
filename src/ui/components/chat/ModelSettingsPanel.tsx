@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     StyleSheet,
@@ -7,10 +7,10 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { EXECUTORCH_MODELS } from '../../../config/executorchModels';
 import { PROVIDER_INFO } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
 import { LLMConfig, Persona } from '../../../core/types';
+import { useModelDownloadStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
 import { SelectionModal, SelectionOption } from '../common';
 
@@ -59,6 +59,14 @@ export function ModelSettingsPanel({
     const [showModelModal, setShowModelModal] = useState(false);
     const [showPersonaModal, setShowPersonaModal] = useState(false);
 
+    // Get downloaded models from store
+    const { downloadedModels, loadDownloadedModels } = useModelDownloadStore();
+
+    // Load downloaded models on mount
+    useEffect(() => {
+        loadDownloadedModels();
+    }, [loadDownloadedModels]);
+
     // Get selected provider
     const selectedProvider = providers.find(p => p.id === selectedProviderId);
 
@@ -83,9 +91,9 @@ export function ModelSettingsPanel({
         }));
 
     // Convert models to selection options
-    // For ExecuTorch, show EXECUTORCH_MODELS; for remote providers, use availableModels
+    // For ExecuTorch, show only downloaded models; for remote providers, use availableModels
     const modelOptions: SelectionOption[] = selectedProvider?.provider === 'executorch'
-        ? EXECUTORCH_MODELS.map(model => ({
+        ? downloadedModels.map(model => ({
             id: model.name,
             label: model.name,
             subtitle: model.description,

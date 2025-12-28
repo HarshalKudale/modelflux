@@ -96,6 +96,8 @@ export const useLocalLLMStore = create<LocalLLMStore>((set) => ({
     appendToken: (token, newCount) => set((state) => {
         // If newCount is less than stored count, it means a new generation started
         // (previous one finished and count reset)
+        console.log('Token:', token);
+        console.log('Token count:', state.currentTokenCount, 'to', newCount, ')');
         if (newCount !== state.currentTokenCount) {
             console.log('[LocalLLMStore] Generation ended (count reset from', state.currentTokenCount, 'to', newCount, ')');
             return {
