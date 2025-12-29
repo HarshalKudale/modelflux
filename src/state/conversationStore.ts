@@ -283,7 +283,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 const persona = usePersonaStore.getState().getPersonaById(conversation.personaId);
                 if (persona) {
                     // Build system prompt from persona details
-                    const personaDetails: string[] = [];
+                    const personaDetails: string[] = ['/no_think'];
                     if (persona.name) personaDetails.push(`Name: ${persona.name}`);
                     if (persona.age) personaDetails.push(`Age: ${persona.age}`);
                     if (persona.location) personaDetails.push(`Location: ${persona.location}`);

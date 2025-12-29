@@ -1,13 +1,24 @@
+import { fetch } from 'expo/fetch';
+import { TIMEOUTS } from '../../../config/constants';
 import { LLMConfig } from '../../types';
-import { ChatMessage, LLMResponse, LLMStreamChunk } from '../types';
-import { BaseLLMProvider } from './BaseProvider';
+import { ChatMessage, LLMError, LLMErrorCode, LLMRequest, LLMStreamChunk } from '../types';
+import { BaseLLMProvider, createTimeoutSignal } from './BaseProvider';
 
+/**
+ * OpenAI Provider
+ * 
+ * Handles API calls to OpenAI and OpenAI-compatible APIs using expo/fetch.
+ * Supports streaming via Server-Sent Events (SSE).
+ */
 export class OpenAIProvider extends BaseLLMProvider {
     protected getProviderName(): string {
         return 'openai';
     }
 
-    protected buildHeaders(config: LLMConfig): Record<string, string> {
+    /**
+     * Build request headers for OpenAI API.
+     */
+    private buildHeaders(config: LLMConfig): Record<string, string> {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
         };
@@ -23,13 +34,15 @@ export class OpenAIProvider extends BaseLLMProvider {
         return headers;
     }
 
-    protected buildRequestBody(
+    /**
+     * Build request body for OpenAI chat completions API.
+     */
+    private buildRequestBody(
         messages: ChatMessage[],
         model: string,
         stream: boolean,
         temperature?: number,
-        maxTokens?: number,
-        _thinkingEnabled?: boolean
+        maxTokens?: number
     ): Record<string, unknown> {
         const body: Record<string, unknown> = {
             model,
@@ -39,7 +52,6 @@ export class OpenAIProvider extends BaseLLMProvider {
 
         // Note: OpenAI o1 models have implicit reasoning/thinking
         // For other models, reasoning is not directly supported via API
-        // The thinkingEnabled flag is passed but OpenAI doesn't have a standard parameter for it
 
         if (temperature !== undefined) {
             body.temperature = temperature;
@@ -51,30 +63,24 @@ export class OpenAIProvider extends BaseLLMProvider {
         return body;
     }
 
-    protected getCompletionsEndpoint(config: LLMConfig): string {
+    /**
+     * Get the chat completions endpoint URL.
+     */
+    private getCompletionsEndpoint(config: LLMConfig): string {
         return `${config.baseUrl}/chat/completions`;
     }
 
-    protected getModelsEndpoint(config: LLMConfig): string {
+    /**
+     * Get the models endpoint URL.
+     */
+    private getModelsEndpoint(config: LLMConfig): string {
         return `${config.baseUrl}/models`;
     }
 
-    protected parseResponse(data: any): LLMResponse {
-        const choice = data.choices?.[0];
-        return {
-            content: choice?.message?.content || '',
-            model: data.model || '',
-            usage: data.usage
-                ? {
-                    promptTokens: data.usage.prompt_tokens,
-                    completionTokens: data.usage.completion_tokens,
-                    totalTokens: data.usage.total_tokens,
-                }
-                : undefined,
-        };
-    }
-
-    protected parseStreamChunk(chunk: string): LLMStreamChunk | null {
+    /**
+     * Parse a streaming chunk from OpenAI SSE format.
+     */
+    private parseStreamChunk(chunk: string): LLMStreamChunk | null {
         const trimmed = chunk.trim();
         if (!trimmed || !trimmed.startsWith('data:')) return null;
 
@@ -104,11 +110,115 @@ export class OpenAIProvider extends BaseLLMProvider {
         }
     }
 
-    protected parseModels(data: any): string[] {
-        return (data.data || [])
-            .filter((m: any) => m.id && !m.id.includes('embedding'))
-            .map((m: any) => m.id)
-            .sort();
+    /**
+     * Stream completion from OpenAI API.
+     * Handles the full API call and yields parsed chunks.
+     */
+    protected async *streamCompletion(
+        request: LLMRequest
+    ): AsyncGenerator<LLMStreamChunk, void, unknown> {
+        const { llmConfig, messages, model, temperature, maxTokens, signal } = request;
+        const actualModel = model || llmConfig.defaultModel;
+
+        console.log(`[${this.getProviderName()}] Starting streamCompletion`, {
+            model: actualModel,
+            messageCount: messages.length,
+        });
+
+        const response = await fetch(this.getCompletionsEndpoint(llmConfig), {
+            method: 'POST',
+            headers: this.buildHeaders(llmConfig),
+            body: JSON.stringify(
+                this.buildRequestBody(messages, actualModel, true, temperature, maxTokens)
+            ),
+            signal: signal || createTimeoutSignal(TIMEOUTS.LLM_REQUEST),
+        });
+
+        if (!response.ok) {
+            throw await this.handleErrorResponse(response);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+            throw new LLMError(
+                'No response body',
+                LLMErrorCode.UNKNOWN,
+                'openai'
+            );
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                const chunk = this.parseStreamChunk(line);
+                if (chunk) {
+                    yield chunk;
+                    if (chunk.done) {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Fetch available models from OpenAI.
+     */
+    async fetchModels(llmConfig: LLMConfig): Promise<string[]> {
+        console.log(`[${this.getProviderName()}] Fetching models from`, this.getModelsEndpoint(llmConfig));
+
+        try {
+            const response = await fetch(this.getModelsEndpoint(llmConfig), {
+                method: 'GET',
+                headers: this.buildHeaders(llmConfig),
+                signal: createTimeoutSignal(TIMEOUTS.MODEL_FETCH),
+            });
+
+            if (!response.ok) {
+                throw await this.handleErrorResponse(response);
+            }
+
+            const data = await response.json();
+            console.log(`[${this.getProviderName()}] Models fetched`);
+
+            return (data.data || [])
+                .filter((m: any) => m.id && !m.id.includes('embedding'))
+                .map((m: any) => m.id)
+                .sort();
+        } catch (error) {
+            console.error(`[${this.getProviderName()}] fetchModels error:`, error);
+            if (error instanceof LLMError) throw error;
+            throw this.wrapError(error);
+        }
+    }
+
+    /**
+     * Test connection to OpenAI API.
+     */
+    async testConnection(llmConfig: LLMConfig): Promise<boolean> {
+        console.log(`[${this.getProviderName()}] Testing connection to`, this.getModelsEndpoint(llmConfig));
+
+        try {
+            const response = await fetch(this.getModelsEndpoint(llmConfig), {
+                method: 'GET',
+                headers: this.buildHeaders(llmConfig),
+                signal: createTimeoutSignal(TIMEOUTS.CONNECTION_TEST),
+            });
+            console.log(`[${this.getProviderName()}] Connection test result:`, response.ok);
+            return response.ok;
+        } catch (error) {
+            console.log(`[${this.getProviderName()}] Test connection error:`, error);
+            return false;
+        }
     }
 }
 

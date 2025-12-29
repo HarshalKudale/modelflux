@@ -1,303 +1,104 @@
-import { Platform } from 'react-native';
-import { TIMEOUTS } from '../../../config/constants';
+import { useConversationStore } from '../../../state/conversationStore';
 import { LLMConfig } from '../../types';
 import {
-    ChatMessage,
     ILLMClient,
     LLMError,
     LLMErrorCode,
     LLMRequest,
-    LLMResponse,
-    LLMStreamChunk,
+    LLMStreamChunk
 } from '../types';
 
 /**
- * Creates an AbortSignal that times out after the specified duration.
- * This is a polyfill for AbortSignal.timeout which may not be available on all platforms.
- */
-function createTimeoutSignal(ms: number): AbortSignal {
-    const controller = new AbortController();
-    setTimeout(() => controller.abort(), ms);
-    return controller.signal;
-}
-
-/**
- * Check if we're running on web (where ReadableStream is fully supported)
- */
-const isWeb = Platform.OS === 'web';
-
-/**
  * Abstract base class for LLM providers
+ * 
+ * Each provider implements its own API calling logic via streamCompletion().
+ * The base class handles:
+ * - Orchestrating the streaming flow
+ * - Updating conversationStore's currentMessage for live UI updates
+ * - Common error wrapping utilities
  */
 export abstract class BaseLLMProvider implements ILLMClient {
-    protected abstract buildHeaders(config: LLMConfig): Record<string, string>;
+    /**
+     * Provider-specific streaming implementation.
+     * Each provider handles its own API calls using expo/fetch and yields LLMStreamChunk.
+     */
+    protected abstract streamCompletion(
+        request: LLMRequest
+    ): AsyncGenerator<LLMStreamChunk, void, unknown>;
 
-    protected abstract buildRequestBody(
-        messages: ChatMessage[],
-        model: string,
-        stream: boolean,
-        temperature?: number,
-        maxTokens?: number,
-        thinkingEnabled?: boolean
-    ): Record<string, unknown>;
+    /**
+     * Fetch available models from the provider.
+     * Each provider implements its own API call.
+     */
+    public abstract fetchModels(llmConfig: LLMConfig): Promise<string[]>;
 
-    protected abstract getCompletionsEndpoint(config: LLMConfig): string;
+    /**
+     * Test connection to the provider.
+     * Each provider implements its own API call.
+     */
+    public abstract testConnection(llmConfig: LLMConfig): Promise<boolean>;
 
-    protected abstract parseResponse(data: unknown): LLMResponse;
-
-    protected abstract parseStreamChunk(chunk: string): LLMStreamChunk | null;
-
-    protected abstract parseModels(data: unknown): string[];
-
-    protected abstract getModelsEndpoint(config: LLMConfig): string;
-
+    /**
+     * Get the provider name for logging and error messages.
+     */
     protected getProviderName(): string {
         return 'unknown';
     }
 
+    /**
+     * Main streaming method called by conversationStore.
+     * Orchestrates the streaming flow and updates the UI via conversationStore.
+     */
     async *sendMessageStream(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { llmConfig, messages, model, temperature, maxTokens, signal, thinkingEnabled } = request;
-        const actualModel = model || llmConfig.defaultModel;
+        const { conversationId } = request;
 
-        // Use XMLHttpRequest for React Native as it supports streaming via onprogress
-        if (!isWeb) {
-            yield* this.sendMessageStreamNative(request);
-            return;
-        }
+        console.log(`[${this.getProviderName()}] Starting sendMessageStream`, {
+            messageCount: request.messages.length,
+            thinkingEnabled: request.thinkingEnabled,
+            conversationId
+        });
 
-        // Web: Use fetch with ReadableStream
+        let fullContent = '';
+        let thinkingContent = '';
+
         try {
-            const response = await fetch(this.getCompletionsEndpoint(llmConfig), {
-                method: 'POST',
-                headers: this.buildHeaders(llmConfig),
-                body: JSON.stringify(
-                    this.buildRequestBody(messages, actualModel, true, temperature, maxTokens, thinkingEnabled)
-                ),
-                signal: signal || createTimeoutSignal(TIMEOUTS.LLM_REQUEST),
-            });
+            // Delegate to provider-specific streaming implementation
+            const stream = this.streamCompletion(request);
 
-            if (!response.ok) {
-                throw await this.handleErrorResponse(response);
-            }
+            for await (const chunk of stream) {
+                // Accumulate content for conversationStore update
+                fullContent += chunk.content;
+                if (chunk.thinking) {
+                    thinkingContent += chunk.thinking;
+                }
 
-            const reader = response.body?.getReader();
-            if (!reader) {
-                throw new LLMError(
-                    'No response body',
-                    LLMErrorCode.UNKNOWN,
-                    llmConfig.provider as any
-                );
-            }
-
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
-
-                for (const line of lines) {
-                    const chunk = this.parseStreamChunk(line);
-                    if (chunk) {
-                        yield chunk;
-                        if (chunk.done) return;
+                // Update conversationStore's currentMessage for live streaming UI
+                if (conversationId) {
+                    useConversationStore.getState().updateCurrentMessage(conversationId, fullContent);
+                    if (thinkingContent) {
+                        useConversationStore.getState().updateCurrentThinkingMessage(conversationId, thinkingContent);
                     }
+                }
+
+                yield chunk;
+
+                if (chunk.done) {
+                    console.log(`[${this.getProviderName()}] Stream complete`);
+                    return;
                 }
             }
         } catch (error) {
+            console.error(`[${this.getProviderName()}] Error in sendMessageStream:`, error);
             if (error instanceof LLMError) throw error;
             throw this.wrapError(error);
         }
     }
 
     /**
-     * Native streaming implementation using XMLHttpRequest
-     * React Native's XMLHttpRequest fires onprogress events as data arrives
+     * Handle HTTP error responses and convert to LLMError.
      */
-    private async *sendMessageStreamNative(
-        request: LLMRequest
-    ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { llmConfig, messages, model, temperature, maxTokens, signal, thinkingEnabled } = request;
-        const actualModel = model || llmConfig.defaultModel;
-
-        // Create a queue for chunks
-        const chunkQueue: LLMStreamChunk[] = [];
-        let resolveNext: ((value: LLMStreamChunk | null) => void) | null = null;
-        let isDone = false;
-        let error: Error | null = null;
-
-        const xhr = new XMLHttpRequest();
-
-        // Handle abort signal
-        if (signal) {
-            signal.addEventListener('abort', () => {
-                xhr.abort();
-            });
-        }
-
-        const headers = this.buildHeaders(llmConfig);
-        const body = JSON.stringify(
-            this.buildRequestBody(messages, actualModel, true, temperature, maxTokens, thinkingEnabled)
-        );
-
-        let lastProcessedIndex = 0;
-
-        xhr.open('POST', this.getCompletionsEndpoint(llmConfig), true);
-
-        // Set headers
-        for (const [key, value] of Object.entries(headers)) {
-            xhr.setRequestHeader(key, value);
-        }
-
-        xhr.onprogress = () => {
-            // Get new data since last process
-            const newData = xhr.responseText.substring(lastProcessedIndex);
-            lastProcessedIndex = xhr.responseText.length;
-
-            // Process lines
-            const lines = newData.split('\n');
-            for (const line of lines) {
-                if (line.trim()) {
-                    const chunk = this.parseStreamChunk(line);
-                    if (chunk) {
-                        if (resolveNext) {
-                            resolveNext(chunk);
-                            resolveNext = null;
-                        } else {
-                            chunkQueue.push(chunk);
-                        }
-                    }
-                }
-            }
-        };
-
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                isDone = true;
-                if (resolveNext) {
-                    resolveNext(null);
-                    resolveNext = null;
-                }
-            } else {
-                error = new LLMError(
-                    `HTTP ${xhr.status}: ${xhr.statusText}`,
-                    xhr.status === 401 ? LLMErrorCode.AUTH_ERROR : LLMErrorCode.UNKNOWN,
-                    this.getProviderName() as any
-                );
-                if (resolveNext) {
-                    resolveNext(null);
-                    resolveNext = null;
-                }
-            }
-        };
-
-        xhr.onerror = () => {
-            error = new LLMError(
-                'Network error',
-                LLMErrorCode.NETWORK_ERROR,
-                this.getProviderName() as any
-            );
-            if (resolveNext) {
-                resolveNext(null);
-                resolveNext = null;
-            }
-        };
-
-        xhr.ontimeout = () => {
-            error = new LLMError(
-                'Request timed out',
-                LLMErrorCode.TIMEOUT,
-                this.getProviderName() as any
-            );
-            if (resolveNext) {
-                resolveNext(null);
-                resolveNext = null;
-            }
-        };
-
-        xhr.onabort = () => {
-            error = new LLMError(
-                'Request cancelled',
-                LLMErrorCode.CANCELLED,
-                this.getProviderName() as any
-            );
-            if (resolveNext) {
-                resolveNext(null);
-                resolveNext = null;
-            }
-        };
-
-        xhr.timeout = TIMEOUTS.LLM_REQUEST;
-        xhr.send(body);
-
-        // Yield chunks as they arrive
-        while (true) {
-            if (error) throw error;
-
-            if (chunkQueue.length > 0) {
-                const chunk = chunkQueue.shift()!;
-                yield chunk;
-                if (chunk.done) return;
-            } else if (isDone) {
-                return;
-            } else {
-                // Wait for next chunk
-                const chunk = await new Promise<LLMStreamChunk | null>((resolve) => {
-                    resolveNext = resolve;
-                });
-
-                if (error) throw error;
-                if (chunk === null) {
-                    if (isDone) return;
-                    continue;
-                }
-
-                yield chunk;
-                if (chunk.done) return;
-            }
-        }
-    }
-
-    async fetchModels(llmConfig: LLMConfig): Promise<string[]> {
-        try {
-            const response = await fetch(this.getModelsEndpoint(llmConfig), {
-                method: 'GET',
-                headers: this.buildHeaders(llmConfig),
-                signal: createTimeoutSignal(TIMEOUTS.MODEL_FETCH),
-            });
-
-            if (!response.ok) {
-                throw await this.handleErrorResponse(response);
-            }
-
-            const data = await response.json();
-            return this.parseModels(data);
-        } catch (error) {
-            if (error instanceof LLMError) throw error;
-            throw this.wrapError(error);
-        }
-    }
-
-    async testConnection(llmConfig: LLMConfig): Promise<boolean> {
-        try {
-            const response = await fetch(this.getModelsEndpoint(llmConfig), {
-                method: 'GET',
-                headers: this.buildHeaders(llmConfig),
-                signal: createTimeoutSignal(TIMEOUTS.CONNECTION_TEST),
-            });
-            return response.ok;
-        } catch (error) {
-            console.log('Test connection error:', error);
-            return false;
-        }
-    }
-
     protected async handleErrorResponse(response: Response): Promise<LLMError> {
         let errorMessage = `HTTP ${response.status}`;
         try {
@@ -323,6 +124,9 @@ export abstract class BaseLLMProvider implements ILLMClient {
         return new LLMError(errorMessage, code, this.getProviderName() as any);
     }
 
+    /**
+     * Wrap unknown errors in LLMError with appropriate error codes.
+     */
     protected wrapError(error: unknown): LLMError {
         if (error instanceof DOMException && error.name === 'AbortError') {
             return new LLMError(
@@ -353,4 +157,14 @@ export abstract class BaseLLMProvider implements ILLMClient {
             error instanceof Error ? error : undefined
         );
     }
+}
+
+/**
+ * Creates an AbortSignal that times out after the specified duration.
+ * This is a polyfill for AbortSignal.timeout which may not be available on all platforms.
+ */
+export function createTimeoutSignal(ms: number): AbortSignal {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), ms);
+    return controller.signal;
 }

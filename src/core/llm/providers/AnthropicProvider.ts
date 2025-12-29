@@ -1,13 +1,25 @@
+import { fetch } from 'expo/fetch';
+import { TIMEOUTS } from '../../../config/constants';
 import { LLMConfig } from '../../types';
-import { ChatMessage, LLMResponse, LLMStreamChunk } from '../types';
-import { BaseLLMProvider } from './BaseProvider';
+import { ChatMessage, LLMError, LLMErrorCode, LLMRequest, LLMStreamChunk } from '../types';
+import { BaseLLMProvider, createTimeoutSignal } from './BaseProvider';
 
+/**
+ * Anthropic Provider
+ * 
+ * Handles API calls to Anthropic Claude API using expo/fetch.
+ * Supports streaming via Server-Sent Events (SSE).
+ * Includes extended thinking support for Claude 3.5 Sonnet and newer.
+ */
 export class AnthropicProvider extends BaseLLMProvider {
     protected getProviderName(): string {
         return 'anthropic';
     }
 
-    protected buildHeaders(config: LLMConfig): Record<string, string> {
+    /**
+     * Build request headers for Anthropic API.
+     */
+    private buildHeaders(config: LLMConfig): Record<string, string> {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             'anthropic-version': '2023-06-01',
@@ -24,7 +36,10 @@ export class AnthropicProvider extends BaseLLMProvider {
         return headers;
     }
 
-    protected buildRequestBody(
+    /**
+     * Build request body for Anthropic messages API.
+     */
+    private buildRequestBody(
         messages: ChatMessage[],
         model: string,
         stream: boolean,
@@ -59,38 +74,24 @@ export class AnthropicProvider extends BaseLLMProvider {
         if (thinkingEnabled) {
             body.thinking = {
                 type: 'enabled',
-                budget_tokens: 5000, // Allow up to 10k tokens for thinking
+                budget_tokens: 5000,
             };
         }
 
         return body;
     }
 
-    protected getCompletionsEndpoint(config: LLMConfig): string {
+    /**
+     * Get the messages endpoint URL.
+     */
+    private getCompletionsEndpoint(config: LLMConfig): string {
         return `${config.baseUrl}/messages`;
     }
 
-    protected getModelsEndpoint(config: LLMConfig): string {
-        // Anthropic doesn't have a models endpoint, return a dummy URL
-        return `${config.baseUrl}/models`;
-    }
-
-    protected parseResponse(data: any): LLMResponse {
-        const textContent = data.content?.find((c: any) => c.type === 'text');
-        return {
-            content: textContent?.text || '',
-            model: data.model || '',
-            usage: data.usage
-                ? {
-                    promptTokens: data.usage.input_tokens,
-                    completionTokens: data.usage.output_tokens,
-                    totalTokens: (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0),
-                }
-                : undefined,
-        };
-    }
-
-    protected parseStreamChunk(chunk: string): LLMStreamChunk | null {
+    /**
+     * Parse a streaming chunk from Anthropic SSE format.
+     */
+    private parseStreamChunk(chunk: string): LLMStreamChunk | null {
         const trimmed = chunk.trim();
         if (!trimmed || !trimmed.startsWith('data:')) return null;
 
@@ -130,8 +131,73 @@ export class AnthropicProvider extends BaseLLMProvider {
         }
     }
 
-    protected parseModels(_data: any): string[] {
-        // Anthropic doesn't have a models API, return known models
+    /**
+     * Stream completion from Anthropic API.
+     * Handles the full API call and yields parsed chunks.
+     */
+    protected async *streamCompletion(
+        request: LLMRequest
+    ): AsyncGenerator<LLMStreamChunk, void, unknown> {
+        const { llmConfig, messages, model, temperature, maxTokens, signal, thinkingEnabled } = request;
+        const actualModel = model || llmConfig.defaultModel;
+
+        console.log(`[${this.getProviderName()}] Starting streamCompletion`, {
+            model: actualModel,
+            messageCount: messages.length,
+            thinkingEnabled,
+        });
+
+        const response = await fetch(this.getCompletionsEndpoint(llmConfig), {
+            method: 'POST',
+            headers: this.buildHeaders(llmConfig),
+            body: JSON.stringify(
+                this.buildRequestBody(messages, actualModel, true, temperature, maxTokens, thinkingEnabled)
+            ),
+            signal: signal || createTimeoutSignal(TIMEOUTS.LLM_REQUEST),
+        });
+
+        if (!response.ok) {
+            throw await this.handleErrorResponse(response);
+        }
+
+        const reader = response.body?.getReader();
+        if (!reader) {
+            throw new LLMError(
+                'No response body',
+                LLMErrorCode.UNKNOWN,
+                'anthropic'
+            );
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                const chunk = this.parseStreamChunk(line);
+                if (chunk) {
+                    yield chunk;
+                    if (chunk.done) {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Fetch available models from Anthropic.
+     * Anthropic doesn't have a models API, return hardcoded list.
+     */
+    async fetchModels(_llmConfig: LLMConfig): Promise<string[]> {
+        console.log(`[${this.getProviderName()}] Returning hardcoded model list`);
         return [
             'claude-3-5-sonnet-20241022',
             'claude-3-5-haiku-20241022',
@@ -141,25 +207,28 @@ export class AnthropicProvider extends BaseLLMProvider {
         ];
     }
 
-    async fetchModels(llmConfig: LLMConfig): Promise<string[]> {
-        // Override to return hardcoded list since Anthropic doesn't have a models endpoint
-        return this.parseModels(null);
-    }
-
+    /**
+     * Test connection to Anthropic API.
+     * Sends a minimal message since there's no models endpoint.
+     */
     async testConnection(llmConfig: LLMConfig): Promise<boolean> {
+        console.log(`[${this.getProviderName()}] Testing connection`);
+
         try {
-            // Test by sending a minimal message
             const response = await fetch(this.getCompletionsEndpoint(llmConfig), {
                 method: 'POST',
                 headers: this.buildHeaders(llmConfig),
                 body: JSON.stringify({
-                    model: llmConfig.defaultModel,
+                    model: llmConfig.defaultModel || 'claude-3-5-sonnet-20241022',
                     messages: [{ role: 'user', content: 'Hi' }],
                     max_tokens: 1,
                 }),
+                signal: createTimeoutSignal(TIMEOUTS.CONNECTION_TEST),
             });
+            console.log(`[${this.getProviderName()}] Connection test result:`, response.ok);
             return response.ok;
-        } catch {
+        } catch (error) {
+            console.log(`[${this.getProviderName()}] Test connection error:`, error);
             return false;
         }
     }

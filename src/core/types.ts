@@ -15,11 +15,12 @@ export const generateId = (): string => {
  * Supported LLM provider types
  * - openai: Official OpenAI API with fixed URL
  * - openai-spec: OpenAI-compatible API with custom URL (for LM Studio, etc.)
+ * - anthropic: Anthropic Claude API
  * - ollama: Ollama local server
  * - executorch: Local on-device AI with Meta ExecuTorch (.pte models)
  * - llama-rn: Local on-device AI with llama.rn (.gguf models)
  */
-export type LLMProvider = 'openai' | 'openai-spec' | 'ollama' | 'executorch' | 'llama-rn';
+export type LLMProvider = 'openai' | 'openai-spec' | 'anthropic' | 'ollama' | 'executorch' | 'llama-rn';
 
 /**
  * Supported local model file formats

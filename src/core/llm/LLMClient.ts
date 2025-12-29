@@ -1,5 +1,5 @@
 import { LLMConfig, LLMProvider } from '../types';
-import { ExecuTorchProvider, ollamaProvider, openAIProvider } from './providers';
+import { anthropicProvider, ExecuTorchProvider, ollamaProvider, openAIProvider } from './providers';
 import { ILLMClient } from './types';
 
 // Create a singleton instance of ExecuTorchProvider
@@ -23,6 +23,9 @@ class LLMClientFactory implements ILLMClientFactory {
             case 'openai-spec':
                 // OpenAI-compatible API (uses same provider, just different URL)
                 return this.getOrCreate('openai-spec', () => openAIProvider);
+            case 'anthropic':
+                // Anthropic Claude API
+                return this.getOrCreate('anthropic', () => anthropicProvider);
             case 'ollama':
                 return this.getOrCreate('ollama', () => ollamaProvider);
             case 'executorch':

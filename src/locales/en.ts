@@ -180,6 +180,7 @@ export const en: Record<string, string> = {
     // Provider Types - Display Names
     "provider.openai": "OpenAI",
     "provider.openai-spec": "OpenAI Compatible",
+    "provider.anthropic": "Anthropic Claude",
     "provider.ollama": "Ollama",
     "provider.executorch": "ExecuTorch (Local)",
     "provider.llama-rn": "llama.rn (Local)",
@@ -187,6 +188,7 @@ export const en: Record<string, string> = {
     // Provider Types - Descriptions
     "provider.openai.description": "Official OpenAI API (GPT-4, etc.)",
     "provider.openai-spec.description": "OpenAI-compatible API (LM Studio, etc.)",
+    "provider.anthropic.description": "Anthropic Claude API with thinking support",
     "provider.ollama.description": "Local Ollama server",
     "provider.executorch.description": "On-device AI with Meta ExecuTorch (.pte models)",
     "provider.llama-rn.description": "Run GGUF models locally with llama.rn",

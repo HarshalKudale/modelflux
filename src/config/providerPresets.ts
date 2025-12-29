@@ -46,6 +46,16 @@ export const PROVIDER_PRESETS: Record<LLMProvider, Partial<LLMConfig>> = {
         isEnabled: true,
     },
 
+    anthropic: {
+        name: 'Anthropic Claude',
+        provider: 'anthropic',
+        baseUrl: 'https://api.anthropic.com/v1',
+        defaultModel: 'claude-3-5-sonnet-20241022',
+        supportsStreaming: true,
+        isLocal: false,
+        isEnabled: true,
+    },
+
     ollama: {
         name: 'Ollama (Local)',
         provider: 'ollama',
@@ -83,6 +93,13 @@ export const PROVIDER_PRESETS: Record<LLMProvider, Partial<LLMConfig>> = {
 export const POPULAR_MODELS: Record<LLMProvider, string[]> = {
     openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
     'openai-spec': [],
+    anthropic: [
+        'claude-3-5-sonnet-20241022',
+        'claude-3-5-haiku-20241022',
+        'claude-3-opus-20240229',
+        'claude-3-sonnet-20240229',
+        'claude-3-haiku-20240307',
+    ],
     ollama: [],
     executorch: [],
     'llama-rn': [],
@@ -107,6 +124,14 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         color: '#8b5cf6',
         urlEditable: true,
         apiKeyRequired: false,
+        isLocal: false,
+        supportsStreaming: true,
+    },
+    anthropic: {
+        icon: 'chatbubbles',
+        color: '#d4a27f',
+        urlEditable: false,
+        apiKeyRequired: true,
         isLocal: false,
         supportsStreaming: true,
     },
