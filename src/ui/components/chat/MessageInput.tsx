@@ -3,11 +3,13 @@ import { useState } from 'react';
 import {
     Platform,
     StyleSheet,
+    Text,
     TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
+import { useSettingsStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
 
 interface MessageInputProps {
@@ -17,6 +19,9 @@ interface MessageInputProps {
     onStop: () => void;
     isStreaming: boolean;
     disabled: boolean;
+    // RAG props
+    onSourcesPress?: () => void;
+    selectedSourceCount?: number;
 }
 
 export function MessageInput({
@@ -26,11 +31,17 @@ export function MessageInput({
     onStop,
     isStreaming,
     disabled,
+    onSourcesPress,
+    selectedSourceCount = 0,
 }: MessageInputProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const { t } = useLocale();
     const [inputHeight, setInputHeight] = useState(44);
+
+    // Check if RAG is enabled
+    const ragSettings = useSettingsStore((state) => state.settings.ragSettings);
+    const isRagEnabled = ragSettings?.isEnabled && Platform.OS !== 'web';
 
     const handleSend = () => {
         if (value.trim() && !disabled) {
@@ -49,9 +60,20 @@ export function MessageInput({
     };
 
     const canSend = value.trim().length > 0 && !disabled && !isStreaming;
+    const hasSelectedSources = selectedSourceCount > 0;
 
     return (
         <View style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
+            {/* Selected sources indicator */}
+            {hasSelectedSources && (
+                <View style={[styles.sourcesIndicator, { backgroundColor: colors.tint + '20' }]}>
+                    <Ionicons name="documents" size={14} color={colors.tint} />
+                    <Text style={[styles.sourcesIndicatorText, { color: colors.tint }]}>
+                        {t('chat.sources.selected', { count: selectedSourceCount })}
+                    </Text>
+                </View>
+            )}
+
             {/* Input row */}
             <View
                 style={[
@@ -59,6 +81,23 @@ export function MessageInput({
                     { backgroundColor: colors.background, borderColor: colors.border },
                 ]}
             >
+                {/* Sources button - only show when RAG is enabled */}
+                {isRagEnabled && onSourcesPress && (
+                    <TouchableOpacity
+                        onPress={onSourcesPress}
+                        style={[
+                            styles.sourcesButton,
+                            hasSelectedSources && { backgroundColor: colors.tint + '20' },
+                        ]}
+                    >
+                        <Ionicons
+                            name={hasSelectedSources ? "documents" : "add-circle-outline"}
+                            size={22}
+                            color={hasSelectedSources ? colors.tint : colors.textMuted}
+                        />
+                    </TouchableOpacity>
+                )}
+
                 <TextInput
                     value={value}
                     onChangeText={onChange}
@@ -112,19 +151,41 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.sm,
         paddingBottom: Platform.OS === 'ios' ? Spacing.lg : Spacing.lg,
     },
+    sourcesIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
+        borderRadius: BorderRadius.sm,
+        marginBottom: Spacing.xs,
+        alignSelf: 'flex-start',
+        gap: Spacing.xs,
+    },
+    sourcesIndicatorText: {
+        fontSize: FontSizes.xs,
+        fontWeight: '500',
+    },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'flex-end',
         borderRadius: BorderRadius.xl,
         borderWidth: 1,
-        paddingLeft: Spacing.md,
+        paddingLeft: Spacing.xs,
         paddingRight: Spacing.xs,
         paddingVertical: Spacing.xs,
+    },
+    sourcesButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     input: {
         flex: 1,
         fontSize: FontSizes.md,
         paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.sm,
         maxHeight: 120,
         ...Platform.select({
             web: {
@@ -138,6 +199,6 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         alignItems: 'center',
         justifyContent: 'center',
-        marginLeft: Spacing.sm,
+        marginLeft: Spacing.xs,
     },
 });

@@ -180,6 +180,54 @@ export interface MCPServer {
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 /**
+ * RAG Provider types
+ * - executorch: Local on-device embeddings with ExecutorTorch
+ */
+export type RAGProvider = 'executorch' | 'none';
+
+/**
+ * RAG Settings for retrieval-augmented generation
+ */
+export interface RAGSettings {
+    defaultConfigId: string | null;  // ID of the default RAG config to use
+    isEnabled: boolean;              // Whether RAG is enabled globally
+}
+
+/**
+ * Default RAG settings
+ */
+export const DEFAULT_RAG_SETTINGS: RAGSettings = {
+    defaultConfigId: null,
+    isEnabled: false,
+};
+
+/**
+ * RAG Config - configuration for a RAG provider (similar to LLMConfig)
+ */
+export interface RAGConfig {
+    id: string;
+    name: string;
+    provider: RAGProvider;
+    modelId: string;                 // Reference to downloaded model ID with 'Embedding' tag
+    isDefault: boolean;              // Whether this is the default RAG config
+    createdAt: number;
+    updatedAt: number;
+}
+
+/**
+ * Source document for RAG
+ */
+export interface Source {
+    id: number;
+    name: string;
+    uri: string;
+    fileSize: number;
+    mimeType: string;
+    addedAt: number;
+    isProcessing?: boolean;
+}
+
+/**
  * App settings
  */
 export interface AppSettings {
@@ -189,6 +237,7 @@ export interface AppSettings {
     sidebarCollapsed: boolean;
     lastAppVersion: string;
     language: string;
+    ragSettings: RAGSettings;
 }
 
 /**
@@ -208,7 +257,7 @@ export interface ExportedData {
 /**
  * Tag for categorizing models
  */
-export type ModelTag = 'executorch' | 'llama-rn' | 'custom';
+export type ModelTag = 'executorch' | 'llama-rn' | 'custom' | 'Thinking' | 'Function Calling' | 'Quantized' | 'Embedding';
 
 /**
  * Download status for models
@@ -246,4 +295,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     sidebarCollapsed: false,
     lastAppVersion: '1.0.0',
     language: 'en',
+    ragSettings: DEFAULT_RAG_SETTINGS,
 };

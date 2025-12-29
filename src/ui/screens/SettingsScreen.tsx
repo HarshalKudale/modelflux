@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -26,7 +27,10 @@ type ScreenType =
     | 'persona-editor'
     | 'mcp-list'
     | 'mcp-editor'
-    | 'language-select';
+    | 'language-select'
+    | 'rag-settings'
+    | 'rag-provider-list'
+    | 'rag-provider-editor';
 
 interface SettingsScreenProps {
     onNavigate: (screen: ScreenType, params?: Record<string, string>) => void;
@@ -238,6 +242,34 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                     </TouchableOpacity>
+                </SettingsSection>
+
+                {/* ===== RAG SECTION ===== */}
+                <SettingsSection title={t('settings.rag.title')}>
+                    {Platform.OS !== 'web' ? (
+                        <TouchableOpacity
+                            style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
+                            onPress={() => onNavigate('rag-provider-list')}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                    {t('settings.rag.configure')}
+                                </Text>
+                                <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                    {t('settings.rag.description')}
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.textMuted }]}>
+                                    {t('settings.rag.unsupported')}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
                 </SettingsSection>
 
                 {/* ===== DATA MANAGEMENT SECTION ===== */}

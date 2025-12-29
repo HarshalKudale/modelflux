@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
@@ -7,6 +7,7 @@ import { useConversationStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
 import { ConversationList } from './ConversationList';
 import { NewChatButton } from './NewChatButton';
+import { SourcesModal } from './SourcesModal';
 import { UserInfo } from './UserInfo';
 
 interface SidebarProps {
@@ -23,6 +24,8 @@ export function Sidebar({
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const { t } = useLocale();
+
+    const [isSourcesModalVisible, setSourcesModalVisible] = useState(false);
 
     const {
         conversations,
@@ -75,7 +78,16 @@ export function Sidebar({
             />
 
             {/* User Info / Settings */}
-            <UserInfo onSettingsPress={() => onNavigate('settings')} />
+            <UserInfo
+                onSettingsPress={() => onNavigate('settings')}
+                onSourcesPress={() => setSourcesModalVisible(true)}
+            />
+
+            {/* Sources Modal */}
+            <SourcesModal
+                visible={isSourcesModalVisible}
+                onClose={() => setSourcesModalVisible(false)}
+            />
         </SafeAreaView>
     );
 }
@@ -109,4 +121,3 @@ const styles = StyleSheet.create({
         padding: Spacing.sm,
     },
 });
-

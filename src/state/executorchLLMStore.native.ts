@@ -28,6 +28,10 @@ interface ExecutorchLLMState {
     isProcessingPrompt: boolean;
     currentConversationId: string | null;
 
+    // Parsed content for thinking mode (separated from raw response)
+    parsedThinkingContent: string;
+    parsedMessageContent: string;
+
     // Performance tracking
     performance: {
         tokenCount: number;
@@ -54,12 +58,28 @@ interface ExecutorchLLMActions {
 
     // For ExecuTorchProvider access
     getLLMModule: () => InstanceType<typeof LLMModule> | null;
+    getParsedContent: () => { thinking: string; message: string };
+    updateParsedContent: (thinking: string, message: string) => void;
 }
 
 type ExecutorchLLMStore = ExecutorchLLMState & ExecutorchLLMActions;
 
 // Singleton LLMModule instance
 let llmInstance: InstanceType<typeof LLMModule> | null = null;
+
+// Module-level parsing state for token callback (reset each generation via clearResponse)
+let isInThinkingMode = false;
+let thinkingBuffer = '';
+let messageBuffer = '';
+let rawBuffer = '';
+
+// Function to reset parsing state (called by clearResponse)
+function resetParsingState() {
+    isInThinkingMode = false;
+    thinkingBuffer = '';
+    messageBuffer = '';
+    rawBuffer = '';
+}
 
 export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
     // Initial state
@@ -73,6 +93,8 @@ export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
     isGenerating: false,
     isProcessingPrompt: false,
     currentConversationId: null,
+    parsedThinkingContent: '',
+    parsedMessageContent: '',
     performance: {
         tokenCount: 0,
         firstTokenTime: 0,
@@ -111,12 +133,15 @@ export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
         console.log('[ExecutorchLLMStore] Loading model:', modelName);
         console.log('[ExecutorchLLMStore] Model path:', downloadedModel.modelFilePath);
         console.log('[ExecutorchLLMStore] Tokenizer path:', downloadedModel.tokenizerFilePath);
+        console.log('[ExecutorchLLMStore] tokenizerConfigFilePath path:', downloadedModel.tokenizerConfigFilePath);
 
         try {
             // Create new LLMModule instance
             llmInstance = new LLMModule();
 
-            // Set up token callback
+            // Set up token callback with thinking tag parsing
+            // Uses module-level parsing state that gets reset via clearResponse
+
             llmInstance.setTokenCallback({
                 tokenCallback: (token: string) => {
                     const state = get();
@@ -128,7 +153,33 @@ export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
                         return;
                     }
 
+                    // Accumulate raw buffer and current response
+                    rawBuffer += token;
                     const newResponse = state.currentResponse + token;
+
+                    // Check for <think> tag at the start
+                    if (!isInThinkingMode && rawBuffer.startsWith('<think>')) {
+                        isInThinkingMode = true;
+                        // Extract content after <think> tag
+                        const afterThinkTag = rawBuffer.slice(7); // Length of '<think>'
+                        thinkingBuffer = afterThinkTag;
+                    } else if (isInThinkingMode) {
+                        // Check if we've reached </think> tag
+                        const closeTagIndex = rawBuffer.indexOf('</think>');
+                        if (closeTagIndex !== -1) {
+                            // Extract thinking content (between <think> and </think>)
+                            thinkingBuffer = rawBuffer.slice(7, closeTagIndex);
+                            // Extract message content (after </think>)
+                            messageBuffer = rawBuffer.slice(closeTagIndex + 8); // Length of '</think>'
+                            isInThinkingMode = false;
+                        } else {
+                            // Still in thinking mode, update thinking buffer
+                            thinkingBuffer = rawBuffer.slice(7);
+                        }
+                    } else {
+                        // Not in thinking mode and no <think> tag, treat as regular message
+                        messageBuffer = rawBuffer;
+                    }
 
                     set({
                         isProcessingPrompt: false,
@@ -141,12 +192,23 @@ export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
                         currentResponse: newResponse,
                     });
 
-                    // Update conversation store's currentMessage if we have a conversationId
+                    // Update conversation store based on thinking state
+                    // Also update parsed content in store for ExecuTorchProvider to access
+                    get().updateParsedContent(thinkingBuffer, messageBuffer);
+
                     if (state.currentConversationId) {
-                        useConversationStore.getState().updateCurrentMessage(
-                            state.currentConversationId,
-                            newResponse
-                        );
+                        if (thinkingBuffer) {
+                            useConversationStore.getState().updateCurrentThinkingMessage(
+                                state.currentConversationId,
+                                thinkingBuffer
+                            );
+                        }
+                        if (messageBuffer) {
+                            useConversationStore.getState().updateCurrentMessage(
+                                state.currentConversationId,
+                                messageBuffer
+                            );
+                        }
                     }
                 },
             });
@@ -227,8 +289,12 @@ export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
     },
 
     clearResponse: () => {
+        // Reset module-level parsing state for the next generation
+        resetParsingState();
         set({
             currentResponse: '',
+            parsedThinkingContent: '',
+            parsedMessageContent: '',
             performance: {
                 tokenCount: 0,
                 firstTokenTime: 0,
@@ -243,6 +309,21 @@ export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
     setCurrentConversationId: (conversationId) => set({ currentConversationId: conversationId }),
 
     getLLMModule: () => llmInstance,
+
+    getParsedContent: () => {
+        const state = get();
+        return {
+            thinking: state.parsedThinkingContent,
+            message: state.parsedMessageContent,
+        };
+    },
+
+    updateParsedContent: (thinking, message) => {
+        set({
+            parsedThinkingContent: thinking,
+            parsedMessageContent: message,
+        });
+    },
 }));
 
 /**

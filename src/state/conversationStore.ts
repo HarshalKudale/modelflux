@@ -1,8 +1,10 @@
 import { create } from 'zustand';
+import { CONTEXT_INSTRUCTION, K_DOCUMENTS_TO_RETRIEVE } from '../config/ragConstants';
 import { ChatMessage, LLMError, llmClientFactory } from '../core/llm';
-import { conversationRepository, messageRepository } from '../core/storage';
-import { Conversation, Message, generateId } from '../core/types';
+import { conversationRepository, messageRepository, sourceRepository } from '../core/storage';
+import { Conversation, Message, Source, generateId } from '../core/types';
 import { isLocalProvider, useExecutorchLLMStore } from './executorchLLMStore';
+import { useExecutorchRagStore } from './executorchRagStore';
 import { useLLMStore } from './llmStore';
 import { usePersonaStore } from './personaStore';
 import { useSettingsStore } from './settingsStore';
@@ -28,7 +30,7 @@ interface ConversationStoreActions {
     updateConversationTitle: (id: string, title: string) => Promise<void>;
     setThinkingEnabled: (enabled: boolean) => Promise<void>;
     loadMessages: (conversationId: string) => Promise<void>;
-    sendMessage: (content: string) => Promise<void>;
+    sendMessage: (content: string, selectedSourceIds?: number[]) => Promise<void>;
     cancelStreaming: () => void;
     setActiveLLM: (llmId: string, model: string) => Promise<void>;
     getCurrentConversation: () => Conversation | null;
@@ -226,7 +228,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         }
     },
 
-    sendMessage: async (content) => {
+    sendMessage: async (content, selectedSourceIds) => {
         const { currentConversationId, conversations } = get();
         if (!currentConversationId || !content.trim()) return;
 
@@ -278,12 +280,44 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 content: m.content,
             }));
 
+            // Prepare RAG context if sources are selected
+            let ragContext: string[] = [];
+            if (selectedSourceIds && selectedSourceIds.length > 0) {
+                try {
+                    const vectorStore = useExecutorchRagStore.getState().getVectorStore();
+                    if (vectorStore) {
+                        console.log('[conversationStore] Preparing RAG context for', selectedSourceIds.length, 'sources');
+
+                        const results = await vectorStore.similaritySearch(
+                            content,
+                            K_DOCUMENTS_TO_RETRIEVE,
+                            (value: { metadata?: { documentId?: number } }) => {
+                                return selectedSourceIds.includes(value.metadata?.documentId || 0);
+                            }
+                        );
+
+                        if (results && results.length > 0) {
+                            const sources = await sourceRepository.findAll();
+                            ragContext = results.map((item: { content: string; metadata?: { documentId?: number; name?: string }; similarity?: number }, index: number) => {
+                                const sourceName = sources.find((s: Source) => s.id === item.metadata?.documentId)?.name
+                                    || item.metadata?.name
+                                    || `Document ${item.metadata?.documentId || 'Unknown'}`;
+                                return `\n--- Source ${index + 1}: ${sourceName} ---\n${item.content.trim()}\n--- End of Source ${index + 1} ---`;
+                            });
+                            console.log('[conversationStore] Prepared', ragContext.length, 'context entries');
+                        }
+                    }
+                } catch (e) {
+                    console.error('[conversationStore] Error preparing RAG context:', e);
+                }
+            }
+
             // Prepend persona system prompt if persona is assigned
             if (conversation.personaId) {
                 const persona = usePersonaStore.getState().getPersonaById(conversation.personaId);
                 if (persona) {
                     // Build system prompt from persona details
-                    const personaDetails: string[] = ['/no_think'];
+                    const personaDetails: string[] = [];
                     if (persona.name) personaDetails.push(`Name: ${persona.name}`);
                     if (persona.age) personaDetails.push(`Age: ${persona.age}`);
                     if (persona.location) personaDetails.push(`Location: ${persona.location}`);
@@ -294,10 +328,29 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                         systemContent = `${personaDetails.join(', ')}\n\n${persona.systemPrompt}`;
                     }
 
+                    // Add RAG context instruction if context is available
+                    if (ragContext.length > 0) {
+                        systemContent = `${systemContent}\n\n${CONTEXT_INSTRUCTION}`;
+                    }
+
                     chatMessages.unshift({
                         role: 'system',
                         content: systemContent,
                     });
+                }
+            } else if (ragContext.length > 0) {
+                // No persona, but RAG context is available - add context instruction as system prompt
+                chatMessages.unshift({
+                    role: 'system',
+                    content: CONTEXT_INSTRUCTION,
+                });
+            }
+
+            // Wrap user message with context if available
+            if (ragContext.length > 0) {
+                const lastMessageIndex = chatMessages.length - 1;
+                if (lastMessageIndex >= 0 && chatMessages[lastMessageIndex].role === 'user') {
+                    chatMessages[lastMessageIndex].content = `<context>${ragContext.join(' ')}</context>\n${chatMessages[lastMessageIndex].content}`;
                 }
             }
 
@@ -306,20 +359,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
             const client = llmClientFactory.getClient(llmConfig);
 
-            // Clear current message for this conversation
+            // Clear current message for this conversation before starting
             get().clearCurrentMessage(currentConversationId);
-
-            let fullContent = '';
-            let thinkingContent = '';
-            let firstChunkReceived = false;
 
             console.log('[conversationStore] Calling sendMessageStream with', chatMessages.length, 'messages');
 
-            // For local providers, set isStreaming=true immediately since tokens come via tokenCallback
-            // rather than through the generator chunks
-            if (isLocalProvider(llmConfig.provider)) {
-                set({ isStreaming: true });
-            }
+            // Set isStreaming=true - providers will update currentMessage/currentThinkingMessage
+            set({ isStreaming: true });
 
             const stream = client.sendMessageStream({
                 llmConfig,
@@ -330,31 +376,16 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 conversationId: currentConversationId,
             });
 
+            // Wait for stream to complete - providers update currentMessageMap via their streaming logic
             for await (const chunk of stream) {
-                // Set isStreaming true on first chunk so we switch from spinner to streaming UI
-                if (!firstChunkReceived) {
-                    firstChunkReceived = true;
-                    set({ isStreaming: true });
-                }
-                fullContent += chunk.content;
-                if (chunk.thinking) {
-                    thinkingContent += chunk.thinking;
-                }
-                // Update currentMessageMap for this conversation
-                get().updateCurrentMessage(currentConversationId, fullContent);
-                if (thinkingContent) {
-                    get().updateCurrentThinkingMessage(currentConversationId, thinkingContent);
-                }
-
                 if (chunk.done) break;
             }
 
-            // Save assistant message
-            // If thinking was enabled but no thinking content, indicate model doesn't support it
-            const finalThinkingContent = conversation.thinkingEnabled
-                ? (thinkingContent || 'Model does not support thinking')
-                : undefined;
+            // Get the final content from currentMessageMap (populated by providers during streaming)
+            const fullContent = get().getCurrentMessage(currentConversationId);
+            const thinkingContent = get().getCurrentThinkingMessage(currentConversationId);
 
+            // Save assistant message with the collected content
             const assistantMessage: Message = {
                 id: generateId(),
                 conversationId: currentConversationId,
@@ -364,24 +395,29 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 timestamp: Date.now(),
                 llmIdUsed: conversation.activeLLMId,
                 modelUsed: conversation.activeModel,
-                thinkingContent: finalThinkingContent,
+                thinkingContent: thinkingContent || undefined,
             };
 
             await messageRepository.create(assistantMessage);
 
-            // Clear currentMessage for this conversation and update messages list
-            get().clearCurrentMessage(currentConversationId);
-            set((state) => ({
-                messages: {
-                    ...state.messages,
-                    [currentConversationId]: [
-                        ...(state.messages[currentConversationId] || []),
-                        assistantMessage,
-                    ],
-                },
-                isStreaming: false,
-                isSendingMessage: false,
-            }));
+            // Add message to state and clear streaming content
+            set((state) => {
+                const { [currentConversationId]: _, ...restMessages } = state.currentMessageMap;
+                const { [currentConversationId]: __, ...restThinking } = state.currentThinkingMessageMap;
+                return {
+                    messages: {
+                        ...state.messages,
+                        [currentConversationId]: [
+                            ...(state.messages[currentConversationId] || []),
+                            assistantMessage,
+                        ],
+                    },
+                    currentMessageMap: restMessages,
+                    currentThinkingMessageMap: restThinking,
+                    isStreaming: false,
+                    isSendingMessage: false,
+                };
+            });
 
             // Update conversation timestamp
             await conversationRepository.touch(currentConversationId);

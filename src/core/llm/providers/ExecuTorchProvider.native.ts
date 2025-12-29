@@ -61,13 +61,22 @@ export class ExecuTorchProvider implements ILLMClient {
 
             console.log('[ExecuTorchProvider] Generation complete, response length:', fullResponse?.length || 0);
 
+            // Get parsed content from the store (thinking/message separated by token callback)
+            const parsedContent = state.getParsedContent();
+
             // Generation complete
             state.setGenerating(false);
             state.setProcessingPrompt(false);
             state.setCurrentConversationId(null);
 
-            // Yield the full response as done
-            yield { content: fullResponse || '', done: true };
+            // Yield the parsed content - if there was thinking, use parsed message, otherwise use full response
+            // The thinking content is handled separately via the chunk.thinking field
+            const hasThinkingContent = parsedContent.thinking.length > 0;
+            yield {
+                content: hasThinkingContent ? parsedContent.message : (fullResponse || ''),
+                thinking: hasThinkingContent ? parsedContent.thinking : undefined,
+                done: true
+            };
 
         } catch (error) {
             state.setGenerating(false);

@@ -21,7 +21,7 @@ import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { useModelDownloadStore } from '../../state';
 import { useAppColorScheme, useLocale } from '../hooks';
 
-type FilterType = 'all' | 'downloading' | 'downloaded' | 'llama' | 'qwen' | 'smollm';
+type FilterType = 'all' | 'downloading' | 'downloaded' | 'embedding' | 'llama' | 'qwen' | 'smollm' | 'hammer' | 'phi';
 
 interface ModelsScreenProps {
     onBack: () => void;
@@ -77,6 +77,9 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
             case 'downloaded':
                 models = models.filter((m) => isDownloaded(m.id));
                 break;
+            case 'embedding':
+                models = models.filter((m) => m.tags.includes('Embedding'));
+                break;
             case 'llama':
                 models = models.filter((m) => m.category === 'llama');
                 break;
@@ -85,6 +88,12 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 break;
             case 'smollm':
                 models = models.filter((m) => m.category === 'smollm');
+                break;
+            case 'hammer':
+                models = models.filter((m) => m.category === 'hammer');
+                break;
+            case 'phi':
+                models = models.filter((m) => m.category === 'phi');
                 break;
             default:
                 break;
@@ -184,9 +193,24 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                                 <Text
                                     style={[styles.tagText, { color: colors.tint }]}
                                 >
-                                    {t('models.tag.executorch')}
+                                    {model.params}
                                 </Text>
                             </View>
+                            {model.tags.map((tag) => (
+                                <View
+                                    key={tag}
+                                    style={[
+                                        styles.tag,
+                                        { backgroundColor: tag === 'Quantized' ? colors.success + '20' : colors.warning + '20' },
+                                    ]}
+                                >
+                                    <Text
+                                        style={[styles.tagText, { color: tag === 'Quantized' ? colors.success : colors.warning }]}
+                                    >
+                                        {tag}
+                                    </Text>
+                                </View>
+                            ))}
                         </View>
                     </View>
                     <Text
@@ -196,7 +220,7 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                         {model.description}
                     </Text>
                     <Text style={[styles.modelSize, { color: colors.textMuted }]}>
-                        {model.sizeEstimate}
+                        {model.size}
                     </Text>
                 </View>
 
@@ -349,9 +373,12 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                         { value: 'all' as FilterType, label: t('models.filter.all') },
                         { value: 'downloading' as FilterType, label: t('models.filter.downloading') },
                         { value: 'downloaded' as FilterType, label: t('models.filter.downloaded') },
+                        { value: 'embedding' as FilterType, label: 'Embedding' },
                         { value: 'llama' as FilterType, label: 'LLaMA' },
                         { value: 'qwen' as FilterType, label: 'Qwen' },
                         { value: 'smollm' as FilterType, label: 'SmolLM' },
+                        { value: 'hammer' as FilterType, label: 'Hammer' },
+                        { value: 'phi' as FilterType, label: 'Phi' },
                     ]}
                     keyExtractor={(item) => item.value}
                     renderItem={({ item }) =>

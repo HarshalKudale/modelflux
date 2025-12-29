@@ -8,7 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
-import { useConversationStore, useLLMStore, useSettingsStore } from '@/src/state';
+import { useConversationStore, useLLMStore, useRagConfigStore, useSettingsStore } from '@/src/state';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -32,6 +32,7 @@ export default function RootLayout() {
   const loadSettings = useSettingsStore((s) => s.loadSettings);
   const loadConfigs = useLLMStore((s) => s.loadConfigs);
   const loadConversations = useConversationStore((s) => s.loadConversations);
+  const loadRagConfigs = useRagConfigStore((s) => s.loadConfigs);
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
@@ -45,7 +46,9 @@ export default function RootLayout() {
         loadSettings(),
         loadConfigs(),
         loadConversations(),
+        loadRagConfigs(),
       ]);
+      // Note: RAG vector store is now initialized lazily when Sources modal opens
     };
 
     initializeApp();
@@ -135,9 +138,29 @@ function RootLayoutNav() {
               presentation: 'modal',
             }}
           />
+          <Stack.Screen
+            name="rag-settings"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="rag-provider-list"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="rag-provider-editor"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
         </Stack>
       </ThemeProvider>
     </GestureHandlerRootView>
   );
 }
-

@@ -7,5 +7,8 @@ export { MCPListScreen } from './MCPListScreen';
 export { ModelsScreen } from './ModelsScreen';
 export { PersonaEditorScreen } from './PersonaEditorScreen';
 export { PersonaListScreen } from './PersonaListScreen';
+export { RAGProviderEditorScreen } from './RAGProviderEditorScreen';
+export { RAGProviderListScreen } from './RAGProviderListScreen';
+export { RAGSettingsScreen } from './RAGSettingsScreen';
 export { SettingsScreen } from './SettingsScreen';
 

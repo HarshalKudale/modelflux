@@ -4,7 +4,9 @@ export { llmConfigRepository } from './LLMConfigRepository';
 export { mcpServerRepository } from './MCPServerRepository';
 export { messageRepository } from './MessageRepository';
 export { personaRepository } from './PersonaRepository';
+export { ragConfigRepository } from './RAGConfigRepository';
 export { settingsRepository } from './SettingsRepository';
+export { sourceRepository } from './SourceRepository';
 export { storageAdapter } from './StorageAdapter';
 
 export type { IConversationRepository } from './ConversationRepository';

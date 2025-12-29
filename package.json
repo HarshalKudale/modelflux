@@ -8,9 +8,16 @@
     "ios": "expo run:ios",
     "web": "expo start --web"
   },
+  "op-sqlite": {
+    "libsql": true,
+    "sqliteVec": true
+  },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@op-engineering/op-sqlite": "^15.1.16",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-rag/executorch": "^0.2.0",
+    "@react-native-rag/op-sqlite": "file:./react-native-rag-op-sqlite-0.1.2.tgz",
     "@react-navigation/drawer": "^7.7.9",
     "@react-navigation/native": "^7.1.8",
     "expo": "~54.0.29",
@@ -33,6 +40,8 @@
     "react-native-executorch": "^0.6.0",
     "react-native-gesture-handler": "^2.29.1",
     "react-native-markdown-display": "^7.0.2",
+    "react-native-pdfium": "file:./react-native-pdfium-0.1.2.tgz",
+    "react-native-rag": "^0.2.0",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",

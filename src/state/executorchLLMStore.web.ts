@@ -25,6 +25,10 @@ interface ExecutorchLLMState {
     isProcessingPrompt: boolean;
     currentConversationId: string | null;
 
+    // Parsed content for thinking mode (separated from raw response)
+    parsedThinkingContent: string;
+    parsedMessageContent: string;
+
     // Performance tracking
     performance: {
         tokenCount: number;
@@ -51,6 +55,8 @@ interface ExecutorchLLMActions {
 
     // For ExecuTorchProvider access - returns null on web
     getLLMModule: () => null;
+    getParsedContent: () => { thinking: string; message: string };
+    updateParsedContent: (thinking: string, message: string) => void;
 }
 
 type ExecutorchLLMStore = ExecutorchLLMState & ExecutorchLLMActions;
@@ -70,6 +76,8 @@ export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
     isGenerating: false,
     isProcessingPrompt: false,
     currentConversationId: null,
+    parsedThinkingContent: '',
+    parsedMessageContent: '',
     performance: {
         tokenCount: 0,
         firstTokenTime: 0,
@@ -104,6 +112,10 @@ export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
     setCurrentConversationId: (conversationId) => set({ currentConversationId: conversationId }),
 
     getLLMModule: () => null,
+
+    getParsedContent: () => ({ thinking: '', message: '' }),
+
+    updateParsedContent: () => { },
 }));
 
 /**

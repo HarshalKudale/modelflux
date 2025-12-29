@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { settingsRepository } from '../core/storage';
-import { AppSettings, DEFAULT_SETTINGS, ThemeMode } from '../core/types';
+import { AppSettings, DEFAULT_SETTINGS, RAGProvider, RAGSettings, ThemeMode } from '../core/types';
 import { localeService } from '../services/LocaleService';
 
 interface SettingsStoreState {
@@ -18,6 +18,11 @@ interface SettingsStoreActions {
     setDefaultLLM: (llmId: string | null) => Promise<void>;
     setDefaultPersona: (personaId: string | null) => Promise<void>;
     setLanguage: (language: string) => Promise<void>;
+    // RAG settings
+    setRagProvider: (provider: RAGProvider) => Promise<void>;
+    setRagModel: (modelId: string | null) => Promise<void>;
+    setRagEnabled: (enabled: boolean) => Promise<void>;
+    updateRagSettings: (ragSettings: Partial<RAGSettings>) => Promise<void>;
     clearError: () => void;
 }
 
@@ -87,6 +92,49 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     setLanguage: async (language) => {
         localeService.setLanguage(language);
         await get().updateSettings({ language });
+    },
+
+    // RAG Settings
+    setRagProvider: async (provider) => {
+        const current = get().settings.ragSettings;
+        await get().updateSettings({
+            ragSettings: {
+                ...current,
+                provider,
+                isEnabled: provider !== 'none',
+            },
+        });
+    },
+
+    setRagModel: async (modelId) => {
+        const current = get().settings.ragSettings;
+        await get().updateSettings({
+            ragSettings: {
+                ...current,
+                modelId,
+            },
+        });
+    },
+
+    setRagEnabled: async (enabled) => {
+        const current = get().settings.ragSettings;
+        await get().updateSettings({
+            ragSettings: {
+                ...current,
+                isEnabled: enabled,
+                provider: enabled ? (current.provider === 'none' ? 'executorch' : current.provider) : 'none',
+            },
+        });
+    },
+
+    updateRagSettings: async (ragSettings) => {
+        const current = get().settings.ragSettings;
+        await get().updateSettings({
+            ragSettings: {
+                ...current,
+                ...ragSettings,
+            },
+        });
     },
 
     clearError: () => {

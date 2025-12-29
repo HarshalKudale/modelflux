@@ -3,8 +3,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../config/theme';
-import { isLocalProvider, useConversationStore, useExecutorchLLMStore, useLLMStore, useModelDownloadStore, usePersonaStore } from '../../state';
-import { ChatHeader, MessageInput, MessageList, ModelSettingsPanel } from '../components/chat';
+import { isLocalProvider, useConversationStore, useExecutorchLLMStore, useLLMStore, useModelDownloadStore, usePersonaStore, useSourceStore } from '../../state';
+import { ChatHeader, MessageInput, MessageList, ModelSettingsPanel, SourceSelector } from '../components/chat';
 import { useAppColorScheme } from '../hooks';
 
 // Maximum width for chat content on web (similar to ChatGPT/Claude interfaces)
@@ -26,6 +26,9 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const [providerConnectionStatus, setProviderConnectionStatus] = useState<Record<string, boolean>>({});
     // Settings modal visibility for existing conversations
     const [showSettingsModal, setShowSettingsModal] = useState(false);
+    // Source selection for RAG
+    const [selectedSourceIds, setSelectedSourceIds] = useState<number[]>([]);
+    const [showSourceSelector, setShowSourceSelector] = useState(false);
 
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
@@ -56,10 +59,12 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
 
     const { configs, availableModels, fetchModels, isLoadingModels, testConnection, getConfigById } = useLLMStore();
     const { personas, loadPersonas, getPersonaById } = usePersonaStore();
+    const { sources, loadSources } = useSourceStore();
 
-    // Load personas on mount
+    // Load personas and sources on mount
     useEffect(() => {
         loadPersonas();
+        loadSources();
     }, []);
 
     // Set initial provider if configs exist
@@ -152,6 +157,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const handleSend = async () => {
         if (!inputValue.trim()) return;
         const message = inputValue;
+        const sourcesToUse = [...selectedSourceIds]; // Copy before clearing
         setInputValue('');
 
         // Dismiss keyboard to give more screen space
@@ -168,13 +174,13 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                 setPendingThinkingEnabled(false);
                 // Small delay to ensure state is updated
                 setTimeout(async () => {
-                    await sendMessage(message);
+                    await sendMessage(message, sourcesToUse);
                 }, 100);
             } catch (error) {
                 console.error('Failed to create conversation:', error);
             }
         } else {
-            await sendMessage(message);
+            await sendMessage(message, sourcesToUse);
         }
     };
 
@@ -329,10 +335,16 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                     <MessageInput
                         value={inputValue}
                         onChange={setInputValue}
-                        onSend={handleSend}
+                        onSend={async () => {
+                            await handleSend();
+                            // Clear source selection after sending
+                            setSelectedSourceIds([]);
+                        }}
                         onStop={cancelStreaming}
                         isStreaming={isStreaming || isSendingMessage}
                         disabled={isInputDisabled}
+                        onSourcesPress={() => setShowSourceSelector(true)}
+                        selectedSourceCount={selectedSourceIds.length}
                     />
                 </View>
             </View>
@@ -415,6 +427,21 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                     </View>
                 </Pressable>
             </Modal>
+
+            {/* Source Selector Modal for RAG */}
+            <SourceSelector
+                visible={showSourceSelector}
+                onClose={() => setShowSourceSelector(false)}
+                selectedSourceIds={selectedSourceIds}
+                onSourceToggle={(sourceId) => {
+                    setSelectedSourceIds((prev) =>
+                        prev.includes(sourceId)
+                            ? prev.filter((id) => id !== sourceId)
+                            : [...prev, sourceId]
+                    );
+                }}
+                onClearSelection={() => setSelectedSourceIds([])}
+            />
         </KeyboardAvoidingView>
     );
 }

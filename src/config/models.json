@@ -1,0 +1,522 @@
+{
+    "version": "0.6.0",
+    "urlPrefix": "https://huggingface.co/software-mansion/react-native-executorch",
+    "models": [
+        {
+            "id": "llama3-2-1b",
+            "name": "LLaMA 3.2 1B",
+            "description": "Full precision 1B model from Meta",
+            "category": "llama",
+            "tags": [],
+            "params": "1B",
+            "size": "~2.5 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/llama-3.2-1B/original/llama3_2_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "llama3-2-1b-qlora",
+            "name": "LLaMA 3.2 1B QLoRA",
+            "description": "1B model with QLoRA quantization",
+            "category": "llama",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "1B",
+            "size": "~1.3 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/llama-3.2-1B/QLoRA/llama3_2_qat_lora.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "llama3-2-1b-spinquant",
+            "name": "LLaMA 3.2 1B SpinQuant",
+            "description": "1B model with SpinQuant quantization (recommended)",
+            "category": "llama",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "1B",
+            "size": "~1.3 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/llama-3.2-1B/spinquant/llama3_2_spinquant.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "llama3-2-3b",
+            "name": "LLaMA 3.2 3B",
+            "description": "Full precision 3B model from Meta",
+            "category": "llama",
+            "tags": [],
+            "params": "3B",
+            "size": "~6.5 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/llama-3.2-3B/original/llama3_2_3B_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "llama3-2-3b-qlora",
+            "name": "LLaMA 3.2 3B QLoRA",
+            "description": "3B model with QLoRA quantization",
+            "category": "llama",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "3B",
+            "size": "~3.2 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/llama-3.2-3B/QLoRA/llama3_2-3B_qat_lora.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "llama3-2-3b-spinquant",
+            "name": "LLaMA 3.2 3B SpinQuant",
+            "description": "3B model with SpinQuant quantization",
+            "category": "llama",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "3B",
+            "size": "~3.2 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/llama-3.2-3B/spinquant/llama3_2_3B_spinquant.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-llama-3.2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen3-0-6b",
+            "name": "Qwen 3 0.6B",
+            "description": "Lightweight Qwen 3 model with thinking capability",
+            "category": "qwen",
+            "tags": [
+                "Thinking"
+            ],
+            "params": "0.6B",
+            "size": "~1.2 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/qwen-3-0.6B/original/qwen3_0_6b_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen3-0-6b-quantized",
+            "name": "Qwen 3 0.6B Quantized",
+            "description": "Lightweight Qwen 3 model with quantization",
+            "category": "qwen",
+            "tags": [
+                "Thinking",
+                "Quantized"
+            ],
+            "params": "0.6B",
+            "size": "~0.8 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/qwen-3-0.6B/quantized/qwen3_0_6b_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen3-1-7b",
+            "name": "Qwen 3 1.7B",
+            "description": "Larger Qwen 3 model with thinking capability",
+            "category": "qwen",
+            "tags": [
+                "Thinking"
+            ],
+            "params": "1.7B",
+            "size": "~3.4 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/qwen-3-1.7B/original/qwen3_1_7b_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen3-1-7b-quantized",
+            "name": "Qwen 3 1.7B Quantized",
+            "description": "Larger Qwen 3 model with quantization",
+            "category": "qwen",
+            "tags": [
+                "Thinking",
+                "Quantized"
+            ],
+            "params": "1.7B",
+            "size": "~2.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/qwen-3-1.7B/quantized/qwen3_1_7b_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen3-4b",
+            "name": "Qwen 3 4B",
+            "description": "Large Qwen 3 model with thinking capability",
+            "category": "qwen",
+            "tags": [
+                "Thinking"
+            ],
+            "params": "4B",
+            "size": "~8.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/qwen-3-4B/original/qwen3_4b_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen3-4b-quantized",
+            "name": "Qwen 3 4B Quantized",
+            "description": "Large Qwen 3 model with quantization",
+            "category": "qwen",
+            "tags": [
+                "Thinking",
+                "Quantized"
+            ],
+            "params": "4B",
+            "size": "~4.5 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/qwen-3-4B/quantized/qwen3_4b_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-3/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen2-5-0-5b",
+            "name": "Qwen 2.5 0.5B",
+            "description": "Ultra-lightweight Qwen 2.5 model",
+            "category": "qwen",
+            "tags": [],
+            "params": "0.5B",
+            "size": "~1.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/qwen-2.5-0.5B/original/qwen2_5_0_5b_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen2-5-0-5b-quantized",
+            "name": "Qwen 2.5 0.5B Quantized",
+            "description": "Ultra-lightweight Qwen 2.5 model with quantization",
+            "category": "qwen",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "0.5B",
+            "size": "~0.6 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/qwen-2.5-0.5B/quantized/qwen2_5_0_5b_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen2-5-1-5b",
+            "name": "Qwen 2.5 1.5B",
+            "description": "Lightweight Qwen 2.5 model",
+            "category": "qwen",
+            "tags": [],
+            "params": "1.5B",
+            "size": "~3.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/qwen-2.5-1.5B/original/qwen2_5_1_5b_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen2-5-1-5b-quantized",
+            "name": "Qwen 2.5 1.5B Quantized",
+            "description": "Lightweight Qwen 2.5 model with quantization",
+            "category": "qwen",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "1.5B",
+            "size": "~1.8 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/qwen-2.5-1.5B/quantized/qwen2_5_1_5b_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen2-5-3b",
+            "name": "Qwen 2.5 3B",
+            "description": "Mid-size Qwen 2.5 model",
+            "category": "qwen",
+            "tags": [],
+            "params": "3B",
+            "size": "~6.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/qwen-2.5-3B/original/qwen2_5_3b_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "qwen2-5-3b-quantized",
+            "name": "Qwen 2.5 3B Quantized",
+            "description": "Mid-size Qwen 2.5 model with quantization",
+            "category": "qwen",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "3B",
+            "size": "~3.5 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/qwen-2.5-3B/quantized/qwen2_5_3b_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-qwen-2.5/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "hammer2-1-0-5b",
+            "name": "Hammer 2.1 0.5B",
+            "description": "Ultra-lightweight model optimized for function calling",
+            "category": "hammer",
+            "tags": [
+                "Function Calling"
+            ],
+            "params": "0.5B",
+            "size": "~1.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/hammer-2.1-0.5B/original/hammer2_1_0_5B_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "hammer2-1-0-5b-quantized",
+            "name": "Hammer 2.1 0.5B Quantized",
+            "description": "Ultra-lightweight function calling model with quantization",
+            "category": "hammer",
+            "tags": [
+                "Function Calling",
+                "Quantized"
+            ],
+            "params": "0.5B",
+            "size": "~0.6 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/hammer-2.1-0.5B/quantized/hammer2_1_0_5B_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "hammer2-1-1-5b",
+            "name": "Hammer 2.1 1.5B",
+            "description": "Lightweight model optimized for function calling",
+            "category": "hammer",
+            "tags": [
+                "Function Calling"
+            ],
+            "params": "1.5B",
+            "size": "~3.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/hammer-2.1-1.5B/original/hammer2_1_1_5B_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "hammer2-1-1-5b-quantized",
+            "name": "Hammer 2.1 1.5B Quantized",
+            "description": "Lightweight function calling model with quantization",
+            "category": "hammer",
+            "tags": [
+                "Function Calling",
+                "Quantized"
+            ],
+            "params": "1.5B",
+            "size": "~1.8 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/hammer-2.1-1.5B/quantized/hammer2_1_1_5B_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "hammer2-1-3b",
+            "name": "Hammer 2.1 3B",
+            "description": "Mid-size model optimized for function calling",
+            "category": "hammer",
+            "tags": [
+                "Function Calling"
+            ],
+            "params": "3B",
+            "size": "~6.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/hammer-2.1-3B/original/hammer2_1_3B_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "hammer2-1-3b-quantized",
+            "name": "Hammer 2.1 3B Quantized",
+            "description": "Mid-size function calling model with quantization",
+            "category": "hammer",
+            "tags": [
+                "Function Calling",
+                "Quantized"
+            ],
+            "params": "3B",
+            "size": "~3.5 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/hammer-2.1-3B/quantized/hammer2_1_3B_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-hammer-2.1/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "smollm2-135m",
+            "name": "SmolLM 2 135M",
+            "description": "Ultra-lightweight model for simple tasks",
+            "category": "smollm",
+            "tags": [],
+            "params": "135M",
+            "size": "~270 MB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/smolLm-2-135M/original/smolLm2_135M_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "smollm2-135m-quantized",
+            "name": "SmolLM 2 135M Quantized",
+            "description": "Ultra-lightweight model with quantization",
+            "category": "smollm",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "135M",
+            "size": "~150 MB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/smolLm-2-135M/quantized/smolLm2_135M_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "smollm2-360m",
+            "name": "SmolLM 2 360M",
+            "description": "Small but capable model",
+            "category": "smollm",
+            "tags": [],
+            "params": "360M",
+            "size": "~720 MB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/smolLm-2-360M/original/smolLm2_360M_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "smollm2-360m-quantized",
+            "name": "SmolLM 2 360M Quantized",
+            "description": "Small but capable model with quantization",
+            "category": "smollm",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "360M",
+            "size": "~400 MB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/smolLm-2-360M/quantized/smolLm2_360M_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "smollm2-1-7b",
+            "name": "SmolLM 2 1.7B",
+            "description": "Larger SmolLM model with better capabilities",
+            "category": "smollm",
+            "tags": [],
+            "params": "1.7B",
+            "size": "~3.4 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/smolLm-2-1.7B/original/smolLm2_1_7B_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "smollm2-1-7b-quantized",
+            "name": "SmolLM 2 1.7B Quantized",
+            "description": "Larger SmolLM model with quantization",
+            "category": "smollm",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "1.7B",
+            "size": "~2.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/smolLm-2-1.7B/quantized/smolLm2_1_7B_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-smolLm-2/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "phi4-mini-4b",
+            "name": "Phi 4 Mini 4B",
+            "description": "Microsoft's Phi 4 Mini model",
+            "category": "phi",
+            "tags": [],
+            "params": "4B",
+            "size": "~8.0 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-phi-4-mini/resolve/v0.6.0/original/phi-4-mini_bf16.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-phi-4-mini/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-phi-4-mini/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "phi4-mini-4b-quantized",
+            "name": "Phi 4 Mini 4B Quantized",
+            "description": "Microsoft's Phi 4 Mini model with quantization",
+            "category": "phi",
+            "tags": [
+                "Quantized"
+            ],
+            "params": "4B",
+            "size": "~4.5 GB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-phi-4-mini/resolve/v0.6.0/quantized/phi-4-mini_8da4w.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-phi-4-mini/resolve/v0.6.0/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-phi-4-mini/resolve/v0.6.0/tokenizer_config.json"
+            }
+        },
+        {
+            "id": "all-minilm-l6-v2",
+            "name": "All MiniLM L6 V2",
+            "description": "Lightweight text embedding model for semantic search and RAG",
+            "category": "embedding",
+            "tags": [
+                "Embedding"
+            ],
+            "params": "22M",
+            "size": "~45 MB",
+            "assets": {
+                "model": "https://huggingface.co/software-mansion/react-native-executorch-all-MiniLM-L6-v2/resolve/main/all-MiniLM-L6-v2_xnnpack.pte",
+                "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-all-MiniLM-L6-v2/resolve/main/tokenizer.json",
+                "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-all-MiniLM-L6-v2/resolve/main/tokenizer_config.json"
+            }
+        }
+    ]
+}
