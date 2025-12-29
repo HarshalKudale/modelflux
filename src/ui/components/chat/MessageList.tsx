@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { ActivityIndicator, FlatList, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
 import { LLMConfig, Message, Persona } from '../../../core/types';
 import { useAppColorScheme } from '../../hooks';
@@ -33,6 +33,9 @@ interface MessageListProps {
     providerConnectionStatus?: Record<string, boolean>;
 }
 
+// Threshold for considering user "at bottom" (in pixels)
+const SCROLL_THRESHOLD = 100;
+
 export function MessageList({
     messages,
     streamingContent,
@@ -60,15 +63,45 @@ export function MessageList({
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const flatListRef = useRef<FlatList>(null);
+    // Track if user is at the bottom of the list
+    const isAtBottomRef = useRef(true);
+    // Track content height and layout height for scroll calculations
+    const contentHeightRef = useRef(0);
+    const layoutHeightRef = useRef(0);
 
-    // Auto-scroll to bottom when new messages arrive or streaming updates
+    // Handle scroll events to determine if user is at bottom
+    const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+        const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+        isAtBottomRef.current = distanceFromBottom <= SCROLL_THRESHOLD;
+    }, []);
+
+    // Scroll to bottom only if user is already near the bottom
+    const scrollToBottomIfNeeded = useCallback(() => {
+        if (isAtBottomRef.current && flatListRef.current) {
+            flatListRef.current.scrollToEnd({ animated: false });
+        }
+    }, []);
+
+    // Auto-scroll when new messages arrive (not during streaming updates)
     useEffect(() => {
-        if (flatListRef.current && (messages.length > 0 || streamingContent)) {
+        if (flatListRef.current && messages.length > 0) {
+            // When a new message is added, scroll to bottom
             setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
+                isAtBottomRef.current = true;
             }, 100);
         }
-    }, [messages.length, streamingContent]);
+    }, [messages.length]);
+
+    // When streaming starts, reset to bottom
+    useEffect(() => {
+        if (streamingContent !== undefined && flatListRef.current) {
+            // When streaming starts (first content), ensure we're at bottom
+            isAtBottomRef.current = true;
+            flatListRef.current.scrollToEnd({ animated: false });
+        }
+    }, [streamingContent !== undefined]);
 
     if (isLoading) {
         return (
@@ -240,8 +273,18 @@ export function MessageList({
             inverted={false}
             showsVerticalScrollIndicator={false}
             ListFooterComponent={renderFooter}
-            onContentSizeChange={() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            onContentSizeChange={(w, h) => {
+                contentHeightRef.current = h;
+                scrollToBottomIfNeeded();
+            }}
+            onLayout={(event) => {
+                layoutHeightRef.current = event.nativeEvent.layout.height;
+            }}
+            maintainVisibleContentPosition={{
+                minIndexForVisible: 0,
+                autoscrollToTopThreshold: 10,
             }}
         />
     );
