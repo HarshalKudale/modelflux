@@ -1,32 +1,46 @@
 /**
  * Model Download Service - Native
- * Handles downloading ExecutorCh models with progress tracking, notifications, and queue support
- * Uses expo-file-system legacy API (createDownloadResumable) for downloads with progress
+ * Handles downloading ExecutorCh models with true background download support.
+ * Uses @kesha-antonov/react-native-background-downloader for downloads that
+ * continue even when app is closed or terminated by OS.
  */
 
-import * as FileSystem from 'expo-file-system/legacy';
+import {
+    completeHandler,
+    createDownloadTask,
+    DownloadTask,
+    getExistingDownloadTasks
+} from '@kesha-antonov/react-native-background-downloader';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
-import { ExecutorchModel } from '../config/executorchModels';
+import { PermissionsAndroid, Platform } from 'react-native';
+import RNFS from 'react-native-fs';
+import { EXECUTORCH_MODELS, ExecutorchModel } from '../config/executorchModels';
 import { downloadedModelRepository } from '../core/storage';
 import { DownloadedModel } from '../core/types';
 
 // Notification channel for Android
 const DOWNLOAD_CHANNEL_ID = 'model-downloads';
 
-// Download queue - models waiting to be downloaded
-interface QueuedDownload {
-    model: ExecutorchModel;
-    addedAt: number;
-}
-const downloadQueue: QueuedDownload[] = [];
+// File types for a model download
+type FileType = 'model' | 'tokenizer' | 'tokenizerConfig';
 
-// Currently active download
-let currentDownload: {
+// Metadata stored with each download task
+interface DownloadMetadata {
     modelId: string;
-    cancelled: boolean;
-    downloadResumable: FileSystem.DownloadResumable | null;
-} | null = null;
+    fileType: FileType;
+    modelName: string;
+    destinationDir: string;
+}
+
+// Track active downloads - maps modelId to its download tasks
+const activeDownloads = new Map<string, {
+    model: ExecutorchModel;
+    tasks: Map<FileType, DownloadTask>;
+    completedFiles: Map<FileType, string>; // fileType -> filePath
+    totalBytesExpected: number;
+    bytesDownloaded: Map<FileType, number>;
+    lastNotifiedProgress: number;
+}>();
 
 // Progress callbacks
 type ProgressCallback = (modelId: string, progress: number) => void;
@@ -150,17 +164,40 @@ async function dismissDownloadNotification(modelId: string) {
 }
 
 /**
- * Get the models directory path (in documents)
+ * Get the models directory path (in public Downloads folder)
  */
 function getModelsDirPath(): string {
-    return `${FileSystem.documentDirectory}models/`;
+    // Use public Downloads folder: /storage/emulated/0/Download/LLMHub/models
+    return `${RNFS.DownloadDirectoryPath}/LLMHub/models`;
 }
 
 /**
  * Get the directory path for a specific model
  */
 function getModelDirPath(modelId: string): string {
-    return `${getModelsDirPath()}${modelId}/`;
+    return `${getModelsDirPath()}/${modelId}`;
+}
+
+/**
+ * Request storage permission for Android
+ */
+async function requestStoragePermission(): Promise<boolean> {
+    if (Platform.OS !== 'android') return true;
+
+    try {
+        const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+            {
+                title: 'Storage Permission',
+                message: 'LLMHub needs storage access to save models to Downloads folder',
+                buttonPositive: 'OK',
+            }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+        console.warn('[ModelDownload] Permission request error:', err);
+        return false;
+    }
 }
 
 /**
@@ -168,9 +205,9 @@ function getModelDirPath(modelId: string): string {
  */
 async function ensureModelsDir(): Promise<void> {
     const modelsDirPath = getModelsDirPath();
-    const dirInfo = await FileSystem.getInfoAsync(modelsDirPath);
-    if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(modelsDirPath, { intermediates: true });
+    const exists = await RNFS.exists(modelsDirPath);
+    if (!exists) {
+        await RNFS.mkdir(modelsDirPath);
         console.log(`[ModelDownload] Created models directory: ${modelsDirPath}`);
     }
 }
@@ -180,9 +217,9 @@ async function ensureModelsDir(): Promise<void> {
  */
 async function ensureModelDir(modelId: string): Promise<string> {
     const modelDirPath = getModelDirPath(modelId);
-    const dirInfo = await FileSystem.getInfoAsync(modelDirPath);
-    if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(modelDirPath, { intermediates: true });
+    const exists = await RNFS.exists(modelDirPath);
+    if (!exists) {
+        await RNFS.mkdir(modelDirPath);
         console.log(`[ModelDownload] Created model directory: ${modelDirPath}`);
     }
     return modelDirPath;
@@ -196,93 +233,210 @@ function getFileNameFromUrl(url: string): string {
     return parts[parts.length - 1] || 'file';
 }
 
-
+/**
+ * Generate a unique task ID for a file download
+ */
+function getTaskId(modelId: string, fileType: FileType): string {
+    return `${modelId}-${fileType}`;
+}
 
 /**
- * Download a single file using FileSystem.createDownloadResumable
- * Returns the file URI and size, with real-time progress via callback
+ * Parse task ID to get modelId and fileType
  */
-async function downloadFileWithProgress(
-    url: string,
-    destinationPath: string,
-    onProgress: (bytesWritten: number, totalBytes: number) => void
-): Promise<{ uri: string; size: number }> {
-    console.log(`[ModelDownload] Downloading from ${url} to ${destinationPath}`);
+function parseTaskId(taskId: string): { modelId: string; fileType: FileType } | null {
+    const parts = taskId.split('-');
+    if (parts.length < 2) return null;
 
-    return new Promise((resolve, reject) => {
-        const downloadResumable = FileSystem.createDownloadResumable(
-            url,
-            destinationPath,
-            {},
-            (progress) => {
-                // Log output.size during download as requested
-                console.log(`[ModelDownload] output.size: ${progress.totalBytesWritten}`);
-                onProgress(progress.totalBytesWritten, progress.totalBytesExpectedToWrite);
-            }
-        );
+    const fileType = parts.pop() as FileType;
+    const modelId = parts.join('-');
 
-        // Store reference for potential cancellation
-        if (currentDownload) {
-            currentDownload.downloadResumable = downloadResumable;
+    if (!['model', 'tokenizer', 'tokenizerConfig'].includes(fileType)) {
+        return null;
+    }
+
+    return { modelId, fileType };
+}
+
+/**
+ * Calculate overall progress for a model download
+ */
+function calculateProgress(modelId: string): number {
+    const download = activeDownloads.get(modelId);
+    if (!download) return 0;
+
+    // Weight: model=80%, tokenizer=10%, tokenizerConfig=10%
+    const weights: Record<FileType, number> = {
+        model: 80,
+        tokenizer: 10,
+        tokenizerConfig: 10,
+    };
+
+    let totalProgress = 0;
+
+    // Add progress from completed files
+    for (const [fileType] of download.completedFiles) {
+        totalProgress += weights[fileType];
+    }
+
+    // Add progress from active downloads
+    for (const [fileType, task] of download.tasks) {
+        if (!download.completedFiles.has(fileType)) {
+            const bytesDownloaded = download.bytesDownloaded.get(fileType) || 0;
+            const bytesTotal = task.bytesTotal > 0 ? task.bytesTotal : 1;
+            const fileProgress = bytesDownloaded / bytesTotal;
+            totalProgress += fileProgress * weights[fileType];
+        }
+    }
+
+    return Math.round(totalProgress);
+}
+
+/**
+ * Handle completion of a single file download
+ */
+async function handleFileComplete(
+    modelId: string,
+    fileType: FileType,
+    location: string,
+    taskId: string
+): Promise<void> {
+    console.log(`[ModelDownload] File complete: ${fileType} for ${modelId}`);
+
+    const download = activeDownloads.get(modelId);
+    if (!download) {
+        console.warn(`[ModelDownload] No active download found for ${modelId}`);
+        completeHandler(taskId);
+        return;
+    }
+
+    // Ensure path starts with file://
+    const finalLocation = location.startsWith('file://') ? location : `file://${location}`;
+
+    // Mark file as complete
+    download.completedFiles.set(fileType, finalLocation);
+    download.tasks.delete(fileType);
+
+    // Update progress
+    const progress = calculateProgress(modelId);
+    progressCallback?.(modelId, progress);
+    await showDownloadNotification(modelId, download.model.name, progress);
+
+    // Signal completion to OS
+    completeHandler(taskId);
+
+    // Check if all files are complete
+    const requiredFiles: FileType[] = download.model.assets.tokenizerConfig
+        ? ['model', 'tokenizer', 'tokenizerConfig']
+        : ['model', 'tokenizer'];
+
+    const allComplete = requiredFiles.every(ft => download.completedFiles.has(ft));
+
+    if (allComplete) {
+        await finalizeDownload(modelId);
+    }
+}
+
+/**
+ * Finalize a completed model download
+ */
+async function finalizeDownload(modelId: string): Promise<void> {
+    const download = activeDownloads.get(modelId);
+    if (!download) return;
+
+    console.log(`[ModelDownload] Finalizing download for ${modelId}`);
+
+    try {
+        const rawModelDirPath = getModelDirPath(modelId);
+        const modelDirPath = rawModelDirPath.startsWith('file://') ? rawModelDirPath : `file://${rawModelDirPath}`;
+
+        // Calculate total size from download tracking
+        let totalSize = 0;
+        for (const [fileType] of download.completedFiles) {
+            const bytesDownloaded = download.bytesDownloaded.get(fileType) || 0;
+            totalSize += bytesDownloaded;
         }
 
-        downloadResumable.downloadAsync()
-            .then((result) => {
-                if (!result || !result.uri) {
-                    reject(new Error('Download failed - no result returned'));
-                    return;
-                }
 
-                console.log(`[ModelDownload] Downloaded ${result.uri}`);
+        // Prepare downloaded model record
+        const modelData = {
+            modelId: download.model.id,
+            name: download.model.name,
+            description: download.model.description,
+            provider: download.model.provider,
+            type: download.model.type,
+            tags: [],
+            localPath: modelDirPath,
+            modelFilePath: download.completedFiles.get('model') || '',
+            tokenizerFilePath: download.completedFiles.get('tokenizer') || '',
+            tokenizerConfigFilePath: download.completedFiles.get('tokenizerConfig') || '',
+            sizeEstimate: download.model.size,
+            downloadedSize: totalSize,
+            status: 'completed' as const,
+            progress: 100,
+            downloadedAt: Date.now(),
+        };
 
-                // Get file info to get size
-                FileSystem.getInfoAsync(result.uri)
-                    .then((info) => {
-                        const size = info.exists && 'size' in info ? info.size : 0;
-                        console.log(`[ModelDownload] File size: ${size} bytes`);
-                        resolve({ uri: result.uri, size });
-                    })
-                    .catch((err) => {
-                        console.warn(`[ModelDownload] Could not get file info:`, err);
-                        resolve({ uri: result.uri, size: 0 });
-                    });
-            })
-            .catch((error) => {
-                console.error(`[ModelDownload] Error downloading ${url}:`, error);
-                reject(error);
-            });
-    });
+        console.log('[ModelDownload] Saving downloaded model:', JSON.stringify(modelData, null, 2));
+
+        // Create downloaded model record
+        const downloadedModel = await downloadedModelRepository.create(modelData);
+
+        // Clean up tracking
+        activeDownloads.delete(modelId);
+
+        // Show completion notification
+        await showDownloadNotification(modelId, download.model.name, 100, true);
+
+        // Notify callback
+        progressCallback?.(modelId, 100);
+        completionCallback?.(modelId, downloadedModel);
+
+        console.log(`[ModelDownload] Download complete for ${download.model.name}`);
+    } catch (error) {
+        console.error(`[ModelDownload] Error finalizing download: `, error);
+        handleDownloadError(modelId, error instanceof Error ? error.message : 'Unknown error');
+    }
 }
 
 /**
- * Process the next item in the download queue
+ * Handle download error
  */
-async function processQueue(): Promise<void> {
-    // If there's already an active download, don't start another
-    if (currentDownload) {
-        console.log('[ModelDownload] Download in progress, queue item will wait');
-        return;
+async function handleDownloadError(modelId: string, errorMessage: string): Promise<void> {
+    console.error(`[ModelDownload] Error for ${modelId}: `, errorMessage);
+
+    const download = activeDownloads.get(modelId);
+    const modelName = download?.model.name || modelId;
+
+    // Stop all tasks for this model
+    if (download) {
+        for (const [, task] of download.tasks) {
+            try {
+                await task.stop();
+            } catch (e) {
+                // Ignore errors when stopping
+            }
+        }
     }
 
-    // Get the next item from queue
-    const nextItem = downloadQueue.shift();
-    if (!nextItem) {
-        console.log('[ModelDownload] Queue is empty');
-        return;
-    }
+    // Clean up
+    activeDownloads.delete(modelId);
+    await cleanupDownload(modelId);
+    await showDownloadNotification(modelId, modelName, 0, false, true, false);
 
-    // Start downloading this model
-    await executeDownload(nextItem.model);
+    errorCallback?.(modelId, errorMessage);
 }
 
 /**
- * Execute the actual download of a model's files
+ * Start downloading a model
  */
-async function executeDownload(model: ExecutorchModel): Promise<void> {
+export async function startDownload(model: ExecutorchModel): Promise<void> {
     const modelId = model.id;
 
-    // Set current download
-    currentDownload = { modelId, cancelled: false, downloadResumable: null };
+    // Check if already downloading
+    if (activeDownloads.has(modelId)) {
+        console.log(`[ModelDownload] ${model.name} is already downloading`);
+        return;
+    }
 
     console.log(`[ModelDownload] Starting download for ${model.name}`);
 
@@ -290,180 +444,128 @@ async function executeDownload(model: ExecutorchModel): Promise<void> {
         // Request notification permission
         await ensureNotificationPermissions();
 
+        // Request storage permission for Downloads folder access
+        const hasStoragePermission = await requestStoragePermission();
+        if (!hasStoragePermission) {
+            throw new Error('Storage permission denied. Cannot download models.');
+        }
+
         // Ensure directories exist
         await ensureModelsDir();
         const modelDirPath = await ensureModelDir(modelId);
 
-        // File definitions with filenames
-        const files = [
-            { url: model.assets.model, filename: getFileNameFromUrl(model.assets.model), weight: 80 },
-            { url: model.assets.tokenizer, filename: getFileNameFromUrl(model.assets.tokenizer), weight: 10 }
-        ];
-
-        if (model.assets.tokenizerConfig) {
-            files.push({ url: model.assets.tokenizerConfig, filename: getFileNameFromUrl(model.assets.tokenizerConfig), weight: 10 });
-        }
+        // Initialize tracking
+        const downloadState = {
+            model,
+            tasks: new Map<FileType, DownloadTask>(),
+            completedFiles: new Map<FileType, string>(),
+            totalBytesExpected: 0,
+            bytesDownloaded: new Map<FileType, number>(),
+            lastNotifiedProgress: 0,
+        };
+        activeDownloads.set(modelId, downloadState);
 
         // Show initial notification
         await showDownloadNotification(modelId, model.name, 0);
         progressCallback?.(modelId, 0);
 
-        let completedWeight = 0;
-        const downloadedFiles: { uri: string; size: number }[] = [];
+        // Define files to download
+        const files: { url: string; fileType: FileType; filename: string }[] = [
+            { url: model.assets.model, fileType: 'model', filename: getFileNameFromUrl(model.assets.model) },
+            { url: model.assets.tokenizer, fileType: 'tokenizer', filename: getFileNameFromUrl(model.assets.tokenizer) },
+        ];
 
-        // Download each file
-        for (const file of files) {
-            // Check if cancelled
-            if (currentDownload?.cancelled) {
-                throw new Error('Download cancelled');
-            }
-
-            const destinationPath = `${modelDirPath}${file.filename}`;
-            const baseWeight = completedWeight;
-            let lastNotifiedProgress = completedWeight;
-
-            // Download the file with progress
-            const result = await downloadFileWithProgress(
-                file.url,
-                destinationPath,
-                (bytesWritten, totalBytes) => {
-                    // Calculate progress within this file's weight
-                    const fileProgress = totalBytes > 0 ? (bytesWritten / totalBytes) : 0;
-                    const totalProgress = baseWeight + (fileProgress * file.weight);
-                    const roundedProgress = Math.round(totalProgress);
-
-                    progressCallback?.(modelId, roundedProgress);
-
-                    // Update notification every 5% progress
-                    if (roundedProgress - lastNotifiedProgress >= 5) {
-                        lastNotifiedProgress = roundedProgress;
-                        showDownloadNotification(modelId, model.name, roundedProgress);
-                    }
-                }
-            );
-            downloadedFiles.push(result);
-
-            // Update completed weight
-            completedWeight += file.weight;
-            progressCallback?.(modelId, completedWeight);
-            await showDownloadNotification(modelId, model.name, completedWeight);
+        if (model.assets.tokenizerConfig) {
+            files.push({
+                url: model.assets.tokenizerConfig,
+                fileType: 'tokenizerConfig',
+                filename: getFileNameFromUrl(model.assets.tokenizerConfig)
+            });
         }
 
-        // Calculate total size
-        const totalSize = downloadedFiles.reduce((sum, f) => sum + f.size, 0);
+        // Create and start download tasks
+        for (const file of files) {
+            const taskId = getTaskId(modelId, file.fileType);
+            const destination = `${modelDirPath}${file.filename} `;
 
-        // Create downloaded model record
-        const downloadedModel = await downloadedModelRepository.create({
-            modelId: model.id,
-            name: model.name,
-            description: model.description,
-            provider: model.provider,
-            type: model.type,
-            tags: [],
-            localPath: modelDirPath,
-            modelFilePath: downloadedFiles[0].uri,
-            tokenizerFilePath: downloadedFiles[1].uri,
-            tokenizerConfigFilePath: downloadedFiles[2].uri,
-            sizeEstimate: model.size,
-            downloadedSize: totalSize,
-            status: 'completed',
-            progress: 100,
-            downloadedAt: Date.now(),
-        });
+            const metadata: DownloadMetadata = {
+                modelId,
+                fileType: file.fileType,
+                modelName: model.name,
+                destinationDir: modelDirPath,
+            };
 
-        // Clear current download
-        currentDownload = null;
+            console.log(`[ModelDownload] Creating task ${taskId} for ${file.url}`);
 
-        // Show completion notification
-        await showDownloadNotification(modelId, model.name, 100, true);
+            const task = createDownloadTask({
+                id: taskId,
+                url: file.url,
+                destination,
+                metadata,
+            })
+                .begin(({ expectedBytes }) => {
+                    console.log(`[ModelDownload] ${file.fileType} begin: ${expectedBytes} bytes`);
+                    const download = activeDownloads.get(modelId);
+                    if (download) {
+                        download.totalBytesExpected += expectedBytes;
+                    }
+                })
+                .progress(({ bytesDownloaded, bytesTotal }) => {
+                    const download = activeDownloads.get(modelId);
+                    if (download) {
+                        download.bytesDownloaded.set(file.fileType, bytesDownloaded);
+                        const progress = calculateProgress(modelId);
+                        progressCallback?.(modelId, progress);
 
-        // Notify callback
-        completionCallback?.(modelId, downloadedModel);
+                        // Update notification if progress changed significantly (e.g. 1%)
+                        if (progress > download.lastNotifiedProgress && (progress - download.lastNotifiedProgress >= 1 || progress === 100)) {
+                            download.lastNotifiedProgress = progress;
+                            showDownloadNotification(modelId, model.name, progress);
+                        }
+                    }
+                })
+                .done(({ location }) => {
+                    handleFileComplete(modelId, file.fileType, location, taskId);
+                })
+                .error(({ error }) => {
+                    handleDownloadError(modelId, error);
+                });
 
-        console.log(`[ModelDownload] Download complete for ${model.name}`);
+            downloadState.tasks.set(file.fileType, task);
+            task.start();
+        }
 
     } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const isCancelled = errorMessage === 'Download cancelled';
-
-        console.error(`[ModelDownload] Error downloading ${model.name}:`, errorMessage);
-
-        // Clear current download
-        currentDownload = null;
-
-        // Clean up partial downloads
-        await cleanupDownload(modelId);
-
-        if (isCancelled) {
-            await showDownloadNotification(modelId, model.name, 0, false, false, true);
-        } else {
-            await showDownloadNotification(modelId, model.name, 0, false, true, false);
-            errorCallback?.(modelId, errorMessage);
-        }
+        console.error(`[ModelDownload] Error starting download: `, error);
+        activeDownloads.delete(modelId);
+        errorCallback?.(modelId, error instanceof Error ? error.message : 'Unknown error');
     }
-
-    // Process next item in queue
-    processQueue();
 }
 
 /**
- * Start downloading a model (adds to queue if another download is in progress)
- */
-export async function startDownload(model: ExecutorchModel): Promise<void> {
-    const modelId = model.id;
-
-    // Check if already downloading
-    if (currentDownload?.modelId === modelId) {
-        console.log(`[ModelDownload] ${model.name} is already downloading`);
-        return;
-    }
-
-    // Check if already in queue
-    if (downloadQueue.some(q => q.model.id === modelId)) {
-        console.log(`[ModelDownload] ${model.name} is already in queue`);
-        return;
-    }
-
-    // Add to queue
-    downloadQueue.push({ model, addedAt: Date.now() });
-    console.log(`[ModelDownload] Added ${model.name} to queue (queue size: ${downloadQueue.length})`);
-
-    // Process queue
-    await processQueue();
-}
-
-/**
- * Cancel an ongoing download or remove from queue
+ * Cancel an ongoing download
  */
 export async function cancelDownload(modelId: string): Promise<void> {
-    // Check if in queue and remove
-    const queueIndex = downloadQueue.findIndex(q => q.model.id === modelId);
-    if (queueIndex !== -1) {
-        const removed = downloadQueue.splice(queueIndex, 1)[0];
-        console.log(`[ModelDownload] Removed ${removed.model.name} from queue`);
-        return;
-    }
+    const download = activeDownloads.get(modelId);
 
-    // Check if actively downloading
-    if (currentDownload?.modelId === modelId) {
-        console.log(`[ModelDownload] Cancelling current download`);
-        currentDownload.cancelled = true;
+    if (download) {
+        console.log(`[ModelDownload] Cancelling download for ${modelId}`);
 
-        // Actually abort the download by calling pauseAsync
-        if (currentDownload.downloadResumable) {
+        // Stop all tasks
+        for (const [fileType, task] of download.tasks) {
             try {
-                await currentDownload.downloadResumable.pauseAsync();
-                console.log(`[ModelDownload] Download aborted via pauseAsync`);
-            } catch (error) {
-                console.warn(`[ModelDownload] Error pausing download:`, error);
+                await task.stop();
+                completeHandler(getTaskId(modelId, fileType));
+            } catch (e) {
+                console.warn(`[ModelDownload] Error stopping task: `, e);
             }
         }
+
+        activeDownloads.delete(modelId);
     }
 
     // Clean up files
     await cleanupDownload(modelId);
-
-    // Dismiss notification
     await dismissDownloadNotification(modelId);
 }
 
@@ -473,9 +575,9 @@ export async function cancelDownload(modelId: string): Promise<void> {
 async function cleanupDownload(modelId: string): Promise<void> {
     try {
         const modelDirPath = getModelDirPath(modelId);
-        const dirInfo = await FileSystem.getInfoAsync(modelDirPath);
-        if (dirInfo.exists) {
-            await FileSystem.deleteAsync(modelDirPath, { idempotent: true });
+        const exists = await RNFS.exists(modelDirPath);
+        if (exists) {
+            await RNFS.unlink(modelDirPath);
             console.log(`[ModelDownload] Deleted model directory: ${modelDirPath}`);
         }
     } catch (error) {
@@ -486,42 +588,127 @@ async function cleanupDownload(modelId: string): Promise<void> {
 }
 
 /**
- * Check if a model is currently downloading (active or queued)
+ * Check if a model is currently downloading
  */
 export function isDownloading(modelId: string): boolean {
-    return currentDownload?.modelId === modelId || downloadQueue.some(q => q.model.id === modelId);
+    return activeDownloads.has(modelId);
 }
 
 /**
- * Get all active download IDs (both active and queued)
+ * Get all active download IDs
  */
 export function getActiveDownloadIds(): string[] {
-    const ids: string[] = [];
-    if (currentDownload) {
-        ids.push(currentDownload.modelId);
-    }
-    ids.push(...downloadQueue.map(q => q.model.id));
-    return ids;
+    return Array.from(activeDownloads.keys());
 }
 
 /**
- * Get queue position for a model (0 if downloading, 1+ if in queue, -1 if not found)
+ * Get queue position for a model (0 if downloading, -1 if not found)
+ * Note: With background downloads, there's no queue - all downloads run in parallel
  */
 export function getQueuePosition(modelId: string): number {
-    if (currentDownload?.modelId === modelId) {
-        return 0;
-    }
-    const queueIndex = downloadQueue.findIndex(q => q.model.id === modelId);
-    return queueIndex >= 0 ? queueIndex + 1 : -1;
+    return activeDownloads.has(modelId) ? 0 : -1;
 }
 
 /**
- * Re-attach to background downloads (no-op for expo/fetch approach)
+ * Re-attach to background downloads that were running while app was closed
+ * Call this on app startup!
  */
 export async function reattachBackgroundDownloads(): Promise<void> {
-    // expo/fetch doesn't support true background downloads
-    // This is a no-op but kept for API compatibility
-    console.log('[ModelDownload] reattachBackgroundDownloads called (no-op)');
+    console.log('[ModelDownload] Checking for existing background downloads...');
+
+    try {
+        const existingTasks = await getExistingDownloadTasks();
+        console.log(`[ModelDownload] Found ${existingTasks.length} existing tasks`);
+
+        if (existingTasks.length === 0) return;
+
+        // Group tasks by modelId
+        const tasksByModel = new Map<string, DownloadTask[]>();
+
+        for (const task of existingTasks) {
+            const parsed = parseTaskId(task.id);
+            if (!parsed) {
+                console.warn(`[ModelDownload] Unknown task ID format: ${task.id} `);
+                continue;
+            }
+
+            const { modelId } = parsed;
+            if (!tasksByModel.has(modelId)) {
+                tasksByModel.set(modelId, []);
+            }
+            tasksByModel.get(modelId)!.push(task);
+        }
+
+        // Re-attach to each model's downloads
+        for (const [modelId, tasks] of tasksByModel) {
+            // Find the model definition
+            const model = EXECUTORCH_MODELS.find(m => m.id === modelId);
+            if (!model) {
+                console.warn(`[ModelDownload] Model not found for ${modelId}, stopping tasks`);
+                for (const task of tasks) {
+                    await task.stop();
+                    completeHandler(task.id);
+                }
+                continue;
+            }
+
+            // Initialize tracking if not already exists
+            if (!activeDownloads.has(modelId)) {
+                activeDownloads.set(modelId, {
+                    model,
+                    tasks: new Map(),
+                    completedFiles: new Map(),
+                    totalBytesExpected: 0,
+                    bytesDownloaded: new Map(),
+                    lastNotifiedProgress: 0,
+                });
+            }
+
+            const download = activeDownloads.get(modelId)!;
+
+            // Re-attach callbacks to each task
+            for (const task of tasks) {
+                const parsed = parseTaskId(task.id);
+                if (!parsed) continue;
+
+                const { fileType } = parsed;
+                console.log(`[ModelDownload] Re - attaching to ${task.id}, state: ${task.state} `);
+
+                download.tasks.set(fileType, task);
+                download.bytesDownloaded.set(fileType, task.bytesDownloaded);
+
+                task
+                    .progress(({ bytesDownloaded }) => {
+                        const dl = activeDownloads.get(modelId);
+                        if (dl) {
+                            dl.bytesDownloaded.set(fileType, bytesDownloaded);
+                            const progress = calculateProgress(modelId);
+                            progressCallback?.(modelId, progress);
+
+                            // Update notification if progress changed significantly
+                            if (progress > dl.lastNotifiedProgress && (progress - dl.lastNotifiedProgress >= 1 || progress === 100)) {
+                                dl.lastNotifiedProgress = progress;
+                                showDownloadNotification(modelId, dl.model.name, progress);
+                            }
+                        }
+                    })
+                    .done(({ location }) => {
+                        handleFileComplete(modelId, fileType, location, task.id);
+                    })
+                    .error(({ error }) => {
+                        handleDownloadError(modelId, error);
+                    });
+            }
+
+            // Report current progress
+            const progress = calculateProgress(modelId);
+            progressCallback?.(modelId, progress);
+        }
+
+        console.log(`[ModelDownload] Re - attached to ${tasksByModel.size} model downloads`);
+    } catch (error) {
+        console.error('[ModelDownload] Error re-attaching to downloads:', error);
+    }
 }
 
 /**
@@ -533,9 +720,9 @@ export async function deleteDownloadedModel(modelId: string): Promise<void> {
     try {
         // Delete the model files from file system
         const modelDirPath = getModelDirPath(modelId);
-        const dirInfo = await FileSystem.getInfoAsync(modelDirPath);
-        if (dirInfo.exists) {
-            await FileSystem.deleteAsync(modelDirPath, { idempotent: true });
+        const exists = await RNFS.exists(modelDirPath);
+        if (exists) {
+            await RNFS.unlink(modelDirPath);
             console.log(`[ModelDownload] Deleted model files: ${modelDirPath}`);
         }
 

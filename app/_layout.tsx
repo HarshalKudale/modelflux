@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { reattachBackgroundDownloads } from '@/src/services/ModelDownloadService';
 import { useConversationStore, useLLMStore, useRagConfigStore, useSettingsStore } from '@/src/state';
 
 export {
@@ -49,6 +50,9 @@ export default function RootLayout() {
         loadRagConfigs(),
       ]);
       // Note: RAG vector store is now initialized lazily when Sources modal opens
+
+      // Re-attach to any background downloads that were running
+      await reattachBackgroundDownloads();
     };
 
     initializeApp();
