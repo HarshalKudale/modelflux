@@ -21,7 +21,11 @@ import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { useModelDownloadStore } from '../../state';
 import { useAppColorScheme, useLocale } from '../hooks';
 
-type FilterType = 'all' | 'downloading' | 'downloaded' | 'embedding' | 'llama' | 'qwen' | 'smollm' | 'hammer' | 'phi';
+// Provider filter types (Row 1)
+type ProviderFilter = 'all' | 'executorch' | 'llama-cpp';
+
+// Model type filter types (Row 2)
+type ModelTypeFilter = 'all' | 'llm' | 'embedding' | 'image-gen' | 'tts' | 'stt';
 
 interface ModelsScreenProps {
     onBack: () => void;
@@ -34,7 +38,8 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
 
     // State
     const [searchQuery, setSearchQuery] = useState('');
-    const [filter, setFilter] = useState<FilterType>('all');
+    const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all');
+    const [modelTypeFilter, setModelTypeFilter] = useState<ModelTypeFilter>('all');
 
     // Store
     const {
@@ -69,33 +74,38 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
             );
         }
 
-        // Apply category filter
-        switch (filter) {
-            case 'downloading':
-                models = models.filter((m) => isDownloading(m.id));
+        // Apply provider filter (Row 1)
+        switch (providerFilter) {
+            case 'executorch':
+                models = models.filter((m) => m.provider === 'executorch');
                 break;
-            case 'downloaded':
-                models = models.filter((m) => isDownloaded(m.id));
-                break;
-            case 'embedding':
-                models = models.filter((m) => m.tags.includes('Embedding'));
-                break;
-            case 'llama':
-                models = models.filter((m) => m.category === 'llama');
-                break;
-            case 'qwen':
-                models = models.filter((m) => m.category === 'qwen');
-                break;
-            case 'smollm':
-                models = models.filter((m) => m.category === 'smollm');
-                break;
-            case 'hammer':
-                models = models.filter((m) => m.category === 'hammer');
-                break;
-            case 'phi':
-                models = models.filter((m) => m.category === 'phi');
+            case 'llama-cpp':
+                models = models.filter((m) => m.provider === 'llama-cpp');
                 break;
             default:
+                // 'all' - show all providers
+                break;
+        }
+
+        // Apply model type filter (Row 2)
+        switch (modelTypeFilter) {
+            case 'llm':
+                models = models.filter((m) => m.type === 'llm');
+                break;
+            case 'embedding':
+                models = models.filter((m) => m.type === 'embedding');
+                break;
+            case 'image-gen':
+                models = models.filter((m) => m.type === 'image-gen');
+                break;
+            case 'tts':
+                models = models.filter((m) => m.type === 'tts');
+                break;
+            case 'stt':
+                models = models.filter((m) => m.type === 'stt');
+                break;
+            default:
+                // 'all' - show all model types
                 break;
         }
 
@@ -109,7 +119,7 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
         });
 
         return models;
-    }, [searchQuery, filter, activeDownloads, downloadedModels]);
+    }, [searchQuery, providerFilter, modelTypeFilter, activeDownloads, downloadedModels]);
 
     // Handle download button press
     const handleDownload = async (model: ExecutorchModel) => {
@@ -134,9 +144,9 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
         }
     };
 
-    // Render filter chip
-    const renderFilterChip = (filterValue: FilterType, label: string) => {
-        const isActive = filter === filterValue;
+    // Render provider filter chip (Row 1)
+    const renderProviderFilterChip = (filterValue: ProviderFilter, label: string) => {
+        const isActive = providerFilter === filterValue;
         return (
             <TouchableOpacity
                 key={filterValue}
@@ -148,7 +158,35 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                             : colors.backgroundSecondary,
                     },
                 ]}
-                onPress={() => setFilter(filterValue)}
+                onPress={() => setProviderFilter(filterValue)}
+            >
+                <Text
+                    style={[
+                        styles.filterChipText,
+                        { color: isActive ? '#FFFFFF' : colors.text },
+                    ]}
+                >
+                    {label}
+                </Text>
+            </TouchableOpacity>
+        );
+    };
+
+    // Render model type filter chip (Row 2)
+    const renderModelTypeFilterChip = (filterValue: ModelTypeFilter, label: string) => {
+        const isActive = modelTypeFilter === filterValue;
+        return (
+            <TouchableOpacity
+                key={filterValue}
+                style={[
+                    styles.filterChip,
+                    {
+                        backgroundColor: isActive
+                            ? colors.tint
+                            : colors.backgroundSecondary,
+                    },
+                ]}
+                onPress={() => setModelTypeFilter(filterValue)}
             >
                 <Text
                     style={[
@@ -196,21 +234,18 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                                     {model.params}
                                 </Text>
                             </View>
-                            {model.tags.map((tag) => (
-                                <View
-                                    key={tag}
-                                    style={[
-                                        styles.tag,
-                                        { backgroundColor: tag === 'Quantized' ? colors.success + '20' : colors.warning + '20' },
-                                    ]}
+                            <View
+                                style={[
+                                    styles.tag,
+                                    { backgroundColor: model.type === 'llm' ? colors.success + '20' : colors.warning + '20' },
+                                ]}
+                            >
+                                <Text
+                                    style={[styles.tagText, { color: model.type === 'llm' ? colors.success : colors.warning }]}
                                 >
-                                    <Text
-                                        style={[styles.tagText, { color: tag === 'Quantized' ? colors.success : colors.warning }]}
-                                    >
-                                        {tag}
-                                    </Text>
-                                </View>
-                            ))}
+                                    {model.type.toUpperCase()}
+                                </Text>
+                            </View>
                         </View>
                     </View>
                     <Text
@@ -364,25 +399,40 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 </View>
             </View>
 
-            {/* Filter Chips */}
+            {/* Provider Filter Chips (Row 1) */}
             <View style={styles.filterContainer}>
                 <FlatList
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     data={[
-                        { value: 'all' as FilterType, label: t('models.filter.all') },
-                        { value: 'downloading' as FilterType, label: t('models.filter.downloading') },
-                        { value: 'downloaded' as FilterType, label: t('models.filter.downloaded') },
-                        { value: 'embedding' as FilterType, label: 'Embedding' },
-                        { value: 'llama' as FilterType, label: 'LLaMA' },
-                        { value: 'qwen' as FilterType, label: 'Qwen' },
-                        { value: 'smollm' as FilterType, label: 'SmolLM' },
-                        { value: 'hammer' as FilterType, label: 'Hammer' },
-                        { value: 'phi' as FilterType, label: 'Phi' },
+                        { value: 'all' as ProviderFilter, label: t('models.filter.all') },
+                        { value: 'executorch' as ProviderFilter, label: 'Executorch' },
+                        { value: 'llama-cpp' as ProviderFilter, label: 'Llama.cpp' },
                     ]}
                     keyExtractor={(item) => item.value}
                     renderItem={({ item }) =>
-                        renderFilterChip(item.value, item.label)
+                        renderProviderFilterChip(item.value, item.label)
+                    }
+                    contentContainerStyle={styles.filterList}
+                />
+            </View>
+
+            {/* Model Type Filter Chips (Row 2) */}
+            <View style={styles.filterContainer}>
+                <FlatList
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    data={[
+                        { value: 'all' as ModelTypeFilter, label: t('models.filter.all') },
+                        { value: 'llm' as ModelTypeFilter, label: 'LLM' },
+                        { value: 'embedding' as ModelTypeFilter, label: 'Embedding' },
+                        { value: 'image-gen' as ModelTypeFilter, label: 'Image Gen' },
+                        { value: 'tts' as ModelTypeFilter, label: 'TTS' },
+                        { value: 'stt' as ModelTypeFilter, label: 'STT' },
+                    ]}
+                    keyExtractor={(item) => item.value}
+                    renderItem={({ item }) =>
+                        renderModelTypeFilterChip(item.value, item.label)
                     }
                     contentContainerStyle={styles.filterList}
                 />

@@ -257,12 +257,22 @@ export interface ExportedData {
 /**
  * Tag for categorizing models
  */
-export type ModelTag = 'executorch' | 'llama-rn' | 'custom' | 'Thinking' | 'Function Calling' | 'Quantized' | 'Embedding';
+export type ModelTag = 'executorch' | 'llama-rn' | 'custom' | 'Thinking' | 'Function Calling' | 'Quantized' | 'Embedding' | 'LLM';
 
 /**
  * Download status for models
  */
 export type ModelDownloadStatus = 'pending' | 'downloading' | 'completed' | 'failed' | 'cancelled';
+
+/**
+ * Model provider for downloaded models
+ */
+export type DownloadedModelProvider = 'executorch' | 'llama-cpp';
+
+/**
+ * Model type for downloaded models
+ */
+export type DownloadedModelType = 'llm' | 'embedding' | 'image-gen' | 'tts' | 'stt';
 
 /**
  * Downloaded model with storage details
@@ -272,7 +282,9 @@ export interface DownloadedModel {
     modelId: string;                 // Reference to source model (e.g., ExecutorchModel id)
     name: string;
     description: string;
-    tags: ModelTag[];                // Tags like ['executorch']
+    provider: DownloadedModelProvider; // Provider: executorch or llama-rn
+    type: DownloadedModelType;         // Type: llm, embedding, image-gen, tts, stt
+    tags: ModelTag[];                // Additional tags like ['Quantized', 'Thinking']
     localPath: string;               // Local file system path to model folder
     modelFilePath: string;           // Path to .pte file
     tokenizerFilePath: string;       // Path to tokenizer file

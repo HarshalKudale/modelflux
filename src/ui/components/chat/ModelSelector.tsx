@@ -77,10 +77,12 @@ export function ModelSelector({
     };
 
     const getModelsForConfig = (config: LLMConfig): string[] => {
-        // For ExecuTorch, show only downloaded models directly
+        // For ExecuTorch, show only downloaded LLM models (filter by type)
         if (config.provider === 'executorch') {
-            // Return names of all downloaded models (they are already tagged with 'executorch')
-            return downloadedModels.map(dm => dm.name);
+            // Return names of downloaded models that are LLM type
+            return downloadedModels
+                .filter(dm => dm.type === 'llm')
+                .map(dm => dm.name);
         }
 
         // For remote providers - use fetched models if available

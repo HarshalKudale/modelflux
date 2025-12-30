@@ -14,12 +14,15 @@ export interface ModelAssets {
     mmproj?: string;
 }
 
+export type ExecutorchModelProvider = 'executorch' | 'llama-cpp';
+export type ExecutorchModelType = 'llm' | 'embedding' | 'image-gen' | 'tts' | 'stt';
+
 export interface ExecutorchModel {
     id: string;
     name: string;
     description: string;
-    category: string;
-    tags: string[];
+    provider: ExecutorchModelProvider;
+    type: ExecutorchModelType;
     params: string;
     size: string;
     assets: ModelAssets;
@@ -28,4 +31,4 @@ export interface ExecutorchModel {
 /**
  * Built-in ExecuTorch models loaded from JSON config
  */
-export const EXECUTORCH_MODELS: ExecutorchModel[] = modelsConfig.models;
+export const EXECUTORCH_MODELS: ExecutorchModel[] = modelsConfig.models as ExecutorchModel[];

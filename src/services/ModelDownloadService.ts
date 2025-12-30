@@ -297,9 +297,12 @@ async function executeDownload(model: ExecutorchModel): Promise<void> {
         // File definitions with filenames
         const files = [
             { url: model.assets.model, filename: getFileNameFromUrl(model.assets.model), weight: 80 },
-            { url: model.assets.tokenizer, filename: getFileNameFromUrl(model.assets.tokenizer), weight: 10 },
-            { url: model.assets.tokenizerConfig, filename: getFileNameFromUrl(model.assets.tokenizerConfig), weight: 10 },
+            { url: model.assets.tokenizer, filename: getFileNameFromUrl(model.assets.tokenizer), weight: 10 }
         ];
+
+        if (model.assets.tokenizerConfig) {
+            files.push({ url: model.assets.tokenizerConfig, filename: getFileNameFromUrl(model.assets.tokenizerConfig), weight: 10 });
+        }
 
         // Show initial notification
         await showDownloadNotification(modelId, model.name, 0);
@@ -354,7 +357,9 @@ async function executeDownload(model: ExecutorchModel): Promise<void> {
             modelId: model.id,
             name: model.name,
             description: model.description,
-            tags: ['executorch', ...(model.tags as import('../core/types').ModelTag[])],
+            provider: model.provider,
+            type: model.type,
+            tags: [],
             localPath: modelDirPath,
             modelFilePath: downloadedFiles[0].uri,
             tokenizerFilePath: downloadedFiles[1].uri,

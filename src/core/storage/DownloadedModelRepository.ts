@@ -31,6 +31,14 @@ class DownloadedModelRepository implements IDownloadedModelRepository {
         for (const id of ids) {
             const model = await storageAdapter.get<DownloadedModel>(this.getItemKey(id));
             if (model) {
+                // Backward compatibility: add provider and type if missing
+                if (!model.provider) {
+                    model.provider = 'executorch';
+                }
+                if (!model.type) {
+                    // Determine type from tags for existing models
+                    model.type = model.tags?.includes('Embedding') ? 'embedding' : 'llm';
+                }
                 models.push(model);
             }
         }
