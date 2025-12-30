@@ -6,7 +6,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
     ActivityIndicator,
     ScrollView,
@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RAG_EMBEDDING_MODELS, isRagSupported } from '../../config/ragConstants';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { RAGProvider } from '../../core/types';
-import { useExecutorchRagStore, useSettingsStore } from '../../state';
+import { useExecutorchRagStore, useModelDownloadStore, useSettingsStore } from '../../state';
 import { SettingsSection } from '../components/settings';
 import { useAppColorScheme, useLocale } from '../hooks';
 
@@ -36,24 +36,64 @@ const RAG_PROVIDERS: { id: RAGProvider; name: string; description: string }[] = 
 ];
 
 export function RAGSettingsScreen({ onBack }: RAGSettingsScreenProps) {
+    console.log('[RAGSettings] ========= COMPONENT RENDERING =========');
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
     const { settings, setRagProvider, setRagModel, setRagEnabled } = useSettingsStore();
     const { isInitialized, isInitializing, error, initialize } = useExecutorchRagStore();
+    const { downloadedModels, loadDownloadedModels } = useModelDownloadStore();
 
     const ragSettings = settings.ragSettings;
     const selectedProvider = ragSettings?.provider || 'none';
     const selectedModelId = ragSettings?.modelId || null;
     const isEnabled = ragSettings?.isEnabled || false;
 
+    // Load downloaded models on mount
+    useEffect(() => {
+        console.log('[RAGSettings] Component mounted, loading downloaded models...');
+        loadDownloadedModels();
+    }, [loadDownloadedModels]);
+
+    // Debug log when downloadedModels changes
+    useEffect(() => {
+        console.log('[RAGSettings] downloadedModels state changed, count:', downloadedModels.length);
+    }, [downloadedModels]);
+
+    // Combine config models with downloaded embedding models
+    const allEmbeddingModels = useMemo(() => {
+        console.log('[RAGSettings] All downloaded models:', downloadedModels.map(dm => ({
+            modelId: dm.modelId,
+            name: dm.name,
+            type: dm.type
+        })));
+
+        const downloadedEmbedding = downloadedModels
+            .filter((dm) => dm.type === 'embedding')
+            .map((dm) => ({
+                id: dm.modelId,
+                name: dm.name,
+                description: dm.description,
+            }));
+
+        console.log('[RAGSettings] Downloaded embedding models:', downloadedEmbedding);
+
+        return [
+            ...downloadedEmbedding,
+            ...RAG_EMBEDDING_MODELS,
+        ];
+    }, [downloadedModels]);
+
     // Initialize RAG when enabled and model is selected
     useEffect(() => {
         if (isEnabled && selectedProvider === 'executorch' && selectedModelId && !isInitialized && !isInitializing) {
-            initialize(selectedModelId);
+            const model = downloadedModels.find((dm) => dm.modelId === selectedModelId);
+            if (model) {
+                initialize(model);
+            }
         }
-    }, [isEnabled, selectedProvider, selectedModelId, isInitialized, isInitializing]);
+    }, [isEnabled, selectedProvider, selectedModelId, isInitialized, isInitializing, downloadedModels]);
 
     const handleProviderChange = async (providerId: RAGProvider) => {
         await setRagProvider(providerId);
@@ -75,7 +115,10 @@ export function RAGSettingsScreen({ onBack }: RAGSettingsScreenProps) {
         await setRagModel(modelId);
         // Re-initialize with new model
         if (isEnabled) {
-            initialize(modelId);
+            const model = downloadedModels.find((dm) => dm.modelId === modelId);
+            if (model) {
+                initialize(model);
+            }
         }
     };
 
@@ -164,7 +207,7 @@ export function RAGSettingsScreen({ onBack }: RAGSettingsScreenProps) {
                 {/* Model Selection - only show when provider is selected */}
                 {selectedProvider !== 'none' && (
                     <SettingsSection title={t('settings.rag.model')}>
-                        {RAG_EMBEDDING_MODELS.map((model) => (
+                        {allEmbeddingModels.map((model) => (
                             <TouchableOpacity
                                 key={model.id}
                                 style={[
@@ -234,7 +277,12 @@ export function RAGSettingsScreen({ onBack }: RAGSettingsScreenProps) {
                         {!isInitialized && !isInitializing && selectedModelId && (
                             <TouchableOpacity
                                 style={[styles.initButton, { backgroundColor: colors.tint }]}
-                                onPress={() => initialize(selectedModelId)}
+                                onPress={() => {
+                                    const model = downloadedModels.find((dm) => dm.modelId === selectedModelId);
+                                    if (model) {
+                                        initialize(model);
+                                    }
+                                }}
                             >
                                 <Text style={styles.initButtonText}>
                                     {t('settings.rag.initialize')}

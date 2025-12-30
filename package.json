@@ -17,6 +17,8 @@
     "@kesha-antonov/react-native-background-downloader": "^4.3.8",
     "@op-engineering/op-sqlite": "^15.1.16",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-documents/picker": "^11.0.3",
+    "@react-native-documents/viewer": "^3.0.0",
     "@react-native-rag/executorch": "^0.2.0",
     "@react-native-rag/op-sqlite": "file:./react-native-rag-op-sqlite-0.1.2.tgz",
     "@react-navigation/drawer": "^7.7.9",

@@ -18,7 +18,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EXECUTORCH_MODELS, ExecutorchModel } from '../../config/executorchModels';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
+import { DownloadedModelType } from '../../core/types';
+import { importLocalModel } from '../../services/ModelDownloadService';
 import { useModelDownloadStore } from '../../state';
+import { LocalModelImportModal } from '../components/common/LocalModelImportModal';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 // Provider filter types (Row 1)
@@ -40,6 +43,7 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all');
     const [modelTypeFilter, setModelTypeFilter] = useState<ModelTypeFilter>('all');
+    const [isImportModalVisible, setIsImportModalVisible] = useState(false);
 
     // Store
     const {
@@ -62,7 +66,28 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
 
     // Filter models based on search and filter criteria
     const filteredModels = useMemo(() => {
-        let models = [...EXECUTORCH_MODELS];
+        // Start with catalog models
+        let models: ExecutorchModel[] = [...EXECUTORCH_MODELS];
+
+        // Add imported models (local ones not in catalog)
+        const importedModels = downloadedModels
+            .filter((dm) => dm.modelId.startsWith('local-'))
+            .map((dm): ExecutorchModel => ({
+                id: dm.modelId,
+                name: dm.name,
+                description: dm.description,
+                provider: dm.provider,
+                type: dm.type,
+                params: 'Local',
+                size: dm.sizeEstimate || 'Unknown',
+                assets: {
+                    model: dm.modelFilePath,
+                    tokenizer: dm.tokenizerFilePath,
+                    tokenizerConfig: dm.tokenizerConfigFilePath,
+                },
+            }));
+
+        models = [...importedModels, ...models];
 
         // Apply search filter
         if (searchQuery.trim()) {
@@ -109,8 +134,14 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 break;
         }
 
-        // Sort: downloading models first, then by name
+        // Sort: importing models first, then downloading, then by name
         models.sort((a, b) => {
+            // Imported models first
+            const aImported = a.id.startsWith('local-');
+            const bImported = b.id.startsWith('local-');
+            if (aImported && !bImported) return -1;
+            if (!aImported && bImported) return 1;
+
             const aDownloading = isDownloading(a.id);
             const bDownloading = isDownloading(b.id);
             if (aDownloading && !bDownloading) return -1;
@@ -142,6 +173,29 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
         } catch (error) {
             console.error('Failed to delete model:', error);
         }
+    };
+
+    // Handle import local model
+    const handleImportLocalModel = async (
+        name: string,
+        description: string,
+        provider: 'executorch',
+        type: DownloadedModelType,
+        modelPath: string,
+        tokenizerPath: string,
+        tokenizerConfigPath?: string
+    ) => {
+        await importLocalModel(
+            name,
+            description,
+            provider,
+            type,
+            modelPath,
+            tokenizerPath,
+            tokenizerConfigPath
+        );
+        // Reload models after import
+        await loadDownloadedModels();
     };
 
     // Render provider filter chip (Row 1)
@@ -360,7 +414,12 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 <Text style={[styles.title, { color: colors.text }]}>
                     {t('models.title')}
                 </Text>
-                <View style={styles.placeholder} />
+                <TouchableOpacity
+                    onPress={() => setIsImportModalVisible(true)}
+                    style={styles.importButton}
+                >
+                    <Ionicons name="add" size={24} color={colors.tint} />
+                </TouchableOpacity>
             </View>
 
             {/* Search Bar */}
@@ -487,6 +546,13 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                     }
                 />
             )}
+
+            {/* Local Model Import Modal */}
+            <LocalModelImportModal
+                visible={isImportModalVisible}
+                onClose={() => setIsImportModalVisible(false)}
+                onImport={handleImportLocalModel}
+            />
         </SafeAreaView>
     );
 }
@@ -512,6 +578,9 @@ const styles = StyleSheet.create({
     },
     placeholder: {
         width: 32,
+    },
+    importButton: {
+        padding: Spacing.xs,
     },
     searchContainer: {
         paddingHorizontal: Spacing.md,

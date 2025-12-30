@@ -66,7 +66,7 @@ export function RAGProviderListScreen({ onNavigate, onBack }: RAGProviderListScr
 
     // Get embedding models (downloaded models with 'Embedding' tag)
     const embeddingModels = downloadedModels.filter(m =>
-        m.status === 'completed' && m.tags.includes('Embedding')
+        m.type === 'embedding'
     );
 
 

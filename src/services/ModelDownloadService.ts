@@ -175,14 +175,23 @@ function getModelsDirPath(): string {
  * Get the directory path for a specific model
  */
 function getModelDirPath(modelId: string): string {
-    return `${getModelsDirPath()}/${modelId}`;
+    return `${getModelsDirPath()}/${modelId}/`;
 }
 
 /**
  * Request storage permission for Android
+ * On Android 10+ (SDK 29+), WRITE_EXTERNAL_STORAGE is no longer needed
  */
 async function requestStoragePermission(): Promise<boolean> {
     if (Platform.OS !== 'android') return true;
+
+    // Android 10+ (SDK 29+) doesn't need WRITE_EXTERNAL_STORAGE for Downloads folder
+    // The react-native-fs library handles this transparently
+    const sdkVersion = Platform.Version;
+    if (typeof sdkVersion === 'number' && sdkVersion >= 29) {
+        console.log('[ModelDownload] Android 10+, no storage permission needed');
+        return true;
+    }
 
     try {
         const granted = await PermissionsAndroid.request(
@@ -713,24 +722,80 @@ export async function reattachBackgroundDownloads(): Promise<void> {
 
 /**
  * Delete a downloaded model and clean up files
+ * Only deletes files if they are in the LLMHub folder (downloaded models)
+ * Imported models are only removed from database, not deleted from disk
  */
 export async function deleteDownloadedModel(modelId: string): Promise<void> {
     console.log(`[ModelDownload] Deleting downloaded model: ${modelId}`);
 
     try {
-        // Delete the model files from file system
-        const modelDirPath = getModelDirPath(modelId);
-        const exists = await RNFS.exists(modelDirPath);
-        if (exists) {
-            await RNFS.unlink(modelDirPath);
-            console.log(`[ModelDownload] Deleted model files: ${modelDirPath}`);
+        // Get the model from database to check its path
+        const model = await downloadedModelRepository.getByModelId(modelId);
+
+        if (model) {
+            // Only delete files if they are in the LLMHub folder (downloaded models)
+            const isLLMHubModel = model.localPath?.includes('/LLMHub/');
+
+            if (isLLMHubModel) {
+                const modelDirPath = getModelDirPath(modelId);
+                const exists = await RNFS.exists(modelDirPath);
+                if (exists) {
+                    await RNFS.unlink(modelDirPath);
+                    console.log(`[ModelDownload] Deleted model files: ${modelDirPath}`);
+                }
+            } else {
+                console.log(`[ModelDownload] Imported model, skipping file deletion: ${modelId}`);
+            }
         }
 
-        // Delete from database
+        // Always delete from database
         await downloadedModelRepository.deleteByModelId(modelId);
         console.log(`[ModelDownload] Deleted model from database: ${modelId}`);
     } catch (error) {
         console.error(`[ModelDownload] Error deleting model ${modelId}:`, error);
         throw error;
     }
+}
+
+/**
+ * Import a local model from user's storage
+ */
+export async function importLocalModel(
+    name: string,
+    description: string,
+    provider: 'executorch' | 'llama-cpp',
+    type: 'llm' | 'embedding' | 'image-gen' | 'tts' | 'stt',
+    modelFilePath: string,
+    tokenizerFilePath: string,
+    tokenizerConfigFilePath?: string
+): Promise<DownloadedModel> {
+    console.log(`[ModelDownload] Importing local model: ${name}`);
+
+    // Generate a unique model ID
+    const modelId = `local-${Date.now()}`;
+
+    // Get the directory from the model file path
+    const localPath = modelFilePath.substring(0, modelFilePath.lastIndexOf('/'));
+
+    // Create the downloaded model record
+    const downloadedModel = await downloadedModelRepository.create({
+        modelId,
+        name,
+        description,
+        provider,
+        type,
+        tags: [],
+        localPath,
+        modelFilePath,
+        tokenizerFilePath,
+        tokenizerConfigFilePath: tokenizerConfigFilePath || '',
+        sizeEstimate: 'Unknown',
+        downloadedSize: 0,
+        status: 'completed',
+        progress: 100,
+        downloadedAt: Date.now(),
+    });
+
+    console.log(`[ModelDownload] Imported local model: ${name} (${modelId})`);
+    return downloadedModel;
 }

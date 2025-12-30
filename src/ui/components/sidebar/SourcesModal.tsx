@@ -58,7 +58,8 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                 const defaultConfig = getDefaultConfig();
                 if (defaultConfig) {
                     // Find the downloaded model for this config
-                    const model = downloadedModels.find(m => m.id === defaultConfig.modelId);
+                    console.log('downloadedModels', downloadedModels);
+                    const model = downloadedModels.find(m => m.modelId === defaultConfig.modelId);
                     if (model && model.status === 'completed') {
                         console.log('[SourcesModal] Initializing vector store with model:', model.name);
                         setInitError(null);
@@ -71,7 +72,7 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                 }
             }
         }
-    }, [visible]);
+    }, [visible, isInitialized, isInitializing, downloadedModels, getDefaultConfig, initializeRag, loadSources]);
 
     const handleAddSource = async () => {
         // Check if vector store is ready

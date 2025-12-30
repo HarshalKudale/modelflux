@@ -191,6 +191,8 @@ export type RAGProvider = 'executorch' | 'none';
 export interface RAGSettings {
     defaultConfigId: string | null;  // ID of the default RAG config to use
     isEnabled: boolean;              // Whether RAG is enabled globally
+    provider: RAGProvider;           // Selected RAG provider
+    modelId: string | null;          // Selected embedding model ID
 }
 
 /**
@@ -199,6 +201,8 @@ export interface RAGSettings {
 export const DEFAULT_RAG_SETTINGS: RAGSettings = {
     defaultConfigId: null,
     isEnabled: false,
+    provider: 'none',
+    modelId: null,
 };
 
 /**

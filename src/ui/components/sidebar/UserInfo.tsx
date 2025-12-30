@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { BorderRadius, Colors, Spacing } from '../../../config/theme';
-import { useSettingsStore } from '../../../state';
+import { useRagConfigStore } from '../../../state';
 import { useAppColorScheme } from '../../hooks';
 
 interface UserInfoProps {
@@ -14,14 +14,14 @@ export function UserInfo({ onSettingsPress, onSourcesPress }: UserInfoProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
 
-    // Check if RAG is enabled in settings
-    const ragSettings = useSettingsStore((state) => state.settings.ragSettings);
-    const isRagEnabled = ragSettings?.isEnabled && Platform.OS !== 'web';
+    // Check if at least one RAG provider is configured
+    const ragConfigs = useRagConfigStore((state) => state.configs);
+    const hasRagProvider = ragConfigs.length > 0 && Platform.OS !== 'web';
 
     return (
         <View style={[styles.container, { borderTopColor: colors.border }]}>
             {/* Sources button - only show when RAG is enabled */}
-            {isRagEnabled && onSourcesPress && (
+            {hasRagProvider && onSourcesPress && (
                 <TouchableOpacity
                     onPress={onSourcesPress}
                     style={[styles.button, { backgroundColor: colors.backgroundSecondary }]}

@@ -72,7 +72,7 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
 
     // Get embedding models (downloaded models with 'Embedding' tag)
     const embeddingModels = downloadedModels.filter(m =>
-        m.status === 'completed' && m.tags.includes('Embedding')
+        m.provider === 'executorch' && m.type === 'embedding'
     );
 
     useEffect(() => {
