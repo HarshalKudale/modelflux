@@ -345,6 +345,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         disabled={isInputDisabled}
                         onSourcesPress={() => setShowSourceSelector(true)}
                         selectedSourceCount={selectedSourceIds.length}
+                        hasSources={sources.length > 0}
                     />
                 </View>
             </View>

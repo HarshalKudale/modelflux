@@ -40,9 +40,17 @@ export async function prepareContext(
     }
 
     try {
-        const vectorStore = useExecutorchRagStore.getState().getVectorStore();
+        const ragStoreState = useExecutorchRagStore.getState();
+        const vectorStore = ragStoreState.getVectorStore();
+
         if (!vectorStore) {
             console.log('[RAGContext] Vector store not initialized');
+            return [];
+        }
+
+        // Block RAG when sources are stale (need reprocessing)
+        if (ragStoreState.isStale) {
+            console.log('[RAGContext] Sources are stale, skipping context');
             return [];
         }
 
@@ -121,6 +129,14 @@ export function getContextInstruction(): string {
 export function shouldApplyContext(selectedSourceIds: number[]): boolean {
     if (Platform.OS === 'web') return false;
 
-    const vectorStore = useExecutorchRagStore.getState().getVectorStore();
+    const ragStoreState = useExecutorchRagStore.getState();
+    const vectorStore = ragStoreState.getVectorStore();
+
+    // Block if stale
+    if (ragStoreState.isStale) {
+        console.log('[RAGContext] Sources are stale, cannot apply context');
+        return false;
+    }
+
     return selectedSourceIds.length > 0 && vectorStore !== null;
 }

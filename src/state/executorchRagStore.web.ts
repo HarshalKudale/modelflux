@@ -6,7 +6,7 @@
  */
 
 import { create } from 'zustand';
-import { DownloadedModel } from '../core/types';
+import { DownloadedModel, RAGProvider } from '../core/types';
 
 interface ExecutorchRagState {
     vectorStore: null;
@@ -15,14 +15,20 @@ interface ExecutorchRagState {
     isInitializing: boolean;
     error: string | null;
     selectedModelId: string | null;
+    currentProvider: RAGProvider | null;
+    currentModelId: string | null;
+    isStale: boolean;
     isSupported: boolean;
 }
 
 interface ExecutorchRagActions {
-    initialize: (downloadedModel: DownloadedModel) => Promise<void>;
+    initialize: (downloadedModel: DownloadedModel, provider?: RAGProvider) => Promise<void>;
     reset: () => void;
     getVectorStore: () => null;
     getEmbeddings: () => null;
+    markAsStale: () => void;
+    updateSourcesProcessedWith: (provider: RAGProvider, modelId: string) => void;
+    loadPersistedState: () => Promise<void>;
 }
 
 type ExecutorchRagStore = ExecutorchRagState & ExecutorchRagActions;
@@ -35,9 +41,12 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
     isInitializing: false,
     error: 'RAG is not supported on web',
     selectedModelId: null,
+    currentProvider: null,
+    currentModelId: null,
+    isStale: false,
     isSupported: false, // Web does not support RAG
 
-    initialize: async (_downloadedModel: DownloadedModel) => {
+    initialize: async (_downloadedModel: DownloadedModel, _provider?: RAGProvider) => {
         console.warn('[ExecutorchRagStore] RAG is not supported on web');
         set({ error: 'RAG is not supported on web' });
     },
@@ -48,6 +57,9 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
 
     getVectorStore: () => null,
     getEmbeddings: () => null,
+    markAsStale: () => { },
+    updateSourcesProcessedWith: (_provider: RAGProvider, _modelId: string) => { },
+    loadPersistedState: async () => { },
 }));
 
 /**

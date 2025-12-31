@@ -22,6 +22,7 @@ interface MessageInputProps {
     // RAG props
     onSourcesPress?: () => void;
     selectedSourceCount?: number;
+    hasSources?: boolean;  // True if any sources exist
 }
 
 export function MessageInput({
@@ -33,15 +34,16 @@ export function MessageInput({
     disabled,
     onSourcesPress,
     selectedSourceCount = 0,
+    hasSources = false,
 }: MessageInputProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const { t } = useLocale();
     const [inputHeight, setInputHeight] = useState(44);
 
-    // Check if RAG is enabled
+    // Check if RAG is enabled - show button if RAG enabled OR if sources exist
     const ragSettings = useSettingsStore((state) => state.settings.ragSettings);
-    const isRagEnabled = ragSettings?.isEnabled && Platform.OS !== 'web';
+    const isRagEnabled = (ragSettings?.isEnabled || hasSources) && Platform.OS !== 'web';
 
     const handleSend = () => {
         if (value.trim() && !disabled) {
@@ -75,29 +77,29 @@ export function MessageInput({
             )}
 
             {/* Input row */}
+            {/* Sources button - only show when RAG is enabled */}
+            {isRagEnabled && onSourcesPress && (
+                <TouchableOpacity
+                    onPress={onSourcesPress}
+                    style={[
+                        styles.sourcesButton,
+                        hasSelectedSources && { backgroundColor: colors.tint + '20' },
+                    ]}
+                >
+                    <Ionicons
+                        name={hasSelectedSources ? "documents" : "add-circle-outline"}
+                        size={22}
+                        color={hasSelectedSources ? colors.tint : colors.textMuted}
+                    />
+                </TouchableOpacity>
+
+            )}
             <View
                 style={[
                     styles.inputContainer,
                     { backgroundColor: colors.background, borderColor: colors.border },
                 ]}
             >
-                {/* Sources button - only show when RAG is enabled */}
-                {isRagEnabled && onSourcesPress && (
-                    <TouchableOpacity
-                        onPress={onSourcesPress}
-                        style={[
-                            styles.sourcesButton,
-                            hasSelectedSources && { backgroundColor: colors.tint + '20' },
-                        ]}
-                    >
-                        <Ionicons
-                            name={hasSelectedSources ? "documents" : "add-circle-outline"}
-                            size={22}
-                            color={hasSelectedSources ? colors.tint : colors.textMuted}
-                        />
-                    </TouchableOpacity>
-                )}
-
                 <TextInput
                     value={value}
                     onChangeText={onChange}
@@ -115,32 +117,34 @@ export function MessageInput({
                     onKeyPress={handleKeyPress}
                 />
 
-                {isStreaming ? (
-                    <TouchableOpacity
-                        onPress={onStop}
-                        style={[styles.sendButton, { backgroundColor: colors.error }]}
-                    >
-                        <Ionicons name="stop" size={20} color="#FFFFFF" />
-                    </TouchableOpacity>
-                ) : (
-                    <TouchableOpacity
-                        onPress={handleSend}
-                        disabled={!canSend}
-                        style={[
-                            styles.sendButton,
-                            {
-                                backgroundColor: canSend ? colors.tint : colors.backgroundTertiary,
-                            },
-                        ]}
-                    >
-                        <Ionicons
-                            name="send"
-                            size={18}
-                            color={canSend ? '#FFFFFF' : colors.textMuted}
-                        />
-                    </TouchableOpacity>
-                )}
             </View>
+
+
+            {isStreaming ? (
+                <TouchableOpacity
+                    onPress={onStop}
+                    style={[styles.sendButton, { backgroundColor: colors.error }]}
+                >
+                    <Ionicons name="stop" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity
+                    onPress={handleSend}
+                    disabled={!canSend}
+                    style={[
+                        styles.sendButton,
+                        {
+                            backgroundColor: canSend ? colors.tint : colors.backgroundTertiary,
+                        },
+                    ]}
+                >
+                    <Ionicons
+                        name="send"
+                        size={18}
+                        color={canSend ? '#FFFFFF' : colors.textMuted}
+                    />
+                </TouchableOpacity>
+            )}
         </View>
     );
 }
@@ -150,6 +154,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
         paddingBottom: Platform.OS === 'ios' ? Spacing.lg : Spacing.lg,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-around',
     },
     sourcesIndicator: {
         flexDirection: 'row',
@@ -166,13 +173,9 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
+        flex: 1,
         borderRadius: BorderRadius.xl,
         borderWidth: 1,
-        paddingLeft: Spacing.xs,
-        paddingRight: Spacing.xs,
-        paddingVertical: Spacing.xs,
     },
     sourcesButton: {
         width: 36,
@@ -182,7 +185,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     input: {
-        flex: 1,
         fontSize: FontSizes.md,
         paddingVertical: Spacing.sm,
         paddingHorizontal: Spacing.sm,

@@ -41,40 +41,94 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const { sources, isLoading, isProcessing, loadSources, addSource, deleteSource } = useSourceStore();
-    const { isInitialized, isInitializing, error: ragError, initialize: initializeRag } = useExecutorchRagStore();
-    const { getDefaultConfig } = useRagConfigStore();
+    const { sources, isLoading, isProcessing, loadSources, addSource, deleteSource, reindexAllSources } = useSourceStore();
+    const {
+        isInitialized,
+        isInitializing,
+        error: ragError,
+        initialize: initializeRag,
+        selectedModelId,
+        isStale,
+        reset: resetRag,
+        updateSourcesProcessedWith,
+        loadPersistedState
+    } = useExecutorchRagStore();
+    const { getDefaultConfig, loadConfigs } = useRagConfigStore();
     const { downloadedModels } = useModelDownloadStore();
 
     const [initError, setInitError] = useState<string | null>(null);
+    const [isReindexing, setIsReindexing] = useState(false);
+    const [isLoadingState, setIsLoadingState] = useState(false);
+
+    // Handle modal close - reset RAG state so it re-initializes on next open
+    const handleClose = () => {
+        console.log('[SourcesModal] Closing modal, resetting RAG state');
+        resetRag();
+        onClose();
+    };
 
     // Lazy initialization of vector store when modal opens
     useEffect(() => {
         if (visible) {
-            loadSources();
+            const initializeModal = async () => {
+                loadSources();
 
-            // Initialize vector store if not already done
-            if (!isInitialized && !isInitializing) {
+                // Load persisted tracking state first
+                setIsLoadingState(true);
+                await loadPersistedState();
+                setIsLoadingState(false);
+
+                // Reload RAG configs to get fresh data
+                await loadConfigs();
                 const defaultConfig = getDefaultConfig();
-                if (defaultConfig) {
-                    // Find the downloaded model for this config
-                    console.log('downloadedModels', downloadedModels);
-                    console.log('defaultConfig', defaultConfig);
-                    const model = downloadedModels.find(m => m.id === defaultConfig.modelId);
-                    console.log(model);
-                    if (model) {
-                        console.log('[SourcesModal] Initializing vector store with model:', model.name);
-                        setInitError(null);
-                        initializeRag(model);
+
+                console.log('[SourcesModal] Fresh defaultConfig:', defaultConfig);
+
+                if (!isInitialized && !isInitializing) {
+                    if (defaultConfig) {
+                        // Find the downloaded model for this config
+                        console.log('downloadedModels', downloadedModels);
+                        console.log('defaultConfig', defaultConfig);
+                        const model = downloadedModels.find(m => m.id === defaultConfig.modelId);
+                        console.log(model);
+                        if (model) {
+                            console.log('[SourcesModal] Initializing vector store with model:', model.name);
+                            setInitError(null);
+                            initializeRag(model, defaultConfig.provider);
+                        } else {
+                            setInitError('Embedding model not found or not downloaded');
+                        }
                     } else {
-                        setInitError('Embedding model not found or not downloaded');
+                        setInitError('No RAG provider configured. Please configure one in Settings.');
                     }
-                } else {
-                    setInitError('No RAG provider configured. Please configure one in Settings.');
                 }
-            }
+            };
+
+            initializeModal();
         }
-    }, [visible, isInitialized, isInitializing, downloadedModels, getDefaultConfig, initializeRag, loadSources]);
+    }, [visible, isInitialized, isInitializing, downloadedModels, getDefaultConfig, initializeRag, loadSources, loadPersistedState, loadConfigs]);
+
+    // Handle reprocessing sources with current model
+    const handleReprocess = async () => {
+        const defaultConfig = getDefaultConfig();
+        if (!defaultConfig || !selectedModelId) {
+            return;
+        }
+
+        console.log('[SourcesModal] Starting reprocess with current model:', selectedModelId);
+        setIsReindexing(true);
+
+        try {
+            await reindexAllSources();
+            // Update the current provider/model after successful reprocessing
+            updateSourcesProcessedWith(defaultConfig.provider, selectedModelId);
+            console.log('[SourcesModal] Reprocess complete, stale state cleared');
+        } catch (e) {
+            console.error('[SourcesModal] Reprocess failed:', e);
+        } finally {
+            setIsReindexing(false);
+        }
+    };
 
     const handleAddSource = async () => {
         // Check if vector store is ready
@@ -185,6 +239,36 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
             );
         }
 
+        if (isReindexing) {
+            return (
+                <View style={[styles.statusBar, { backgroundColor: colors.tint + '20' }]}>
+                    <ActivityIndicator size="small" color={colors.tint} />
+                    <Text style={[styles.statusText, { color: colors.tint }]}>
+                        {t('rag.reindexing') || 'Reindexing sources...'}
+                    </Text>
+                </View>
+            );
+        }
+
+        if (isStale && sources.length > 0) {
+            return (
+                <View style={[styles.statusBar, { backgroundColor: colors.warning + '20' }]}>
+                    <Ionicons name="warning-outline" size={18} color={colors.warning || '#F59E0B'} />
+                    <Text style={[styles.statusText, { color: colors.warning || '#F59E0B', flex: 1 }]}>
+                        {t('rag.stale') || 'Sources need reprocessing with new model'}
+                    </Text>
+                    <TouchableOpacity
+                        onPress={handleReprocess}
+                        style={[styles.reprocessButton, { backgroundColor: colors.tint }]}
+                    >
+                        <Text style={styles.reprocessButtonText}>
+                            {t('rag.reprocess') || 'Reprocess'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
         if (initError || ragError) {
             return (
                 <View style={[styles.statusBar, { backgroundColor: colors.error + '20' }]}>
@@ -215,12 +299,12 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
             visible={visible}
             animationType="slide"
             presentationStyle="pageSheet"
-            onRequestClose={onClose}
+            onRequestClose={handleClose}
         >
             <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
                 {/* Header */}
                 <View style={[styles.header, { borderBottomColor: colors.border }]}>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                    <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                         <Ionicons name="close" size={24} color={colors.text} />
                     </TouchableOpacity>
                     <Text style={[styles.title, { color: colors.text }]}>
@@ -228,8 +312,8 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                     </Text>
                     <TouchableOpacity
                         onPress={handleAddSource}
-                        disabled={isProcessing || isInitializing || !isInitialized}
-                        style={[styles.addButton, { opacity: (isProcessing || isInitializing || !isInitialized) ? 0.5 : 1 }]}
+                        disabled={isProcessing || isInitializing || isReindexing || !isInitialized}
+                        style={[styles.addButton, { opacity: (isProcessing || isInitializing || isReindexing || !isInitialized) ? 0.5 : 1 }]}
                     >
                         <Ionicons name="add" size={24} color={colors.tint} />
                     </TouchableOpacity>
@@ -366,5 +450,15 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: FontSizes.sm,
         fontWeight: '500',
+    },
+    reprocessButton: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderRadius: BorderRadius.sm,
+    },
+    reprocessButtonText: {
+        color: '#FFFFFF',
+        fontSize: FontSizes.sm,
+        fontWeight: '600',
     },
 });

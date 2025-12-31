@@ -10,7 +10,11 @@ import { ExecuTorchEmbeddings } from '@react-native-rag/executorch';
 import { OPSQLiteVectorStore } from '@react-native-rag/op-sqlite';
 import { Embeddings } from 'react-native-rag';
 import { create } from 'zustand';
-import { DownloadedModel } from '../core/types';
+import { storageAdapter } from '../core/storage/StorageAdapter';
+import { DownloadedModel, RAGProvider } from '../core/types';
+
+// Storage keys for persistence
+const RAG_TRACKING_STORAGE_KEY = 'rag_sources_tracking';
 
 interface ExecutorchRagState {
     // Vector store instance
@@ -24,8 +28,14 @@ interface ExecutorchRagState {
     isInitializing: boolean;
     error: string | null;
 
-    // Selected model info
+    // Currently loaded model (the model used to initialize the vector store)
     selectedModelId: string | null;
+
+    // Stale state tracking - tracks what provider/model was used to PROCESS sources
+    // This differs from selectedModelId when sources were processed with a different model
+    currentProvider: RAGProvider | null;
+    currentModelId: string | null;
+    isStale: boolean;  // True when sources need reprocessing with the new model
 
     // Platform support flag
     isSupported: boolean;
@@ -35,8 +45,9 @@ interface ExecutorchRagActions {
     /**
      * Initialize the vector store with a downloaded embedding model
      * @param downloadedModel The downloaded model with embedding tag
+     * @param provider The RAG provider type
      */
-    initialize: (downloadedModel: DownloadedModel) => Promise<void>;
+    initialize: (downloadedModel: DownloadedModel, provider?: RAGProvider) => Promise<void>;
 
     /**
      * Reset the vector store (e.g., when switching models)
@@ -52,6 +63,23 @@ interface ExecutorchRagActions {
      * Get the current embeddings instance
      */
     getEmbeddings: () => Embeddings | null;
+
+    /**
+     * Mark sources as stale (need reprocessing)
+     */
+    markAsStale: () => void;
+
+    /**
+     * Update the current provider/model after reprocessing sources
+     * @param provider The provider used to reprocess
+     * @param modelId The model ID used to reprocess
+     */
+    updateSourcesProcessedWith: (provider: RAGProvider, modelId: string) => void;
+
+    /**
+     * Load persisted tracking state from storage
+     */
+    loadPersistedState: () => Promise<void>;
 }
 
 type ExecutorchRagStore = ExecutorchRagState & ExecutorchRagActions;
@@ -64,14 +92,22 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
     isInitializing: false,
     error: null,
     selectedModelId: null,
+    currentProvider: null,
+    currentModelId: null,
+    isStale: false,
     isSupported: true, // Native platforms support RAG
 
-    initialize: async (downloadedModel: DownloadedModel) => {
-        const { isInitialized, isInitializing, selectedModelId } = get();
+    initialize: async (downloadedModel: DownloadedModel, provider?: RAGProvider) => {
+        const { isInitialized, isInitializing, selectedModelId, currentModelId } = get();
 
         // Skip if already initialized with same model
         if (isInitialized && selectedModelId === downloadedModel.id) {
             console.log('[ExecutorchRagStore] Already initialized with same model');
+            // Check if sources were processed with a different model
+            if (currentModelId && currentModelId !== downloadedModel.id) {
+                console.log('[ExecutorchRagStore] Sources are stale - processed with different model');
+                set({ isStale: true });
+            }
             return;
         }
 
@@ -111,13 +147,22 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
 
             console.log('[ExecutorchRagStore] Vector store initialized successfully');
 
+            // Check if sources are stale (processed with a different model)
+            const { currentModelId: prevCurrentModelId } = get();
+            const sourcesAreStale = prevCurrentModelId !== null && prevCurrentModelId !== downloadedModel.id;
+
             set({
                 vectorStore: store,
                 embeddings: embeddingsInstance,
                 isInitialized: true,
                 isInitializing: false,
                 selectedModelId: downloadedModel.id,
+                isStale: sourcesAreStale,
             });
+
+            if (sourcesAreStale) {
+                console.log('[ExecutorchRagStore] Sources are stale - need reprocessing');
+            }
         } catch (err) {
             console.error('[ExecutorchRagStore] Initialization error:', err);
             set({
@@ -134,6 +179,9 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
             console.log('[ExecutorchRagStore] Resetting vector store');
         }
 
+        // Note: We do NOT reset currentProvider/currentModelId here
+        // because those track what model was used to PROCESS sources,
+        // not what model is currently loaded
         set({
             vectorStore: null,
             embeddings: null,
@@ -150,6 +198,51 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
 
     getEmbeddings: () => {
         return get().embeddings;
+    },
+
+    markAsStale: () => {
+        console.log('[ExecutorchRagStore] Marking sources as stale');
+        set({ isStale: true });
+    },
+
+    updateSourcesProcessedWith: async (provider: RAGProvider, modelId: string) => {
+        console.log('[ExecutorchRagStore] Sources processed with:', provider, modelId);
+
+        // Persist to storage
+        try {
+            await storageAdapter.set(RAG_TRACKING_STORAGE_KEY, {
+                currentProvider: provider,
+                currentModelId: modelId,
+            });
+            console.log('[ExecutorchRagStore] Tracking state persisted');
+        } catch (err) {
+            console.error('[ExecutorchRagStore] Failed to persist tracking state:', err);
+        }
+
+        set({
+            currentProvider: provider,
+            currentModelId: modelId,
+            isStale: false,
+        });
+    },
+
+    loadPersistedState: async () => {
+        try {
+            const saved = await storageAdapter.get<{
+                currentProvider: RAGProvider;
+                currentModelId: string;
+            }>(RAG_TRACKING_STORAGE_KEY);
+
+            if (saved) {
+                console.log('[ExecutorchRagStore] Loaded persisted tracking state:', saved);
+                set({
+                    currentProvider: saved.currentProvider,
+                    currentModelId: saved.currentModelId,
+                });
+            }
+        } catch (err) {
+            console.error('[ExecutorchRagStore] Failed to load persisted state:', err);
+        }
     },
 }));
 

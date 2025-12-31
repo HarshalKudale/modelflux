@@ -47,6 +47,7 @@ interface SourceStoreActions {
     deleteSource: (source: Source) => Promise<void>;
     renameSource: (id: number, newName: string) => Promise<void>;
     setSourceProcessing: (id: number, isProcessing: boolean) => void;
+    reindexAllSources: () => Promise<void>;
     clearError: () => void;
 }
 
@@ -152,6 +153,13 @@ export const useSourceStore = create<SourceStore>((set, get) => ({
                 });
             }
 
+            // Update the current provider/model to track what model processed these sources
+            const ragState = useExecutorchRagStore.getState();
+            if (ragState.selectedModelId) {
+                // Get provider from the initialized state (default to 'executorch' for now)
+                ragState.updateSourcesProcessedWith('executorch', ragState.selectedModelId);
+            }
+
             // Update UI with real source
             set((state) => ({
                 sources: state.sources.map((s) =>
@@ -216,5 +224,97 @@ export const useSourceStore = create<SourceStore>((set, get) => ({
 
     clearError: () => {
         set({ error: null });
+    },
+
+    reindexAllSources: async () => {
+        // Check if RAG is supported
+        if (Platform.OS === 'web' || !readPDF) {
+            console.warn('[SourceStore] RAG not supported on this platform');
+            return;
+        }
+
+        const vectorStore = useExecutorchRagStore.getState().getVectorStore();
+        if (!vectorStore) {
+            console.warn('[SourceStore] Vector store not initialized, skipping reindex');
+            return;
+        }
+
+        const sources = get().sources;
+        if (sources.length === 0) {
+            console.log('[SourceStore] No sources to reindex');
+            return;
+        }
+
+        console.log('[SourceStore] Reindexing', sources.length, 'sources...');
+        set({ isProcessing: true });
+
+        for (const source of sources) {
+            try {
+                // Mark this source as processing
+                set((state) => ({
+                    sources: state.sources.map((s) =>
+                        s.id === source.id ? { ...s, isProcessing: true } : s
+                    ),
+                }));
+
+                const normalizedUri = source.uri.replace('file://', '');
+                console.log('[SourceStore] Reindexing source:', source.name);
+
+                // Read PDF content
+                const sourceTextContent = await readPDF(normalizedUri);
+
+                if (!sourceTextContent || sourceTextContent.trim().length === 0) {
+                    console.warn('[SourceStore] Source has no content, skipping:', source.name);
+                    continue;
+                }
+
+                // Split text into chunks
+                let chunks: string[] = [];
+
+                if (RecursiveCharacterTextSplitter) {
+                    const textSplitter = new RecursiveCharacterTextSplitter({
+                        chunkSize: TEXT_SPLITTER_CHUNK_SIZE,
+                        chunkOverlap: TEXT_SPLITTER_CHUNK_OVERLAP,
+                    });
+                    chunks = await textSplitter.splitText(sourceTextContent);
+                } else {
+                    // Fallback: simple chunking
+                    const words = sourceTextContent.split(/\s+/);
+                    const chunkSize = 200;
+                    for (let i = 0; i < words.length; i += chunkSize) {
+                        chunks.push(words.slice(i, i + chunkSize).join(' '));
+                    }
+                }
+
+                // Add chunks to vector store
+                for (let i = 0; i < chunks.length; i++) {
+                    const chunk = chunks[i]!;
+                    await vectorStore.add(chunk, {
+                        documentId: source.id,
+                        name: source.name,
+                    });
+                }
+
+                console.log('[SourceStore] Reindexed source:', source.name, 'with', chunks.length, 'chunks');
+
+                // Mark source as done
+                set((state) => ({
+                    sources: state.sources.map((s) =>
+                        s.id === source.id ? { ...s, isProcessing: false } : s
+                    ),
+                }));
+            } catch (e) {
+                console.error('[SourceStore] Error reindexing source:', source.name, e);
+                // Mark source as done even on error
+                set((state) => ({
+                    sources: state.sources.map((s) =>
+                        s.id === source.id ? { ...s, isProcessing: false } : s
+                    ),
+                }));
+            }
+        }
+
+        set({ isProcessing: false });
+        console.log('[SourceStore] Reindexing complete');
     },
 }));
