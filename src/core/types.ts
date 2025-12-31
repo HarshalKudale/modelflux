@@ -136,6 +136,10 @@ export interface Message {
     modelUsed: string;
     usage?: TokenUsage;
     thinkingContent?: string;
+    /** Source IDs used for RAG context in this message */
+    sourceIds?: number[];
+    /** Map of source ID to its retrieved context content */
+    contextMap?: Record<number, string>;
 }
 
 /**
@@ -182,8 +186,25 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 /**
  * RAG Provider types
  * - executorch: Local on-device embeddings with ExecutorTorch
+ * - openai: OpenAI embeddings API (future)
+ * - ollama: Ollama local embeddings (future)
  */
-export type RAGProvider = 'executorch' | 'none';
+export type RAGProviderType = 'executorch' | 'openai' | 'ollama';
+
+/**
+ * RAG Provider (includes 'none' for disabled state)
+ */
+export type RAGProvider = RAGProviderType | 'none';
+
+/**
+ * RAG Runtime status
+ * - idle: Not initialized
+ * - initializing: Loading embeddings/vector store
+ * - ready: Ready to process queries
+ * - stale: Provider changed, sources need reprocessing
+ * - error: Initialization failed
+ */
+export type RAGRuntimeStatus = 'idle' | 'initializing' | 'ready' | 'stale' | 'error';
 
 /**
  * RAG Settings for retrieval-augmented generation

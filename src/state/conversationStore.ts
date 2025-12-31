@@ -4,9 +4,11 @@ import { ChatMessage, LLMError, llmClientFactory } from '../core/llm';
 import { conversationRepository, messageRepository, sourceRepository } from '../core/storage';
 import { Conversation, Message, Source, generateId } from '../core/types';
 import { isLocalProvider, useExecutorchLLMStore } from './executorchLLMStore';
-import { useExecutorchRagStore } from './executorchRagStore';
 import { useLLMStore } from './llmStore';
+import { useModelDownloadStore } from './modelDownloadStore';
 import { usePersonaStore } from './personaStore';
+import { useProviderConfigStore } from './providerConfigStore';
+import { useRAGRuntimeStore } from './ragRuntimeStore';
 import { useSettingsStore } from './settingsStore';
 
 interface ConversationStoreState {
@@ -243,7 +245,82 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
         const now = Date.now();
 
-        // Create user message
+        // Prepare RAG context early if sources are selected (needed for message creation)
+        let contextMap: Record<number, string> = {};
+        let ragContextStrings: string[] = [];
+
+        if (selectedSourceIds && selectedSourceIds.length > 0) {
+            try {
+                const ragRuntime = useRAGRuntimeStore.getState();
+                let vectorStore = ragRuntime.getVectorStore();
+
+                // If RAG not ready, try to initialize on demand
+                if (!vectorStore || ragRuntime.status !== 'ready') {
+                    console.log('[conversationStore] RAG not ready, attempting lazy initialization...');
+
+                    await useProviderConfigStore.getState().loadConfigs();
+                    const defaultConfig = useProviderConfigStore.getState().getDefaultProvider();
+
+                    if (defaultConfig) {
+                        const downloadedModels = useModelDownloadStore.getState().downloadedModels;
+                        const model = downloadedModels.find(m => m.id === defaultConfig.modelId);
+
+                        if (model) {
+                            console.log('[conversationStore] Initializing RAG with model:', model.name);
+                            await ragRuntime.loadPersistedState();
+                            await ragRuntime.initialize(defaultConfig, model);
+                            vectorStore = useRAGRuntimeStore.getState().getVectorStore();
+                        }
+                    }
+                }
+
+                if (vectorStore && useRAGRuntimeStore.getState().status === 'ready') {
+                    console.log('[conversationStore] Preparing RAG context for', selectedSourceIds.length, 'sources');
+
+                    const results = await vectorStore.similaritySearch(
+                        content,
+                        K_DOCUMENTS_TO_RETRIEVE,
+                        (value: { metadata?: { documentId?: number } }) => {
+                            return selectedSourceIds.includes(value.metadata?.documentId || 0);
+                        }
+                    );
+
+                    if (results && results.length > 0) {
+                        const sources = await sourceRepository.findAll();
+
+                        // Build contextMap: aggregate content by source ID
+                        results.forEach((item: { content: string; metadata?: { documentId?: number } }) => {
+                            const docId = item.metadata?.documentId || 0;
+                            if (docId > 0) {
+                                if (contextMap[docId]) {
+                                    contextMap[docId] += '\n' + item.content.trim();
+                                } else {
+                                    contextMap[docId] = item.content.trim();
+                                }
+                            }
+                        });
+
+                        // Build formatted context strings for LLM
+                        let sourceIndex = 1;
+                        for (const sourceId of Object.keys(contextMap).map(Number)) {
+                            const sourceName = sources.find((s: Source) => s.id === sourceId)?.name
+                                || `Document ${sourceId}`;
+                            ragContextStrings.push(
+                                `\n--- Source ${sourceIndex}: ${sourceName} ---\n${contextMap[sourceId]}\n--- End of Source ${sourceIndex} ---`
+                            );
+                            sourceIndex++;
+                        }
+                        console.log('[conversationStore] Prepared contextMap with', Object.keys(contextMap).length, 'sources');
+                    }
+                } else {
+                    console.log('[conversationStore] RAG vector store not available after init attempt');
+                }
+            } catch (e) {
+                console.error('[conversationStore] Error preparing RAG context:', e);
+            }
+        }
+
+        // Create user message with context info
         const userMessage: Message = {
             id: generateId(),
             conversationId: currentConversationId,
@@ -253,6 +330,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             timestamp: now,
             llmIdUsed: conversation.activeLLMId,
             modelUsed: conversation.activeModel,
+            sourceIds: selectedSourceIds && selectedSourceIds.length > 0 ? selectedSourceIds : undefined,
+            contextMap: Object.keys(contextMap).length > 0 ? contextMap : undefined,
         };
 
         // Save user message and update UI
@@ -274,43 +353,29 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 await get().updateConversationTitle(currentConversationId, title);
             }
 
-            // Build chat history
-            const chatMessages: ChatMessage[] = currentMessages.map((m) => ({
-                role: m.role,
-                content: m.content,
-            }));
-
-            // Prepare RAG context if sources are selected
-            let ragContext: string[] = [];
-            if (selectedSourceIds && selectedSourceIds.length > 0) {
-                try {
-                    const vectorStore = useExecutorchRagStore.getState().getVectorStore();
-                    if (vectorStore) {
-                        console.log('[conversationStore] Preparing RAG context for', selectedSourceIds.length, 'sources');
-
-                        const results = await vectorStore.similaritySearch(
-                            content,
-                            K_DOCUMENTS_TO_RETRIEVE,
-                            (value: { metadata?: { documentId?: number } }) => {
-                                return selectedSourceIds.includes(value.metadata?.documentId || 0);
-                            }
+            // Build chat history - reconstruct context from stored messages
+            const chatMessages: ChatMessage[] = currentMessages.map((m) => {
+                // If message has stored context, wrap it for the LLM
+                if (m.role === 'user' && m.contextMap && Object.keys(m.contextMap).length > 0) {
+                    // Reconstruct context strings from stored contextMap
+                    const storedContextStrings: string[] = [];
+                    let idx = 1;
+                    for (const sourceId of Object.keys(m.contextMap).map(Number)) {
+                        storedContextStrings.push(
+                            `\n--- Source ${idx}: Document ${sourceId} ---\n${m.contextMap[sourceId]}\n--- End of Source ${idx} ---`
                         );
-
-                        if (results && results.length > 0) {
-                            const sources = await sourceRepository.findAll();
-                            ragContext = results.map((item: { content: string; metadata?: { documentId?: number; name?: string }; similarity?: number }, index: number) => {
-                                const sourceName = sources.find((s: Source) => s.id === item.metadata?.documentId)?.name
-                                    || item.metadata?.name
-                                    || `Document ${item.metadata?.documentId || 'Unknown'}`;
-                                return `\n--- Source ${index + 1}: ${sourceName} ---\n${item.content.trim()}\n--- End of Source ${index + 1} ---`;
-                            });
-                            console.log('[conversationStore] Prepared', ragContext.length, 'context entries');
-                        }
+                        idx++;
                     }
-                } catch (e) {
-                    console.error('[conversationStore] Error preparing RAG context:', e);
+                    return {
+                        role: m.role,
+                        content: `<context>${storedContextStrings.join(' ')}</context>\n${m.content}`,
+                    };
                 }
-            }
+                return {
+                    role: m.role,
+                    content: m.content,
+                };
+            });
 
             // Prepend persona system prompt if persona is assigned
             if (conversation.personaId) {
@@ -329,7 +394,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                     }
 
                     // Add RAG context instruction if context is available
-                    if (ragContext.length > 0) {
+                    if (ragContextStrings.length > 0) {
                         systemContent = `${systemContent}\n\n${CONTEXT_INSTRUCTION}`;
                     }
 
@@ -338,7 +403,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                         content: systemContent,
                     });
                 }
-            } else if (ragContext.length > 0) {
+            } else if (ragContextStrings.length > 0) {
                 // No persona, but RAG context is available - add context instruction as system prompt
                 chatMessages.unshift({
                     role: 'system',
@@ -346,11 +411,11 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 });
             }
 
-            // Wrap user message with context if available
-            if (ragContext.length > 0) {
+            // Wrap CURRENT user message with context if available (not already done in history reconstruction)
+            if (ragContextStrings.length > 0) {
                 const lastMessageIndex = chatMessages.length - 1;
                 if (lastMessageIndex >= 0 && chatMessages[lastMessageIndex].role === 'user') {
-                    chatMessages[lastMessageIndex].content = `<context>${ragContext.join(' ')}</context>\n${chatMessages[lastMessageIndex].content}`;
+                    chatMessages[lastMessageIndex].content = `<context>${ragContextStrings.join(' ')}</context>\n${chatMessages[lastMessageIndex].content}`;
                 }
             }
 

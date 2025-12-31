@@ -1,10 +1,3 @@
-/**
- * RAG Settings Screen
- * 
- * Settings screen for RAG (Retrieval-Augmented Generation) configuration.
- * Allows selecting provider and embedding model.
- */
-
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo } from 'react';
 import {
@@ -19,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RAG_EMBEDDING_MODELS, isRagSupported } from '../../config/ragConstants';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { RAGProvider } from '../../core/types';
-import { useExecutorchRagStore, useModelDownloadStore, useSettingsStore } from '../../state';
+import { useModelDownloadStore, useProviderConfigStore, useRAGRuntimeStore, useSettingsStore } from '../../state';
 import { SettingsSection } from '../components/settings';
 import { useAppColorScheme, useLocale } from '../hooks';
 
@@ -42,8 +35,12 @@ export function RAGSettingsScreen({ onBack }: RAGSettingsScreenProps) {
     const { t } = useLocale();
 
     const { settings, setRagProvider, setRagModel, setRagEnabled } = useSettingsStore();
-    const { isInitialized, isInitializing, error, initialize } = useExecutorchRagStore();
+    const { status, error, initialize } = useRAGRuntimeStore();
+    const { getDefaultProvider, loadConfigs } = useProviderConfigStore();
     const { downloadedModels, loadDownloadedModels } = useModelDownloadStore();
+
+    const isInitializing = status === 'initializing';
+    const isInitialized = status === 'ready' || status === 'stale';
 
     const ragSettings = settings.ragSettings;
     const selectedProvider = ragSettings?.provider || 'none';
@@ -88,12 +85,15 @@ export function RAGSettingsScreen({ onBack }: RAGSettingsScreenProps) {
     // Initialize RAG when enabled and model is selected
     useEffect(() => {
         if (isEnabled && selectedProvider === 'executorch' && selectedModelId && !isInitialized && !isInitializing) {
-            const model = downloadedModels.find((dm) => dm.modelId === selectedModelId);
-            if (model) {
-                initialize(model);
-            }
+            loadConfigs().then(() => {
+                const defaultConfig = getDefaultProvider();
+                const model = downloadedModels.find((dm) => dm.modelId === selectedModelId);
+                if (model && defaultConfig) {
+                    initialize(defaultConfig, model);
+                }
+            });
         }
-    }, [isEnabled, selectedProvider, selectedModelId, isInitialized, isInitializing, downloadedModels]);
+    }, [isEnabled, selectedProvider, selectedModelId, isInitialized, isInitializing, downloadedModels, loadConfigs, getDefaultProvider, initialize]);
 
     const handleProviderChange = async (providerId: RAGProvider) => {
         await setRagProvider(providerId);
@@ -115,9 +115,10 @@ export function RAGSettingsScreen({ onBack }: RAGSettingsScreenProps) {
         await setRagModel(modelId);
         // Re-initialize with new model
         if (isEnabled) {
+            const defaultConfig = getDefaultProvider();
             const model = downloadedModels.find((dm) => dm.modelId === modelId);
-            if (model) {
-                initialize(model);
+            if (model && defaultConfig) {
+                initialize(defaultConfig, model);
             }
         }
     };
@@ -277,10 +278,12 @@ export function RAGSettingsScreen({ onBack }: RAGSettingsScreenProps) {
                         {!isInitialized && !isInitializing && selectedModelId && (
                             <TouchableOpacity
                                 style={[styles.initButton, { backgroundColor: colors.tint }]}
-                                onPress={() => {
+                                onPress={async () => {
+                                    await loadConfigs();
+                                    const defaultConfig = getDefaultProvider();
                                     const model = downloadedModels.find((dm) => dm.modelId === selectedModelId);
-                                    if (model) {
-                                        initialize(model);
+                                    if (model && defaultConfig) {
+                                        initialize(defaultConfig, model);
                                     }
                                 }}
                             >

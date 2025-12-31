@@ -4,7 +4,7 @@
  * Full-screen modal for managing document sources (PDFs) for RAG.
  * Allows users to add, view, rename, and delete sources.
  * 
- * Lazily initializes the vector store when the modal is opened.
+ * Lazily initializes the RAG runtime when the modal is opened.
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -22,11 +22,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
+import { processSource } from '../../../core/rag/sourceProcessor';
+import { sourceRepository } from '../../../core/storage';
 import { Source } from '../../../core/types';
 import {
-    useExecutorchRagStore,
     useModelDownloadStore,
-    useRagConfigStore,
+    useProviderConfigStore,
+    useRAGRuntimeStore,
     useSourceStore
 } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
@@ -41,24 +43,33 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const { sources, isLoading, isProcessing, loadSources, addSource, deleteSource, reindexAllSources } = useSourceStore();
+    // Source store (persistence only)
+    const { sources, isLoading, loadSources, deleteSource } = useSourceStore();
+
+    // RAG Runtime store
     const {
-        isInitialized,
-        isInitializing,
+        status,
         error: ragError,
+        isProcessing,
+        processingProgress,
         initialize: initializeRag,
-        selectedModelId,
-        isStale,
         reset: resetRag,
-        updateSourcesProcessedWith,
-        loadPersistedState
-    } = useExecutorchRagStore();
-    const { getDefaultConfig, loadConfigs } = useRagConfigStore();
+        loadPersistedState,
+        reprocess,
+        addChunks,
+    } = useRAGRuntimeStore();
+
+    // Provider config store
+    const { getDefaultProvider, loadConfigs } = useProviderConfigStore();
     const { downloadedModels } = useModelDownloadStore();
 
     const [initError, setInitError] = useState<string | null>(null);
-    const [isReindexing, setIsReindexing] = useState(false);
-    const [isLoadingState, setIsLoadingState] = useState(false);
+    const [isAddingSource, setIsAddingSource] = useState(false);
+
+    // Derived state
+    const isInitializing = status === 'initializing';
+    const isReady = status === 'ready';
+    const isStale = status === 'stale';
 
     // Handle modal close - reset RAG state so it re-initializes on next open
     const handleClose = () => {
@@ -67,34 +78,31 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
         onClose();
     };
 
-    // Lazy initialization of vector store when modal opens
+    // Lazy initialization of RAG runtime when modal opens
     useEffect(() => {
         if (visible) {
             const initializeModal = async () => {
                 loadSources();
 
                 // Load persisted tracking state first
-                setIsLoadingState(true);
                 await loadPersistedState();
-                setIsLoadingState(false);
 
                 // Reload RAG configs to get fresh data
                 await loadConfigs();
-                const defaultConfig = getDefaultConfig();
+                const defaultConfig = getDefaultProvider();
 
                 console.log('[SourcesModal] Fresh defaultConfig:', defaultConfig);
 
-                if (!isInitialized && !isInitializing) {
+                // Only initialize if not already ready or stale
+                if (status === 'idle' || status === 'error') {
                     if (defaultConfig) {
                         // Find the downloaded model for this config
-                        console.log('downloadedModels', downloadedModels);
-                        console.log('defaultConfig', defaultConfig);
                         const model = downloadedModels.find(m => m.id === defaultConfig.modelId);
-                        console.log(model);
+
                         if (model) {
-                            console.log('[SourcesModal] Initializing vector store with model:', model.name);
+                            console.log('[SourcesModal] Initializing RAG with model:', model.name);
                             setInitError(null);
-                            initializeRag(model, defaultConfig.provider);
+                            initializeRag(defaultConfig, model);
                         } else {
                             setInitError('Embedding model not found or not downloaded');
                         }
@@ -106,43 +114,28 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
 
             initializeModal();
         }
-    }, [visible, isInitialized, isInitializing, downloadedModels, getDefaultConfig, initializeRag, loadSources, loadPersistedState, loadConfigs]);
+    }, [visible, status, downloadedModels, getDefaultProvider, initializeRag, loadSources, loadPersistedState, loadConfigs]);
 
     // Handle reprocessing sources with current model
     const handleReprocess = async () => {
-        const defaultConfig = getDefaultConfig();
-        if (!defaultConfig || !selectedModelId) {
-            return;
-        }
-
-        console.log('[SourcesModal] Starting reprocess with current model:', selectedModelId);
-        setIsReindexing(true);
-
-        try {
-            await reindexAllSources();
-            // Update the current provider/model after successful reprocessing
-            updateSourcesProcessedWith(defaultConfig.provider, selectedModelId);
-            console.log('[SourcesModal] Reprocess complete, stale state cleared');
-        } catch (e) {
-            console.error('[SourcesModal] Reprocess failed:', e);
-        } finally {
-            setIsReindexing(false);
-        }
+        console.log('[SourcesModal] Starting reprocess...');
+        await reprocess();
     };
 
     const handleAddSource = async () => {
-        // Check if vector store is ready
-        if (!isInitialized) {
+        // Check if RAG runtime is ready
+        if (!isReady) {
             Alert.alert(
                 t('common.error'),
-                initError || 'Vector store not initialized. Please wait or configure RAG in Settings.'
+                initError || 'RAG not ready. Please wait or configure RAG in Settings.'
             );
             return;
         }
 
         try {
+            // Restrict to PDF and text files only
             const result = await DocumentPicker.getDocumentAsync({
-                type: 'application/pdf',
+                type: ['application/pdf', 'text/plain'],
                 copyToCacheDirectory: true,
             });
 
@@ -150,8 +143,11 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                 return;
             }
 
-            const file = result.assets[0];
-            const source: Omit<Source, 'id'> = {
+            const file = result.assets[0]!;
+            setIsAddingSource(true);
+
+            // Create source metadata
+            const sourceData: Omit<Source, 'id'> = {
                 name: file.name || 'Untitled',
                 uri: file.uri,
                 fileSize: file.size || 0,
@@ -159,7 +155,14 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                 addedAt: Date.now(),
             };
 
-            const { success, isEmpty, error } = await addSource(source, file.uri);
+            // Save to repository first
+            const savedSource = await sourceRepository.create(sourceData);
+
+            // Reload sources to show the new one
+            loadSources();
+
+            // Process the source (extract text, chunk, embed)
+            const { success, isEmpty, error } = await processSource(savedSource, addChunks);
 
             if (!success) {
                 if (isEmpty) {
@@ -168,9 +171,13 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                     Alert.alert(t('common.error'), error || t('sources.error.processing'));
                 }
             }
+
+            loadSources(); // Reload to update UI
         } catch (e) {
             console.error('[SourcesModal] Error adding source:', e);
             Alert.alert(t('common.error'), t('sources.error.processing'));
+        } finally {
+            setIsAddingSource(false);
         }
     };
 
@@ -239,12 +246,15 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
             );
         }
 
-        if (isReindexing) {
+        if (isProcessing) {
+            const progressText = processingProgress
+                ? `Processing ${processingProgress.current}/${processingProgress.total}...`
+                : 'Processing...';
             return (
                 <View style={[styles.statusBar, { backgroundColor: colors.tint + '20' }]}>
                     <ActivityIndicator size="small" color={colors.tint} />
                     <Text style={[styles.statusText, { color: colors.tint }]}>
-                        {t('rag.reindexing') || 'Reindexing sources...'}
+                        {progressText}
                     </Text>
                 </View>
             );
@@ -280,7 +290,7 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
             );
         }
 
-        if (isInitialized) {
+        if (isReady) {
             return (
                 <View style={[styles.statusBar, { backgroundColor: colors.success + '20' }]}>
                     <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
@@ -293,6 +303,8 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
 
         return null;
     };
+
+    const canAddSource = isReady && !isProcessing && !isAddingSource;
 
     return (
         <Modal
@@ -312,8 +324,8 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                     </Text>
                     <TouchableOpacity
                         onPress={handleAddSource}
-                        disabled={isProcessing || isInitializing || isReindexing || !isInitialized}
-                        style={[styles.addButton, { opacity: (isProcessing || isInitializing || isReindexing || !isInitialized) ? 0.5 : 1 }]}
+                        disabled={!canAddSource}
+                        style={[styles.addButton, { opacity: canAddSource ? 1 : 0.5 }]}
                     >
                         <Ionicons name="add" size={24} color={colors.tint} />
                     </TouchableOpacity>
@@ -337,8 +349,8 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                     />
                 )}
 
-                {/* Processing indicator */}
-                {isProcessing && (
+                {/* Adding source indicator */}
+                {isAddingSource && (
                     <View style={[styles.processingBar, { backgroundColor: colors.tint }]}>
                         <ActivityIndicator size="small" color="#FFFFFF" />
                         <Text style={styles.processingText}>{t('sources.processing')}</Text>

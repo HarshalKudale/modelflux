@@ -7,7 +7,7 @@
 
 import { Platform } from 'react-native';
 import { CONTEXT_INSTRUCTION, K_DOCUMENTS_TO_RETRIEVE } from '../config/ragConstants';
-import { useExecutorchRagStore } from '../state/executorchRagStore';
+import { useRAGRuntimeStore } from '../state/ragRuntimeStore';
 import { useSourceStore } from '../state/sourceStore';
 
 interface SearchResult {
@@ -40,24 +40,18 @@ export async function prepareContext(
     }
 
     try {
-        const ragStoreState = useExecutorchRagStore.getState();
-        const vectorStore = ragStoreState.getVectorStore();
+        const ragRuntime = useRAGRuntimeStore.getState();
 
-        if (!vectorStore) {
-            console.log('[RAGContext] Vector store not initialized');
-            return [];
-        }
-
-        // Block RAG when sources are stale (need reprocessing)
-        if (ragStoreState.isStale) {
-            console.log('[RAGContext] Sources are stale, skipping context');
+        // Block RAG when not ready or stale
+        if (ragRuntime.status !== 'ready') {
+            console.log('[RAGContext] RAG not ready, status:', ragRuntime.status);
             return [];
         }
 
         console.log('[RAGContext] Searching for context with', enabledSourceIds.length, 'sources');
 
-        // Perform similarity search
-        const results = await vectorStore.similaritySearch(
+        // Query using the new RAGRuntimeStore API
+        const results = await ragRuntime.query(
             prompt,
             K_DOCUMENTS_TO_RETRIEVE,
             (value: SearchResult) => {
@@ -129,14 +123,13 @@ export function getContextInstruction(): string {
 export function shouldApplyContext(selectedSourceIds: number[]): boolean {
     if (Platform.OS === 'web') return false;
 
-    const ragStoreState = useExecutorchRagStore.getState();
-    const vectorStore = ragStoreState.getVectorStore();
+    const ragRuntime = useRAGRuntimeStore.getState();
 
-    // Block if stale
-    if (ragStoreState.isStale) {
-        console.log('[RAGContext] Sources are stale, cannot apply context');
+    // Only apply context if ready (not stale, not error, not idle)
+    if (ragRuntime.status !== 'ready') {
+        console.log('[RAGContext] Cannot apply context, status:', ragRuntime.status);
         return false;
     }
 
-    return selectedSourceIds.length > 0 && vectorStore !== null;
+    return selectedSourceIds.length > 0 && ragRuntime.vectorStore !== null;
 }

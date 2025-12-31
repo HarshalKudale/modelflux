@@ -1,10 +1,3 @@
-/**
- * RAG Provider List Screen
- * 
- * Lists all configured RAG providers similar to LLM Management screen.
- * Shows quick-add buttons at top and existing configs below.
- */
-
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect } from 'react';
 import {
@@ -18,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { RAGConfig, RAGProvider } from '../../core/types';
-import { useModelDownloadStore, useRagConfigStore } from '../../state';
+import { useModelDownloadStore, useProviderConfigStore } from '../../state';
 import { showConfirm, showError, showInfo } from '../../utils/alert';
 import { ResourceCard } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
@@ -28,8 +21,8 @@ interface RAGProviderListScreenProps {
     onBack: () => void;
 }
 
-// Selectable providers (excludes 'none')
-type SelectableRAGProvider = Exclude<RAGProvider, 'none'>;
+// Selectable providers (local providers only for now)
+type SelectableRAGProvider = 'executorch';
 
 // RAG provider info
 const RAG_PROVIDER_INFO: Record<SelectableRAGProvider, { name: string; color: string; description: string }> = {
@@ -42,8 +35,8 @@ const RAG_PROVIDER_INFO: Record<SelectableRAGProvider, { name: string; color: st
 
 // Helper to safely get provider info
 function getProviderInfo(provider: RAGProvider) {
-    if (provider === 'none') {
-        return { name: 'None', color: '#888888', description: 'No provider' };
+    if (provider === 'none' || provider === 'openai' || provider === 'ollama') {
+        return { name: provider.charAt(0).toUpperCase() + provider.slice(1), color: '#888888', description: 'Provider' };
     }
     return RAG_PROVIDER_INFO[provider];
 }
@@ -53,7 +46,7 @@ export function RAGProviderListScreen({ onNavigate, onBack }: RAGProviderListScr
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const { configs, loadConfigs, deleteConfig, setDefaultConfig } = useRagConfigStore();
+    const { configs, loadConfigs, removeProvider, setDefaultProvider } = useProviderConfigStore();
     const { downloadedModels, loadDownloadedModels } = useModelDownloadStore();
 
     useEffect(() => {
@@ -87,7 +80,7 @@ export function RAGProviderListScreen({ onNavigate, onBack }: RAGProviderListScr
     };
 
     const handleSetDefault = async (config: RAGConfig) => {
-        await setDefaultConfig(config.id);
+        await setDefaultProvider(config.id);
         showInfo(t('common.success'), `${config.name} is now the default RAG provider.`);
     };
 
@@ -102,7 +95,7 @@ export function RAGProviderListScreen({ onNavigate, onBack }: RAGProviderListScr
 
         if (confirmed) {
             try {
-                await deleteConfig(config.id);
+                await removeProvider(config.id);
             } catch (error) {
                 showError(t('common.error'), error instanceof Error ? error.message : t('alert.error.default'));
             }

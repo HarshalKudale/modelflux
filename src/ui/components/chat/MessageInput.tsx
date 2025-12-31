@@ -3,13 +3,12 @@ import { useState } from 'react';
 import {
     Platform,
     StyleSheet,
-    Text,
     TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
-import { useSettingsStore } from '../../../state';
+import { useProviderConfigStore, useRAGRuntimeStore, useSettingsStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
 
 interface MessageInputProps {
@@ -41,9 +40,13 @@ export function MessageInput({
     const { t } = useLocale();
     const [inputHeight, setInputHeight] = useState(44);
 
-    // Check if RAG is enabled - show button if RAG enabled OR if sources exist
+    // Check if RAG is enabled and not stale - also require a default provider
     const ragSettings = useSettingsStore((state) => state.settings.ragSettings);
-    const isRagEnabled = (ragSettings?.isEnabled || hasSources) && Platform.OS !== 'web';
+    const isStale = useRAGRuntimeStore((state) => state.status === 'stale');
+    const hasDefaultProvider = useProviderConfigStore((state) => state.configs.some(c => c.isDefault));
+
+    // Show sources button only if: (RAG enabled OR has sources) AND not web AND not stale AND has default provider
+    const isRagEnabled = (ragSettings?.isEnabled || hasSources) && Platform.OS !== 'web' && !isStale && hasDefaultProvider;
 
     const handleSend = () => {
         if (value.trim() && !disabled) {
@@ -66,15 +69,6 @@ export function MessageInput({
 
     return (
         <View style={[styles.container, { backgroundColor: colors.backgroundSecondary }]}>
-            {/* Selected sources indicator */}
-            {hasSelectedSources && (
-                <View style={[styles.sourcesIndicator, { backgroundColor: colors.tint + '20' }]}>
-                    <Ionicons name="documents" size={14} color={colors.tint} />
-                    <Text style={[styles.sourcesIndicatorText, { color: colors.tint }]}>
-                        {t('chat.sources.selected', { count: selectedSourceCount })}
-                    </Text>
-                </View>
-            )}
 
             {/* Input row */}
             {/* Sources button - only show when RAG is enabled */}
@@ -157,20 +151,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-around',
-    },
-    sourcesIndicator: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.sm,
-        paddingVertical: Spacing.xs,
-        borderRadius: BorderRadius.sm,
-        marginBottom: Spacing.xs,
-        alignSelf: 'flex-start',
-        gap: Spacing.xs,
-    },
-    sourcesIndicatorText: {
-        fontSize: FontSizes.xs,
-        fontWeight: '500',
     },
     inputContainer: {
         flex: 1,

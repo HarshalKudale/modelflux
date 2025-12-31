@@ -1,10 +1,3 @@
-/**
- * RAG Provider Editor Screen
- * 
- * Screen for creating/editing RAG provider configurations.
- * Provider dropdown at top, model selection at bottom.
- */
-
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -20,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { RAGProvider } from '../../core/types';
-import { useModelDownloadStore, useRagConfigStore } from '../../state';
+import { useModelDownloadStore, useProviderConfigStore } from '../../state';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 interface RAGProviderEditorScreenProps {
@@ -29,8 +22,8 @@ interface RAGProviderEditorScreenProps {
     onBack: () => void;
 }
 
-// Selectable providers (excludes 'none')
-type SelectableRAGProvider = Exclude<RAGProvider, 'none'>;
+// Selectable providers (local providers only for now)
+type SelectableRAGProvider = 'executorch';
 
 // RAG provider info
 const RAG_PROVIDER_INFO: Record<SelectableRAGProvider, { name: string; color: string; description: string }> = {
@@ -46,8 +39,8 @@ const RAG_PROVIDERS: SelectableRAGProvider[] = ['executorch'];
 
 // Helper to safely get provider info
 function getProviderInfo(provider: RAGProvider) {
-    if (provider === 'none') {
-        return { name: 'None', color: '#888888', description: 'No provider' };
+    if (provider === 'none' || provider === 'openai' || provider === 'ollama') {
+        return { name: provider.charAt(0).toUpperCase() + provider.slice(1), color: '#888888', description: 'Provider' };
     }
     return RAG_PROVIDER_INFO[provider];
 }
@@ -57,7 +50,7 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const { configs, createConfig, updateConfig, getConfigById } = useRagConfigStore();
+    const { configs, addProvider, updateProvider, getProviderById } = useProviderConfigStore();
     const { downloadedModels, loadDownloadedModels } = useModelDownloadStore();
 
     // Form state
@@ -79,7 +72,7 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
         loadDownloadedModels();
 
         if (configId) {
-            const existingConfig = getConfigById(configId);
+            const existingConfig = getProviderById(configId);
             if (existingConfig) {
                 setName(existingConfig.name);
                 setProvider(existingConfig.provider);
@@ -105,9 +98,9 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
             const now = Date.now();
 
             if (isEditing && configId) {
-                const existingConfig = getConfigById(configId);
+                const existingConfig = getProviderById(configId);
                 if (existingConfig) {
-                    await updateConfig({
+                    await updateProvider({
                         ...existingConfig,
                         name: name.trim(),
                         provider,
@@ -117,7 +110,7 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
                     });
                 }
             } else {
-                await createConfig({
+                await addProvider({
                     name: name.trim(),
                     provider,
                     modelId: selectedModelId,
