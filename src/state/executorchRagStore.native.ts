@@ -95,8 +95,8 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
 
             // Create embeddings instance from react-native-rag with model assets
             const assets = {
-                modelSource: downloadedModel.modelFilePath,
-                tokenizerSource: downloadedModel.tokenizerFilePath,
+                modelSource: { source: downloadedModel.modelFilePath, type: 1 },
+                tokenizerSource: { source: downloadedModel.tokenizerFilePath, type: 1 },
             };
 
             console.log('[ExecutorchRagStore] Creating ExecuTorchEmbeddings with assets...');

@@ -534,6 +534,7 @@ export async function startDownload(model: ExecutorchModel): Promise<void> {
                     }
                 })
                 .done(({ location }) => {
+                    console.log(`[ModelDownload] ${file.fileType} done: ${location}`);
                     handleFileComplete(modelId, file.fileType, location, taskId);
                 })
                 .error(({ error }) => {

@@ -12,9 +12,50 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import RNFS from 'react-native-fs';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
 import { DownloadedModelType } from '../../../core/types';
 import { useAppColorScheme, useLocale } from '../../hooks';
+
+// Get the models directory path (same as ModelDownloadService)
+function getModelsDirPath(): string {
+    return `${RNFS.DownloadDirectoryPath}/LLMHub/models`;
+}
+
+// Copy a file to the LLMHub models directory
+async function copyFileToModelsDir(sourceUri: string, modelId: string): Promise<string> {
+    // Decode URI only for extracting the filename
+    const decodedUri = decodeURIComponent(sourceUri);
+
+    // Extract just the filename from the decoded path and trim whitespace
+    const rawFilename = decodedUri.split('/').pop() || 'file';
+    const filename = rawFilename.trim();
+
+    // Create destination directory
+    const destDir = `${getModelsDirPath()}/${modelId}`;
+    const destExists = await RNFS.exists(destDir);
+    if (!destExists) {
+        await RNFS.mkdir(destDir);
+    }
+
+    const destPath = `${destDir}/${filename}`;
+
+    // Check if destination file already exists
+    const fileExists = await RNFS.exists(destPath);
+    if (fileExists) {
+        console.log(`[LocalModelImport] File already exists at ${destPath}, skipping copy`);
+        return `file://${destPath}`;
+    }
+
+    console.log(`[LocalModelImport] Source URI: ${sourceUri}`);
+    console.log(`[LocalModelImport] Extracted filename: ${filename}`);
+    console.log(`[LocalModelImport] Copying to: ${destPath}`);
+
+    // Pass the ORIGINAL URI to RNFS - it handles content:// URIs internally
+    await RNFS.copyFile(sourceUri, destPath);
+
+    return `file://${destPath}`;
+}
 
 interface LocalModelImportModalProps {
     visible: boolean;
@@ -68,7 +109,7 @@ export function LocalModelImportModal({
     // Pick file using native documents picker
     const pickFile = async (type: 'model' | 'tokenizer' | 'tokenizerConfig') => {
         try {
-            const [result] = await pick({ mode: 'open' });
+            const [result] = await pick({ mode: 'open', requestLongTermAccess: true });
             console.log('[LocalModelImport] Picked file:', result);
 
             if (result?.uri) {
@@ -116,14 +157,35 @@ export function LocalModelImportModal({
 
         setIsImporting(true);
         try {
+            // Generate a unique model ID for this import
+            const modelId = `local-${Date.now()}`;
+
+            // Copy files to LLMHub/models directory
+            console.log('[LocalModelImport] Copying files to LLMHub/models directory...');
+
+            const copiedModelPath = await copyFileToModelsDir(modelPath, modelId);
+            const copiedTokenizerPath = await copyFileToModelsDir(tokenizerPath, modelId);
+            let copiedTokenizerConfigPath: string | undefined;
+
+            if (tokenizerConfigPath) {
+                copiedTokenizerConfigPath = await copyFileToModelsDir(tokenizerConfigPath, modelId);
+            }
+
+            console.log('[LocalModelImport] Files copied successfully');
+            console.log('[LocalModelImport] Model path:', copiedModelPath);
+            console.log('[LocalModelImport] Tokenizer path:', copiedTokenizerPath);
+            if (copiedTokenizerConfigPath) {
+                console.log('[LocalModelImport] Tokenizer config path:', copiedTokenizerConfigPath);
+            }
+
             await onImport(
                 modelName.trim(),
                 `Imported ${modelTypes.find(t => t.value === modelType)?.label} model`,
                 provider,
                 modelType,
-                modelPath,
-                tokenizerPath,
-                tokenizerConfigPath || undefined
+                copiedModelPath,
+                copiedTokenizerPath,
+                copiedTokenizerConfigPath
             );
             // Reset form
             setModelName('');

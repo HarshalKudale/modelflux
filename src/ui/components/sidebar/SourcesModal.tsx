@@ -59,8 +59,10 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                 if (defaultConfig) {
                     // Find the downloaded model for this config
                     console.log('downloadedModels', downloadedModels);
-                    const model = downloadedModels.find(m => m.modelId === defaultConfig.modelId);
-                    if (model && model.status === 'completed') {
+                    console.log('defaultConfig', defaultConfig);
+                    const model = downloadedModels.find(m => m.id === defaultConfig.modelId);
+                    console.log(model);
+                    if (model) {
                         console.log('[SourcesModal] Initializing vector store with model:', model.name);
                         setInitError(null);
                         initializeRag(model);
