@@ -23,6 +23,13 @@ export const generateId = (): string => {
 export type LLMProvider = 'openai' | 'openai-spec' | 'anthropic' | 'ollama' | 'executorch' | 'llama-rn';
 
 /**
+ * Provider category for distinguishing local vs remote providers
+ * - local: On-device providers (Executorch, Llama.cpp) - fixed, one instance per type
+ * - remote: Cloud/server providers (OpenAI, Ollama, etc.) - user-managed, multiple allowed
+ */
+export type LLMProviderCategory = 'local' | 'remote';
+
+/**
  * Supported local model file formats
  */
 export type LocalModelFormat = 'pte' | 'gguf';
@@ -83,16 +90,37 @@ export interface LLMConfig {
 
 /**
  * Conversation container
+ * 
+ * Design notes:
+ * - personaId is immutable after creation (systemPrompt is compiled at creation)
+ * - attachedSourceIds accumulates as new sources are used in messages
+ * - provider/model can be changed mid-conversation
  */
 export interface Conversation {
     id: string;
     title: string;
     createdAt: number;
     updatedAt: number;
-    activeLLMId: string;
-    activeModel: string;
+
+    // Provider configuration
+    providerId: string;              // LLMConfig id
+    modelId: string;                 // Model identifier
+    providerType: LLMProvider;       // Provider type for quick lookup
+
+    // Persona (immutable after creation)
     personaId?: string;
+    systemPrompt?: string;           // Compiled system prompt (immutable)
+
+    // RAG sources (accumulates with each message)
+    attachedSourceIds?: number[];    // Source IDs used in this conversation
+
+    // Features
     thinkingEnabled?: boolean;
+
+    // @deprecated Use providerId instead - kept for migration compatibility
+    activeLLMId?: string;
+    // @deprecated Use modelId instead - kept for migration compatibility  
+    activeModel?: string;
 }
 
 /**
@@ -123,6 +151,11 @@ export interface TokenUsage {
 
 /**
  * Single message in a conversation
+ * 
+ * Design notes:
+ * - context is stored separately from content (immutable after creation)
+ * - contextIds tracks which sources were used for RAG
+ * - interrupted marks messages that were stopped mid-generation
  */
 export interface Message {
     id: string;
@@ -132,13 +165,30 @@ export interface Message {
     contentType: MessageContentType;
     images?: MessageImage[];
     timestamp: number;
-    llmIdUsed: string;
-    modelUsed: string;
+
+    // Model tracking (for assistant messages)
+    modelId: string;                 // Model used for this message
+
+    // Token usage
     usage?: TokenUsage;
+
+    // Thinking/reasoning content
     thinkingContent?: string;
-    /** Source IDs used for RAG context in this message */
+
+    // RAG context (stored separately from content, immutable)
+    context?: string;                // RAG context as formatted string
+    contextIds?: number[];           // Source IDs used for context
+
+    // Generation state
+    interrupted?: boolean;           // Was generation interrupted?
+
+    // @deprecated Use modelId instead - kept for migration compatibility
+    llmIdUsed?: string;
+    // @deprecated Use modelId instead - kept for migration compatibility
+    modelUsed?: string;
+    // @deprecated Use contextIds instead - kept for migration compatibility
     sourceIds?: number[];
-    /** Map of source ID to its retrieved context content */
+    // @deprecated Use context instead - kept for migration compatibility
     contextMap?: Record<number, string>;
 }
 
@@ -233,7 +283,10 @@ export interface RAGConfig {
     id: string;
     name: string;
     provider: RAGProvider;
-    modelId: string;                 // Reference to downloaded model ID with 'Embedding' tag
+    modelId: string;                 // Reference to downloaded model ID
+    modelName?: string;              // Model display name (for UI)
+    modelPath?: string;              // Full path to model file
+    tokenizerPath?: string;          // Full path to tokenizer file
     isDefault: boolean;              // Whether this is the default RAG config
     createdAt: number;
     updatedAt: number;

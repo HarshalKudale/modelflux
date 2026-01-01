@@ -21,7 +21,6 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const [pendingProviderId, setPendingProviderId] = useState<string | undefined>(undefined);
     const [pendingModel, setPendingModel] = useState<string | undefined>(undefined);
     const [pendingPersonaId, setPendingPersonaId] = useState<string | undefined>(undefined);
-    const [pendingThinkingEnabled, setPendingThinkingEnabled] = useState(false);
     // Provider connection status cache
     const [providerConnectionStatus, setProviderConnectionStatus] = useState<Record<string, boolean>>({});
     // Settings modal visibility for existing conversations
@@ -43,7 +42,6 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         sendMessage,
         cancelStreaming,
         setActiveLLM,
-        setThinkingEnabled,
         updateConversationTitle,
         createConversation,
     } = useConversationStore();
@@ -166,12 +164,11 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         // If no conversation exists, create one first with pending selections
         if (!currentConversationId) {
             try {
-                await createConversation(pendingProviderId, pendingModel, pendingPersonaId, pendingThinkingEnabled);
+                await createConversation(pendingProviderId, pendingModel, pendingPersonaId);
                 // Clear pending selections
                 setPendingProviderId(undefined);
                 setPendingModel(undefined);
                 setPendingPersonaId(undefined);
-                setPendingThinkingEnabled(false);
                 // Small delay to ensure state is updated
                 setTimeout(async () => {
                     await sendMessage(message, sourcesToUse);
@@ -283,8 +280,6 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                 conversation={conversation}
                 onEditTitle={handleEditTitle}
                 onMenuPress={onMenuPress}
-                thinkingEnabled={isNewConversation ? pendingThinkingEnabled : (conversation?.thinkingEnabled ?? false)}
-                onThinkingChange={isNewConversation ? setPendingThinkingEnabled : setThinkingEnabled}
                 onSettingsPress={!isNewConversation ? () => setShowSettingsModal(true) : undefined}
                 showAlert={localProviderNeedsSelection}
             />
@@ -324,9 +319,6 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         personas={personas}
                         selectedPersonaId={pendingPersonaId}
                         onPersonaChange={handlePersonaChange}
-                        // Thinking mode
-                        thinkingEnabled={pendingThinkingEnabled}
-                        onThinkingChange={setPendingThinkingEnabled}
                         onNavigateToProviders={() => router.push('/llm-management')}
                         onNavigateToPersonas={() => router.push('/persona-list')}
                         hasConfigs={!hasNoLLM}

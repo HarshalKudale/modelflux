@@ -2,40 +2,41 @@
  * ExecuTorch Provider - Web Stub
  * 
  * Empty stub for web platform where react-native-executorch is not available.
- * All methods throw errors indicating ExecuTorch is not supported on web.
  */
 
 import { LLMConfig } from '../../types';
 import {
-    ILLMClient,
+    ILLMProvider,
     LLMError,
     LLMErrorCode,
     LLMRequest,
     LLMStreamChunk
 } from '../types';
 
-export class ExecuTorchProvider implements ILLMClient {
+export class ExecuTorchProvider implements ILLMProvider {
     isReady(): boolean {
         return false;
     }
 
+    interrupt(): void {
+        // No-op on web
+    }
+
     async *sendMessageStream(
-        request: LLMRequest
+        _request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
         throw new LLMError(
-            'ExecuTorch is not supported on web. Please use the mobile app for on-device LLM inference.',
+            'ExecuTorch is not supported on web.',
             LLMErrorCode.PROVIDER_NOT_SUPPORTED,
             'executorch'
         );
     }
 
-    async fetchModels(llmConfig: LLMConfig): Promise<string[]> {
-        // Return empty array on web - no models available
+    async fetchModels(_llmConfig: LLMConfig): Promise<string[]> {
         return [];
     }
 
-    async testConnection(llmConfig: LLMConfig): Promise<boolean> {
-        // Always return false on web - ExecuTorch not supported
+    async testConnection(_llmConfig: LLMConfig): Promise<boolean> {
         return false;
     }
 }

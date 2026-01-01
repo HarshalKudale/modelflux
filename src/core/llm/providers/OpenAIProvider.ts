@@ -11,32 +11,37 @@ import { BaseLLMProvider, createTimeoutSignal } from './BaseProvider';
  * Supports streaming via Server-Sent Events (SSE).
  */
 export class OpenAIProvider extends BaseLLMProvider {
+    // AbortController for cancelling active requests
+    private currentController: AbortController | null = null;
+
     protected getProviderName(): string {
         return 'openai';
     }
 
     /**
-     * Build request headers for OpenAI API.
+     * Interrupt active generation by aborting the HTTP request.
      */
+    public interrupt(): void {
+        console.log('[OpenAIProvider] Interrupting...');
+        if (this.currentController) {
+            this.currentController.abort();
+            this.currentController = null;
+        }
+    }
+
     private buildHeaders(config: LLMConfig): Record<string, string> {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
         };
-
         if (config.apiKey) {
             headers['Authorization'] = `Bearer ${config.apiKey}`;
         }
-
         if (config.headers) {
             Object.assign(headers, config.headers);
         }
-
         return headers;
     }
 
-    /**
-     * Build request body for OpenAI chat completions API.
-     */
     private buildRequestBody(
         messages: ChatMessage[],
         model: string,
@@ -49,37 +54,23 @@ export class OpenAIProvider extends BaseLLMProvider {
             messages,
             stream,
         };
-
-        // Note: OpenAI o1 models have implicit reasoning/thinking
-        // For other models, reasoning is not directly supported via API
-
         if (temperature !== undefined) {
             body.temperature = temperature;
         }
         if (maxTokens !== undefined) {
             body.max_tokens = maxTokens;
         }
-
         return body;
     }
 
-    /**
-     * Get the chat completions endpoint URL.
-     */
     private getCompletionsEndpoint(config: LLMConfig): string {
         return `${config.baseUrl}/chat/completions`;
     }
 
-    /**
-     * Get the models endpoint URL.
-     */
     private getModelsEndpoint(config: LLMConfig): string {
         return `${config.baseUrl}/models`;
     }
 
-    /**
-     * Parse a streaming chunk from OpenAI SSE format.
-     */
     private parseStreamChunk(chunk: string): LLMStreamChunk | null {
         const trimmed = chunk.trim();
         if (!trimmed || !trimmed.startsWith('data:')) return null;
@@ -112,12 +103,11 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     /**
      * Stream completion from OpenAI API.
-     * Handles the full API call and yields parsed chunks.
      */
     protected async *streamCompletion(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { llmConfig, messages, model, temperature, maxTokens, signal } = request;
+        const { llmConfig, messages, model, temperature, maxTokens } = request;
         const actualModel = model || llmConfig.defaultModel;
 
         console.log(`[${this.getProviderName()}] Starting streamCompletion`, {
@@ -125,56 +115,56 @@ export class OpenAIProvider extends BaseLLMProvider {
             messageCount: messages.length,
         });
 
-        const response = await fetch(this.getCompletionsEndpoint(llmConfig), {
-            method: 'POST',
-            headers: this.buildHeaders(llmConfig),
-            body: JSON.stringify(
-                this.buildRequestBody(messages, actualModel, true, temperature, maxTokens)
-            ),
-            signal: signal || createTimeoutSignal(TIMEOUTS.LLM_REQUEST),
-        });
+        // Create AbortController for this request
+        this.currentController = new AbortController();
 
-        if (!response.ok) {
-            throw await this.handleErrorResponse(response);
-        }
+        try {
+            const response = await fetch(this.getCompletionsEndpoint(llmConfig), {
+                method: 'POST',
+                headers: this.buildHeaders(llmConfig),
+                body: JSON.stringify(
+                    this.buildRequestBody(messages, actualModel, true, temperature, maxTokens)
+                ),
+                signal: this.currentController.signal,
+            });
 
-        const reader = response.body?.getReader();
-        if (!reader) {
-            throw new LLMError(
-                'No response body',
-                LLMErrorCode.UNKNOWN,
-                'openai'
-            );
-        }
+            if (!response.ok) {
+                throw await this.handleErrorResponse(response);
+            }
 
-        const decoder = new TextDecoder();
-        let buffer = '';
+            const reader = response.body?.getReader();
+            if (!reader) {
+                throw new LLMError('No response body', LLMErrorCode.UNKNOWN, 'openai');
+            }
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            const decoder = new TextDecoder();
+            let buffer = '';
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
 
-            for (const line of lines) {
-                const chunk = this.parseStreamChunk(line);
-                if (chunk) {
-                    yield chunk;
-                    if (chunk.done) {
-                        return;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    const chunk = this.parseStreamChunk(line);
+                    if (chunk) {
+                        yield chunk;
+                        if (chunk.done) {
+                            return;
+                        }
                     }
                 }
             }
+        } finally {
+            this.currentController = null;
         }
     }
 
-    /**
-     * Fetch available models from OpenAI.
-     */
     async fetchModels(llmConfig: LLMConfig): Promise<string[]> {
-        console.log(`[${this.getProviderName()}] Fetching models from`, this.getModelsEndpoint(llmConfig));
+        console.log(`[${this.getProviderName()}] Fetching models`);
 
         try {
             const response = await fetch(this.getModelsEndpoint(llmConfig), {
@@ -188,35 +178,25 @@ export class OpenAIProvider extends BaseLLMProvider {
             }
 
             const data = await response.json();
-            console.log(`[${this.getProviderName()}] Models fetched`);
-
             return (data.data || [])
                 .filter((m: any) => m.id && !m.id.includes('embedding'))
                 .map((m: any) => m.id)
                 .sort();
         } catch (error) {
-            console.error(`[${this.getProviderName()}] fetchModels error:`, error);
             if (error instanceof LLMError) throw error;
             throw this.wrapError(error);
         }
     }
 
-    /**
-     * Test connection to OpenAI API.
-     */
     async testConnection(llmConfig: LLMConfig): Promise<boolean> {
-        console.log(`[${this.getProviderName()}] Testing connection to`, this.getModelsEndpoint(llmConfig));
-
         try {
             const response = await fetch(this.getModelsEndpoint(llmConfig), {
                 method: 'GET',
                 headers: this.buildHeaders(llmConfig),
                 signal: createTimeoutSignal(TIMEOUTS.CONNECTION_TEST),
             });
-            console.log(`[${this.getProviderName()}] Connection test result:`, response.ok);
             return response.ok;
-        } catch (error) {
-            console.log(`[${this.getProviderName()}] Test connection error:`, error);
+        } catch {
             return false;
         }
     }

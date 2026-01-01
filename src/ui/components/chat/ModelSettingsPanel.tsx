@@ -91,13 +91,15 @@ export function ModelSettingsPanel({
         }));
 
     // Convert models to selection options
-    // For ExecuTorch, show only downloaded models; for remote providers, use availableModels
+    // For ExecuTorch, show only downloaded LLM models (not embedding); for remote providers, use availableModels
     const modelOptions: SelectionOption[] = selectedProvider?.provider === 'executorch'
-        ? downloadedModels.map(model => ({
-            id: model.name,
-            label: model.name,
-            subtitle: model.description,
-        }))
+        ? downloadedModels
+            .filter(model => model.type === 'llm') // Only show LLM models, not embedding
+            .map(model => ({
+                id: model.name,
+                label: model.name,
+                subtitle: model.description,
+            }))
         : availableModels.map(model => ({
             id: model,
             label: model,

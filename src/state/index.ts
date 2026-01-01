@@ -1,3 +1,4 @@
+export { useConversationRuntimeStore } from './conversationRuntimeStore';
 export { useConversationStore } from './conversationStore';
 export { isLocalProvider, useExecutorchLLMStore } from './executorchLLMStore';
 export { useLLMStore } from './llmStore';

@@ -1,7 +1,6 @@
-import { useConversationStore } from '../../../state/conversationStore';
 import { LLMConfig } from '../../types';
 import {
-    ILLMClient,
+    ILLMProvider,
     LLMError,
     LLMErrorCode,
     LLMRequest,
@@ -11,16 +10,22 @@ import {
 /**
  * Abstract base class for LLM providers
  * 
- * Each provider implements its own API calling logic via streamCompletion().
- * The base class handles:
- * - Orchestrating the streaming flow
- * - Updating conversationStore's currentMessage for live UI updates
- * - Common error wrapping utilities
+ * Design principles:
+ * - Remote providers implement streamCompletion() which yields chunks
+ * - BaseProvider.sendMessageStream() orchestrates and calls onToken/onThinking
+ * - Each provider implements its own interrupt() 
+ * - isStreaming from conversationStore controls interrupt (providers check it)
+ * 
+ * For ExecuTorch (local provider):
+ * - Does NOT extend BaseLLMProvider
+ * - Implements ILLMProvider directly with its own sendMessageStream
+ * - Uses setTokenCallback for streaming, checks isStreaming, calls llmModule.interrupt()
  */
-export abstract class BaseLLMProvider implements ILLMClient {
+export abstract class BaseLLMProvider implements ILLMProvider {
     /**
      * Provider-specific streaming implementation.
-     * Each provider handles its own API calls using expo/fetch and yields LLMStreamChunk.
+     * Each remote provider handles its own API calls and yields LLMStreamChunk.
+     * Implementations MUST check for abort conditions and throw/return appropriately.
      */
     protected abstract streamCompletion(
         request: LLMRequest
@@ -28,76 +33,82 @@ export abstract class BaseLLMProvider implements ILLMClient {
 
     /**
      * Fetch available models from the provider.
-     * Each provider implements its own API call.
      */
     public abstract fetchModels(llmConfig: LLMConfig): Promise<string[]>;
 
     /**
      * Test connection to the provider.
-     * Each provider implements its own API call.
      */
     public abstract testConnection(llmConfig: LLMConfig): Promise<boolean>;
 
     /**
-     * Get the provider name for logging and error messages.
+     * Interrupt active generation.
+     * Remote providers should abort their HTTP request.
+     * Default implementation does nothing - override in subclasses.
+     */
+    public abstract interrupt(): void;
+
+    /**
+     * Get the provider name for logging.
      */
     protected getProviderName(): string {
         return 'unknown';
     }
 
     /**
-     * Main streaming method called by conversationStore.
-     * Orchestrates the streaming flow and updates the UI via conversationStore.
+     * Main streaming method called by conversation orchestrator.
+     * Delegates to streamCompletion() and calls onToken/onThinking callbacks.
      */
     async *sendMessageStream(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { conversationId } = request;
+        const { onToken, onThinking } = request;
 
         console.log(`[${this.getProviderName()}] Starting sendMessageStream`, {
             messageCount: request.messages.length,
             thinkingEnabled: request.thinkingEnabled,
-            conversationId
         });
 
         let fullContent = '';
         let thinkingContent = '';
 
         try {
-            // Delegate to provider-specific streaming implementation
+            // Delegate to provider-specific streaming
             const stream = this.streamCompletion(request);
 
             for await (const chunk of stream) {
-                // Accumulate content for conversationStore update
+                // Accumulate content
                 fullContent += chunk.content;
                 if (chunk.thinking) {
                     thinkingContent += chunk.thinking;
                 }
 
-                // Update conversationStore's currentMessage for live streaming UI
-                if (conversationId) {
-                    useConversationStore.getState().updateCurrentMessage(conversationId, fullContent);
-                    if (thinkingContent) {
-                        useConversationStore.getState().updateCurrentThinkingMessage(conversationId, thinkingContent);
-                    }
+                // Call callbacks for UI updates
+                if (onToken) {
+                    onToken(fullContent);
+                }
+                if (onThinking && thinkingContent) {
+                    onThinking(thinkingContent);
                 }
 
                 yield chunk;
 
                 if (chunk.done) {
-                    console.log(`[${this.getProviderName()}] Stream complete`);
+                    console.log(`[${this.getProviderName()}] Stream complete`, {
+                        contentLength: fullContent.length,
+                    });
                     return;
                 }
             }
         } catch (error) {
-            console.error(`[${this.getProviderName()}] Error in sendMessageStream:`, error);
+            console.error(`[${this.getProviderName()}] Error:`, error);
             if (error instanceof LLMError) throw error;
             throw this.wrapError(error);
         }
     }
 
     /**
-     * Handle HTTP error responses and convert to LLMError.
+     * Handle HTTP error responses.
      */
     protected async handleErrorResponse(response: Response): Promise<LLMError> {
         let errorMessage = `HTTP ${response.status}`;
@@ -105,7 +116,7 @@ export abstract class BaseLLMProvider implements ILLMClient {
             const data = await response.json();
             errorMessage = data.error?.message || data.message || errorMessage;
         } catch {
-            // Use default message
+            // Use default
         }
 
         let code = LLMErrorCode.UNKNOWN;
@@ -125,20 +136,24 @@ export abstract class BaseLLMProvider implements ILLMClient {
     }
 
     /**
-     * Wrap unknown errors in LLMError with appropriate error codes.
+     * Wrap errors in LLMError.
      */
     protected wrapError(error: unknown): LLMError {
+        // Check for abort/cancel errors (different in browser vs React Native)
         if (error instanceof DOMException && error.name === 'AbortError') {
+            console.log(`[${this.getProviderName()}] Request aborted (DOMException)`);
             return new LLMError(
                 'Request cancelled',
                 LLMErrorCode.CANCELLED,
                 this.getProviderName() as any
             );
         }
-        if (error instanceof DOMException && error.name === 'TimeoutError') {
+        // React Native may throw a regular Error with name 'AbortError'
+        if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'))) {
+            console.log(`[${this.getProviderName()}] Request aborted (Error)`);
             return new LLMError(
-                'Request timed out',
-                LLMErrorCode.TIMEOUT,
+                'Request cancelled',
+                LLMErrorCode.CANCELLED,
                 this.getProviderName() as any
             );
         }
@@ -161,7 +176,6 @@ export abstract class BaseLLMProvider implements ILLMClient {
 
 /**
  * Creates an AbortSignal that times out after the specified duration.
- * This is a polyfill for AbortSignal.timeout which may not be available on all platforms.
  */
 export function createTimeoutSignal(ms: number): AbortSignal {
     const controller = new AbortController();

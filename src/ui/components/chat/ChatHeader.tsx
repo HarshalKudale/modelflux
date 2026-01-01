@@ -16,8 +16,6 @@ interface ChatHeaderProps {
     conversation: Conversation | null;
     onEditTitle: (title: string) => void;
     onMenuPress?: () => void;
-    thinkingEnabled?: boolean;
-    onThinkingChange?: (enabled: boolean) => void;
     onSettingsPress?: () => void;
     showAlert?: boolean; // Show warning icon instead of settings when local model needs selection
 }
@@ -26,8 +24,6 @@ export function ChatHeader({
     conversation,
     onEditTitle,
     onMenuPress,
-    thinkingEnabled = false,
-    onThinkingChange,
     onSettingsPress,
     showAlert = false,
 }: ChatHeaderProps) {
@@ -102,21 +98,6 @@ export function ChatHeader({
             </View>
 
             <View style={styles.rightSection}>
-                {onThinkingChange && (
-                    <TouchableOpacity
-                        onPress={() => onThinkingChange(!thinkingEnabled)}
-                        style={[
-                            styles.thinkingButton,
-                            thinkingEnabled && { backgroundColor: colors.tint }
-                        ]}
-                    >
-                        <Ionicons
-                            name="bulb"
-                            size={20}
-                            color={thinkingEnabled ? '#FFFFFF' : colors.textMuted}
-                        />
-                    </TouchableOpacity>
-                )}
                 {onSettingsPress && (
                     <TouchableOpacity onPress={onSettingsPress} style={styles.settingsButton}>
                         <Ionicons
@@ -189,10 +170,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         gap: Spacing.xs,
     },
-    thinkingButton: {
-        padding: Spacing.xs,
-        borderRadius: 16,
-    },
+
     settingsButton: {
         padding: Spacing.xs,
     },

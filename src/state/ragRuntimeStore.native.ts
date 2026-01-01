@@ -108,6 +108,26 @@ interface RAGRuntimeActions {
      * Check if sources are stale (need reprocessing)
      */
     isStale: () => boolean;
+
+    /**
+     * Ensure RAG is ready - handles lazy initialization internally.
+     * Loads default config and model, initializes if needed.
+     * @returns true if ready, false if not available
+     */
+    ensureReady: () => Promise<boolean>;
+
+    /**
+     * Generate context for a query.
+     * Handles lazy initialization internally - conversationStore just calls this.
+     * 
+     * @param query - The user's query
+     * @param sourceIds - Selected source IDs
+     * @returns Context string and contextMap, or empty if not available
+     */
+    generateContext: (
+        query: string,
+        sourceIds: number[]
+    ) => Promise<{ contextString: string; contextMap: Record<number, string> }>;
 }
 
 type RAGRuntimeStore = RAGRuntimeState & RAGRuntimeActions;
@@ -337,6 +357,87 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
     isReady: () => get().status === 'ready',
 
     isStale: () => get().status === 'stale',
+
+    ensureReady: async () => {
+        const state = get();
+
+        // Already ready
+        if (state.status === 'ready' && state.vectorStore) {
+            return true;
+        }
+
+        // Already initializing or in error state
+        if (state.status === 'initializing') {
+            console.log('[RAGRuntimeStore] Already initializing');
+            return false;
+        }
+
+        try {
+            // Load configs and find default
+            const { useProviderConfigStore } = await import('./providerConfigStore');
+            await useProviderConfigStore.getState().loadConfigs();
+            const defaultConfig = useProviderConfigStore.getState().getDefaultProvider();
+
+            if (!defaultConfig) {
+                console.log('[RAGRuntimeStore] No default config, cannot initialize');
+                return false;
+            }
+
+            // Get model info - prefer stored paths, fallback to downloaded models lookup
+            let model: import('../core/types').DownloadedModel;
+
+            if (defaultConfig.modelPath && defaultConfig.tokenizerPath) {
+                // Config has model paths stored - use directly
+                model = {
+                    id: defaultConfig.modelId,
+                    modelId: defaultConfig.modelId,
+                    name: defaultConfig.modelName || defaultConfig.modelId,
+                    modelPath: defaultConfig.modelPath,
+                    tokenizerPath: defaultConfig.tokenizerPath,
+                } as unknown as import('../core/types').DownloadedModel;
+            } else {
+                // Lookup from downloaded models
+                const { useModelDownloadStore } = await import('./modelDownloadStore');
+                const downloadedModel = useModelDownloadStore.getState().downloadedModels
+                    .find(m => m.id === defaultConfig.modelId);
+
+                if (!downloadedModel) {
+                    console.log('[RAGRuntimeStore] Model not found:', defaultConfig.modelId);
+                    return false;
+                }
+                model = downloadedModel;
+            }
+
+            // Initialize vector store (no fingerprint needed for context generation)
+            await get().initialize(defaultConfig, model);
+
+            return get().status === 'ready';
+        } catch (error) {
+            console.error('[RAGRuntimeStore] ensureReady error:', error);
+            return false;
+        }
+    },
+
+    generateContext: async (query, sourceIds) => {
+        const emptyResult = { contextString: '', contextMap: {} as Record<number, string> };
+
+        if (sourceIds.length === 0) {
+            return emptyResult;
+        }
+
+        // Ensure RAG is ready (handles lazy init)
+        const isReady = await get().ensureReady();
+        if (!isReady) {
+            console.log('[RAGRuntimeStore] generateContext: not ready');
+            return emptyResult;
+        }
+
+        // Use the generateRagContext helper
+        const { generateRagContext } = await import('./messageHelpers');
+        const vectorStore = get().vectorStore;
+
+        return generateRagContext(query, sourceIds, vectorStore);
+    },
 }));
 
 /**

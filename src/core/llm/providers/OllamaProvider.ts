@@ -11,34 +11,40 @@ import { BaseLLMProvider, createTimeoutSignal } from './BaseProvider';
  * Uses the Ollama chat API at /api/chat for completions.
  */
 export class OllamaProvider extends BaseLLMProvider {
+    // AbortController for cancelling active requests
+    private currentController: AbortController | null = null;
+
     protected getProviderName(): string {
         return 'ollama';
     }
 
     /**
-     * Build request headers for Ollama API.
+     * Interrupt active generation by aborting the HTTP request.
      */
+    public interrupt(): void {
+        console.log('[OllamaProvider] Interrupting...');
+        if (this.currentController) {
+            console.log('[OllamaProvider] Interrupted');
+            this.currentController.abort();
+            this.currentController = null;
+        }
+    }
+
     private buildHeaders(config: LLMConfig): Record<string, string> {
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
         };
-
         if (config.headers) {
             Object.assign(headers, config.headers);
         }
-
         return headers;
     }
 
-    /**
-     * Build request body for Ollama chat API.
-     */
     private buildRequestBody(
         messages: ChatMessage[],
         model: string,
         stream: boolean,
-        temperature?: number,
-        thinkingEnabled?: boolean
+        temperature?: number
     ): Record<string, unknown> {
         const body: Record<string, unknown> = {
             model,
@@ -48,41 +54,28 @@ export class OllamaProvider extends BaseLLMProvider {
             })),
             stream,
         };
-
-        body.think = thinkingEnabled;
-
+        // Thinking is always enabled
+        body.think = true;
         if (temperature !== undefined) {
             body.options = { temperature };
         }
-
         return body;
     }
 
-    /**
-     * Get the chat completions endpoint URL.
-     */
     private getCompletionsEndpoint(config: LLMConfig): string {
         return `${config.baseUrl}/api/chat`;
     }
 
-    /**
-     * Get the models endpoint URL.
-     */
     private getModelsEndpoint(config: LLMConfig): string {
         return `${config.baseUrl}/api/tags`;
     }
 
-    /**
-     * Parse a streaming chunk from Ollama.
-     * Ollama sends newline-delimited JSON objects.
-     */
     private parseStreamChunk(chunk: string): LLMStreamChunk | null {
         const trimmed = chunk.trim();
         if (!trimmed) return null;
 
         try {
             const parsed = JSON.parse(trimmed);
-
             return {
                 content: parsed.message?.content || '',
                 thinking: parsed.message?.thinking || undefined,
@@ -102,70 +95,86 @@ export class OllamaProvider extends BaseLLMProvider {
 
     /**
      * Stream completion from Ollama API.
-     * Handles the full API call and yields parsed chunks.
      */
     protected async *streamCompletion(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { llmConfig, messages, model, temperature, signal, thinkingEnabled } = request;
+        const { llmConfig, messages, model, temperature } = request;
         const actualModel = model || llmConfig.defaultModel;
 
         console.log(`[${this.getProviderName()}] Starting streamCompletion`, {
             model: actualModel,
             messageCount: messages.length,
-            thinkingEnabled,
         });
 
-        const response = await fetch(this.getCompletionsEndpoint(llmConfig), {
-            method: 'POST',
-            headers: this.buildHeaders(llmConfig),
-            body: JSON.stringify(
-                this.buildRequestBody(messages, actualModel, true, temperature, thinkingEnabled)
-            ),
-            signal: signal || createTimeoutSignal(TIMEOUTS.LLM_REQUEST),
-        });
+        // Create AbortController for this request
+        this.currentController = new AbortController();
 
-        if (!response.ok) {
-            throw await this.handleErrorResponse(response);
-        }
+        try {
+            const response = await fetch(this.getCompletionsEndpoint(llmConfig), {
+                method: 'POST',
+                headers: this.buildHeaders(llmConfig),
+                body: JSON.stringify(
+                    this.buildRequestBody(messages, actualModel, true, temperature)
+                ),
+                signal: this.currentController.signal,
+            });
 
-        const reader = response.body?.getReader();
-        if (!reader) {
-            throw new LLMError(
-                'No response body',
-                LLMErrorCode.UNKNOWN,
-                'ollama'
-            );
-        }
+            if (!response.ok) {
+                throw await this.handleErrorResponse(response);
+            }
 
-        const decoder = new TextDecoder();
-        let buffer = '';
+            const reader = response.body?.getReader();
+            if (!reader) {
+                throw new LLMError('No response body', LLMErrorCode.UNKNOWN, 'ollama');
+            }
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+            const decoder = new TextDecoder();
+            let buffer = '';
 
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+            while (true) {
+                let done: boolean;
+                let value: Uint8Array | undefined;
 
-            for (const line of lines) {
-                const chunk = this.parseStreamChunk(line);
-                if (chunk) {
-                    yield chunk;
-                    if (chunk.done) {
-                        return;
+                try {
+                    const result = await reader.read();
+                    done = result.done;
+                    value = result.value;
+                } catch (error) {
+                    // AbortError - yield final chunk with what we have and return
+                    console.log('[OllamaProvider] Stream aborted, returning gracefully');
+                    if (buffer.trim()) {
+                        const finalChunk = this.parseStreamChunk(buffer);
+                        if (finalChunk) {
+                            yield { ...finalChunk, done: true };
+                        }
+                    }
+                    return;
+                }
+
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    const chunk = this.parseStreamChunk(line);
+                    if (chunk) {
+                        yield chunk;
+                        if (chunk.done) {
+                            return;
+                        }
                     }
                 }
             }
+        } finally {
+            this.currentController = null;
         }
     }
 
-    /**
-     * Fetch available models from Ollama.
-     */
     async fetchModels(llmConfig: LLMConfig): Promise<string[]> {
-        console.log(`[${this.getProviderName()}] Fetching models from`, this.getModelsEndpoint(llmConfig));
+        console.log(`[${this.getProviderName()}] Fetching models`);
 
         try {
             const response = await fetch(this.getModelsEndpoint(llmConfig), {
@@ -179,35 +188,25 @@ export class OllamaProvider extends BaseLLMProvider {
             }
 
             const data = await response.json();
-            console.log(`[${this.getProviderName()}] Models fetched`);
-
             return (data.models || [])
                 .map((m: any) => m.name || m.model)
                 .filter(Boolean)
                 .sort();
         } catch (error) {
-            console.error(`[${this.getProviderName()}] fetchModels error:`, error);
             if (error instanceof LLMError) throw error;
             throw this.wrapError(error);
         }
     }
 
-    /**
-     * Test connection to Ollama server.
-     */
     async testConnection(llmConfig: LLMConfig): Promise<boolean> {
-        console.log(`[${this.getProviderName()}] Testing connection to`, this.getModelsEndpoint(llmConfig));
-
         try {
             const response = await fetch(this.getModelsEndpoint(llmConfig), {
                 method: 'GET',
                 headers: this.buildHeaders(llmConfig),
                 signal: createTimeoutSignal(TIMEOUTS.CONNECTION_TEST),
             });
-            console.log(`[${this.getProviderName()}] Connection test result:`, response.ok);
             return response.ok;
-        } catch (error) {
-            console.log(`[${this.getProviderName()}] Test connection error:`, error);
+        } catch {
             return false;
         }
     }

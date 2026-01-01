@@ -20,7 +20,21 @@ export interface LLMRequest {
     maxTokens?: number;
     signal?: AbortSignal;
     thinkingEnabled?: boolean;
+
+    // @deprecated Use onToken callback instead - kept for migration
     conversationId?: string;
+
+    /**
+     * Callback invoked with accumulated content on each token.
+     * Used by stores to update UI during streaming.
+     */
+    onToken?: (content: string) => void;
+
+    /**
+     * Callback invoked with accumulated thinking content.
+     * Used for models that support reasoning/thinking output.
+     */
+    onThinking?: (content: string) => void;
 }
 
 /**
@@ -91,20 +105,36 @@ export class LLMError extends Error {
 }
 
 /**
- * Remote LLM Provider Interface
- * Used by API-based providers: OpenAI, Anthropic, Ollama, OpenRouter
- * All providers use streaming by default.
+ * LLM Provider Interface
+ * 
+ * All providers must implement:
+ * - sendMessageStream(): Main entry point, yields LLMStreamChunk
+ * - interrupt(): Stops active generation (abort HTTP or stop native model)
+ * - fetchModels(): Returns available models
+ * - testConnection(): Tests provider connectivity
  */
-export interface IRemoteProvider {
+export interface ILLMProvider {
+    /**
+     * Stream message completion.
+     * Yields LLMStreamChunk for each token.
+     */
     sendMessageStream(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown>;
+
+    /**
+     * Interrupt active generation.
+     * Remote: abort HTTP request
+     * Local: stop native model via llmModule.interrupt()
+     */
+    interrupt(): void;
+
     fetchModels(llmConfig: LLMConfig): Promise<string[]>;
     testConnection(llmConfig: LLMConfig): Promise<boolean>;
 }
 
 /**
- * Legacy alias for backward compatibility
- * @deprecated Use IRemoteProvider instead
+ * Legacy aliases for backward compatibility
  */
-export type ILLMClient = IRemoteProvider;
+export type IRemoteProvider = ILLMProvider;
+export type ILLMClient = ILLMProvider;

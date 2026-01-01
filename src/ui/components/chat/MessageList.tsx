@@ -25,8 +25,6 @@ interface MessageListProps {
     personas?: Persona[];
     selectedPersonaId?: string;
     onPersonaChange?: (personaId: string | undefined) => void;
-    thinkingEnabled?: boolean;
-    onThinkingChange?: (enabled: boolean) => void;
     onNavigateToProviders?: () => void;
     onNavigateToPersonas?: () => void;
     hasConfigs?: boolean;
@@ -53,8 +51,6 @@ export function MessageList({
     personas = [],
     selectedPersonaId,
     onPersonaChange,
-    thinkingEnabled = false,
-    onThinkingChange,
     onNavigateToProviders,
     onNavigateToPersonas,
     hasConfigs = true,
@@ -167,6 +163,7 @@ export function MessageList({
                                 content: streamingContent,
                                 contentType: 'text',
                                 timestamp: Date.now(),
+                                modelId: '',
                                 llmIdUsed: '',
                                 modelUsed: '',
                             }}
@@ -220,6 +217,7 @@ export function MessageList({
                             content: streamingContent || '',
                             contentType: 'text',
                             timestamp: Date.now(),
+                            modelId: '',
                             llmIdUsed: '',
                             modelUsed: '',
                         }}

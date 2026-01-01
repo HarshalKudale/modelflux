@@ -2,22 +2,27 @@
  * ExecuTorch Provider
  * 
  * Provider for running LLM models on-device using react-native-executorch LLMModule.
- * Uses the stored llmModule from executorchLLMStore.
- * Streaming works via tokenCallback which appends to store's currentResponse.
+ * 
+ * Design notes:
+ * - Uses setTokenCallback for real-time token streaming (NOT polling)
+ * - Processes tokens into thinking/content and calls onToken/onThinking
+ * - Checks isStreaming from conversationStore, if false calls llmModule.interrupt()
+ * - interrupt() calls the native module's interrupt function directly
  */
 
 import { LLMConfig } from '../../types';
 import {
-    ILLMClient,
+    ILLMProvider,
     LLMError,
     LLMErrorCode,
     LLMRequest,
     LLMStreamChunk
 } from '../types';
 
+import { useConversationStore } from '../../../state/conversationStore';
 import { useExecutorchLLMStore } from '../../../state/executorchLLMStore';
 
-export class ExecuTorchProvider implements ILLMClient {
+export class ExecuTorchProvider implements ILLMProvider {
     private getStoreState() {
         return useExecutorchLLMStore.getState();
     }
@@ -26,10 +31,20 @@ export class ExecuTorchProvider implements ILLMClient {
         return this.getStoreState().isReady;
     }
 
+    /**
+     * Interrupt active generation.
+     * Calls the native module's interrupt function to stop the model.
+     */
+    interrupt(): void {
+        console.log('[ExecuTorchProvider] Interrupting generation');
+        const state = this.getStoreState();
+        state.interrupt(); // This calls llmModule.interrupt()
+    }
+
     async *sendMessageStream(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { messages, conversationId } = request;
+        const { messages, onToken, onThinking } = request;
         const state = this.getStoreState();
         const llmModule = state.getLLMModule();
 
@@ -46,47 +61,150 @@ export class ExecuTorchProvider implements ILLMClient {
             content: m.content,
         }));
 
-        console.log('[ExecuTorchProvider] Messages:', JSON.stringify(formattedMessages, null, 2));
+        console.log('[ExecuTorchProvider] Starting generation with', formattedMessages.length, 'messages');
 
         // Clear previous response and set up for generation
         state.clearResponse();
-        state.setCurrentConversationId(conversationId || null);
         state.setProcessingPrompt(true);
         state.setGenerating(true);
 
-        try {
-            // Await generate() - tokens are streamed via tokenCallback in executorchLLMStore
-            // which updates conversationStore.currentMessage in real-time
-            const fullResponse = await llmModule.generate(formattedMessages);
+        // Parsing state for thinking tags
+        let isInThinkingMode = false;
+        let thinkingBuffer = '';
+        let messageBuffer = '';
+        let rawBuffer = '';
 
+        // Queue for yielding chunks - we'll drain this from the generator
+        const chunkQueue: LLMStreamChunk[] = [];
+        let resolveWait: (() => void) | null = null;
+        let generationComplete = false;
+
+        llmModule.configure({
+            generationConfig: {
+                topp: 0.9,
+                temperature: 0.7,
+            }
+        })
+
+        // Set up token callback BEFORE calling generate
+        llmModule.setTokenCallback({
+            tokenCallback: (token: string) => {
+                // Check if streaming was stopped by UI
+                const isStreaming = useConversationStore.getState().isStreaming;
+                if (!isStreaming) {
+                    // User pressed stop - interrupt the model
+                    console.log('[ExecuTorchProvider] isStreaming=false, interrupting...');
+                    llmModule.interrupt();
+                    return;
+                }
+
+                // Accumulate raw buffer
+                rawBuffer += token;
+
+                // Parse thinking tags
+                if (!isInThinkingMode && rawBuffer.startsWith('<think>')) {
+                    isInThinkingMode = true;
+                    thinkingBuffer = rawBuffer.slice(7); // After '<think>'
+                } else if (isInThinkingMode) {
+                    const closeTagIndex = rawBuffer.indexOf('</think>');
+                    if (closeTagIndex !== -1) {
+                        thinkingBuffer = rawBuffer.slice(7, closeTagIndex);
+                        messageBuffer = rawBuffer.slice(closeTagIndex + 8); // After '</think>'
+                        isInThinkingMode = false;
+                    } else {
+                        thinkingBuffer = rawBuffer.slice(7);
+                    }
+                } else {
+                    messageBuffer = rawBuffer;
+                }
+                console.log(thinkingBuffer);
+                console.log(messageBuffer);
+
+                // Call callbacks for UI updates
+                if (onToken && messageBuffer) {
+                    onToken(messageBuffer);
+                }
+                if (onThinking && thinkingBuffer) {
+                    onThinking(thinkingBuffer);
+                }
+
+                // Add chunk to queue
+                const chunk: LLMStreamChunk = {
+                    content: token,
+                    thinking: isInThinkingMode ? token : undefined,
+                    done: false,
+                };
+                chunkQueue.push(chunk);
+
+                // Wake up the generator if it's waiting
+                if (resolveWait) {
+                    resolveWait();
+                    resolveWait = null;
+                }
+            },
+        });
+
+        // Start generation in background
+        const generatePromise = llmModule.generate(formattedMessages).then((fullResponse) => {
             console.log('[ExecuTorchProvider] Generation complete, response length:', fullResponse?.length || 0);
+            generationComplete = true;
 
-            // Get parsed content from the store (thinking/message separated by token callback)
-            const parsedContent = state.getParsedContent();
+            // Add final chunk
+            chunkQueue.push({
+                content: '',
+                thinking: thinkingBuffer || undefined,
+                done: true,
+            });
 
-            // Generation complete
+            // Wake up generator
+            if (resolveWait) {
+                resolveWait();
+                resolveWait = null;
+            }
+
+            return fullResponse;
+        }).catch((error) => {
+            console.error('[ExecuTorchProvider] Generation error:', error);
+            generationComplete = true;
+            if (resolveWait) {
+                resolveWait();
+                resolveWait = null;
+            }
+            throw error;
+        }).finally(() => {
             state.setGenerating(false);
             state.setProcessingPrompt(false);
-            state.setCurrentConversationId(null);
+        });
 
-            // Yield the parsed content - if there was thinking, use parsed message, otherwise use full response
-            // The thinking content is handled separately via the chunk.thinking field
-            const hasThinkingContent = parsedContent.thinking.length > 0;
-            yield {
-                content: hasThinkingContent ? parsedContent.message : (fullResponse || ''),
-                thinking: hasThinkingContent ? parsedContent.thinking : undefined,
-                done: true
-            };
+        try {
+            // Yield chunks as they come in
+            while (!generationComplete || chunkQueue.length > 0) {
+                if (chunkQueue.length > 0) {
+                    const chunk = chunkQueue.shift()!;
+                    yield chunk;
+                    if (chunk.done) {
+                        return;
+                    }
+                } else {
+                    // Wait for more chunks
+                    await new Promise<void>((resolve) => {
+                        resolveWait = resolve;
+                    });
+                }
+            }
+
+            // Wait for generation to complete
+            await generatePromise;
 
         } catch (error) {
             state.setGenerating(false);
             state.setProcessingPrompt(false);
-            state.setCurrentConversationId(null);
             throw this.wrapError(error);
         }
     }
 
     async fetchModels(llmConfig: LLMConfig): Promise<string[]> {
+        // Local provider: models come from downloaded models, not API
         return llmConfig.defaultModel ? [llmConfig.defaultModel] : [];
     }
 
@@ -100,4 +218,3 @@ export class ExecuTorchProvider implements ILLMClient {
         return new LLMError(message, LLMErrorCode.UNKNOWN, 'executorch');
     }
 }
-

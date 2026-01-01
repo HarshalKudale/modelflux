@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
-import { useConversationStore } from '../../../state';
+import { useConversationRuntimeStore, useConversationStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
 import { ConversationList } from './ConversationList';
 import { NewChatButton } from './NewChatButton';
@@ -34,16 +34,40 @@ export function Sidebar({
         selectConversation,
         deleteConversation,
         getCurrentMessages,
+        isStreaming,
+        cancelStreaming,
     } = useConversationStore();
+
+    const { confirmSwitchConversation } = useConversationRuntimeStore();
 
     // Check if we're already on a new (empty) conversation
     const currentMessages = getCurrentMessages();
     const isOnNewConversation = currentConversationId === null;
 
-    const handleNewChat = () => {
+    const handleNewChat = async () => {
         // Don't go to new conversation if we're already on one
         if (isOnNewConversation) return;
+
+        // If streaming, show confirmation
+        if (isStreaming) {
+            const confirmed = await confirmSwitchConversation(null);
+            if (!confirmed) return;
+            await cancelStreaming();
+        }
         startNewConversation();
+    };
+
+    // Safe conversation selection with streaming check
+    const handleSelectConversation = async (id: string | null) => {
+        if (id === currentConversationId) return;
+
+        // If streaming, show confirmation
+        if (isStreaming) {
+            const confirmed = await confirmSwitchConversation(id);
+            if (!confirmed) return;
+            await cancelStreaming();
+        }
+        await selectConversation(id);
     };
 
     if (isCollapsed) {
@@ -73,7 +97,7 @@ export function Sidebar({
             <ConversationList
                 conversations={conversations}
                 selectedId={currentConversationId}
-                onSelect={selectConversation}
+                onSelect={handleSelectConversation}
                 onDelete={deleteConversation}
             />
 
