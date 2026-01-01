@@ -22,14 +22,19 @@ interface RAGProviderListScreenProps {
 }
 
 // Selectable providers (local providers only for now)
-type SelectableRAGProvider = 'executorch';
+type SelectableRAGProvider = 'executorch' | 'llama-cpp';
 
 // RAG provider info
 const RAG_PROVIDER_INFO: Record<SelectableRAGProvider, { name: string; color: string; description: string }> = {
     executorch: {
         name: 'ExecuTorch',
-        color: '#FF6B35',
+        color: '#0668E1',
         description: 'On-device embeddings using ExecuTorch',
+    },
+    'llama-cpp': {
+        name: 'Llama.cpp',
+        color: '#FF6B35',
+        description: 'On-device embeddings using llama.rn',
     },
 };
 
@@ -55,7 +60,7 @@ export function RAGProviderListScreen({ onNavigate, onBack }: RAGProviderListScr
     }, []);
 
     // RAG providers available for adding (typed as selectable only)
-    const providerOptions: SelectableRAGProvider[] = ['executorch'];
+    const providerOptions: SelectableRAGProvider[] = ['executorch', 'llama-cpp'];
 
     // Get embedding models (downloaded models with 'Embedding' tag)
     const embeddingModels = downloadedModels.filter(m =>

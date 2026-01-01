@@ -19,6 +19,20 @@ const DEFAULT_EXECUTORCH_CONFIG: LLMConfig = {
     updatedAt: 0,
 };
 
+// Default Llama.rn config that's pre-installed on native platforms
+const DEFAULT_LLAMA_RN_CONFIG: LLMConfig = {
+    id: 'llama-rn-default',
+    name: 'Llama.cpp (Local)',
+    provider: 'llama-rn',
+    baseUrl: '',
+    defaultModel: '',
+    supportsStreaming: true,
+    isLocal: true,
+    isEnabled: true,
+    createdAt: 0,
+    updatedAt: 0,
+};
+
 interface LLMStoreState {
     configs: LLMConfig[];
     selectedConfigId: string | null;
@@ -60,21 +74,34 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
         try {
             let configs = await llmConfigRepository.findAll();
 
-            // On native platforms, ensure ExecuTorch is always available as a default config
+            // On native platforms, ensure local providers are always available as default configs
             if (Platform.OS !== 'web') {
+                const now = Date.now();
+
+                // Ensure ExecuTorch is available
                 const hasExecuTorch = configs.some(c => c.provider === 'executorch');
                 if (!hasExecuTorch) {
-                    // Add default ExecuTorch config
-                    const now = Date.now();
                     const execuTorchConfig = {
                         ...DEFAULT_EXECUTORCH_CONFIG,
                         createdAt: now,
                         updatedAt: now,
                     };
-                    // Save to repository so it persists
                     await llmConfigRepository.create(execuTorchConfig);
                     configs = [...configs, execuTorchConfig];
                     console.log('[LLMStore] Added default ExecuTorch config');
+                }
+
+                // Ensure Llama.rn is available
+                const hasLlamaRn = configs.some(c => c.provider === 'llama-rn');
+                if (!hasLlamaRn) {
+                    const llamaRnConfig = {
+                        ...DEFAULT_LLAMA_RN_CONFIG,
+                        createdAt: now,
+                        updatedAt: now,
+                    };
+                    await llmConfigRepository.create(llamaRnConfig);
+                    configs = [...configs, llamaRnConfig];
+                    console.log('[LLMStore] Added default Llama.rn config');
                 }
             }
 

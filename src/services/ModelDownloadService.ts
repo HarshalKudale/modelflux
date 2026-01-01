@@ -21,8 +21,8 @@ import { DownloadedModel } from '../core/types';
 // Notification channel for Android
 const DOWNLOAD_CHANNEL_ID = 'model-downloads';
 
-// File types for a model download
-type FileType = 'model' | 'tokenizer' | 'tokenizerConfig';
+// File types for a model download (any asset key from model.assets)
+type FileType = string;
 
 // Metadata stored with each download task
 interface DownloadMetadata {
@@ -251,6 +251,8 @@ function getTaskId(modelId: string, fileType: FileType): string {
 
 /**
  * Parse task ID to get modelId and fileType
+ * Task IDs are formatted as: modelId-fileType
+ * Since modelId can contain dashes, we take the last part as fileType
  */
 function parseTaskId(taskId: string): { modelId: string; fileType: FileType } | null {
     const parts = taskId.split('-');
@@ -259,32 +261,35 @@ function parseTaskId(taskId: string): { modelId: string; fileType: FileType } | 
     const fileType = parts.pop() as FileType;
     const modelId = parts.join('-');
 
-    if (!['model', 'tokenizer', 'tokenizerConfig'].includes(fileType)) {
-        return null;
-    }
-
+    // Accept any file type (asset key)
     return { modelId, fileType };
 }
 
 /**
  * Calculate overall progress for a model download
+ * Dynamically weights based on actual assets being downloaded
  */
 function calculateProgress(modelId: string): number {
     const download = activeDownloads.get(modelId);
     if (!download) return 0;
 
-    // Weight: model=80%, tokenizer=10%, tokenizerConfig=10%
-    const weights: Record<FileType, number> = {
-        model: 80,
-        tokenizer: 10,
-        tokenizerConfig: 10,
-    };
+    // Get all asset keys from the model
+    const assetKeys = Object.keys(download.model.assets).filter(
+        key => download.model.assets[key as keyof typeof download.model.assets]
+    );
+
+    if (assetKeys.length === 0) return 0;
+
+    // Weight: model gets 80%, remaining assets split the other 20%
+    const modelWeight = 80;
+    const otherWeight = assetKeys.length > 1 ? 20 / (assetKeys.length - 1) : 0;
 
     let totalProgress = 0;
 
     // Add progress from completed files
     for (const [fileType] of download.completedFiles) {
-        totalProgress += weights[fileType];
+        const weight = fileType === 'model' ? modelWeight : otherWeight;
+        totalProgress += weight;
     }
 
     // Add progress from active downloads
@@ -293,7 +298,8 @@ function calculateProgress(modelId: string): number {
             const bytesDownloaded = download.bytesDownloaded.get(fileType) || 0;
             const bytesTotal = task.bytesTotal > 0 ? task.bytesTotal : 1;
             const fileProgress = bytesDownloaded / bytesTotal;
-            totalProgress += fileProgress * weights[fileType];
+            const weight = fileType === 'model' ? modelWeight : otherWeight;
+            totalProgress += fileProgress * weight;
         }
     }
 
@@ -333,10 +339,10 @@ async function handleFileComplete(
     // Signal completion to OS
     completeHandler(taskId);
 
-    // Check if all files are complete
-    const requiredFiles: FileType[] = download.model.assets.tokenizerConfig
-        ? ['model', 'tokenizer', 'tokenizerConfig']
-        : ['model', 'tokenizer'];
+    // Check if all files are complete - dynamically get required files from assets
+    const requiredFiles = Object.keys(download.model.assets).filter(
+        key => download.model.assets[key as keyof typeof download.model.assets]
+    );
 
     const allComplete = requiredFiles.every(ft => download.completedFiles.has(ft));
 
@@ -478,18 +484,18 @@ export async function startDownload(model: ExecutorchModel): Promise<void> {
         await showDownloadNotification(modelId, model.name, 0);
         progressCallback?.(modelId, 0);
 
-        // Define files to download
-        const files: { url: string; fileType: FileType; filename: string }[] = [
-            { url: model.assets.model, fileType: 'model', filename: getFileNameFromUrl(model.assets.model) },
-            { url: model.assets.tokenizer, fileType: 'tokenizer', filename: getFileNameFromUrl(model.assets.tokenizer) },
-        ];
+        // Define files to download - iterate over all assets dynamically
+        // Only 'model' is required, all other assets are optional
+        const files: { url: string; fileType: FileType; filename: string }[] = [];
 
-        if (model.assets.tokenizerConfig) {
-            files.push({
-                url: model.assets.tokenizerConfig,
-                fileType: 'tokenizerConfig',
-                filename: getFileNameFromUrl(model.assets.tokenizerConfig)
-            });
+        for (const [assetKey, assetUrl] of Object.entries(model.assets)) {
+            if (assetUrl && typeof assetUrl === 'string') {
+                files.push({
+                    url: assetUrl,
+                    fileType: assetKey as FileType,
+                    filename: getFileNameFromUrl(assetUrl),
+                });
+            }
         }
 
         // Create and start download tasks

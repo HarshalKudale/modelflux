@@ -236,10 +236,11 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 /**
  * RAG Provider types
  * - executorch: Local on-device embeddings with ExecutorTorch
+ * - llama-cpp: Local on-device embeddings with llama.rn
  * - openai: OpenAI embeddings API (future)
  * - ollama: Ollama local embeddings (future)
  */
-export type RAGProviderType = 'executorch' | 'openai' | 'ollama';
+export type RAGProviderType = 'executorch' | 'llama-cpp' | 'openai' | 'ollama';
 
 /**
  * RAG Provider (includes 'none' for disabled state)

@@ -23,19 +23,24 @@ interface RAGProviderEditorScreenProps {
 }
 
 // Selectable providers (local providers only for now)
-type SelectableRAGProvider = 'executorch';
+type SelectableRAGProvider = 'executorch' | 'llama-cpp';
 
 // RAG provider info
 const RAG_PROVIDER_INFO: Record<SelectableRAGProvider, { name: string; color: string; description: string }> = {
     executorch: {
         name: 'ExecuTorch',
-        color: '#FF6B35',
+        color: '#0668E1',
         description: 'On-device embeddings using ExecuTorch',
+    },
+    'llama-cpp': {
+        name: 'Llama.cpp',
+        color: '#FF6B35',
+        description: 'On-device embeddings using llama.rn',
     },
 };
 
 // Selectable providers list
-const RAG_PROVIDERS: SelectableRAGProvider[] = ['executorch'];
+const RAG_PROVIDERS: SelectableRAGProvider[] = ['executorch', 'llama-cpp'];
 
 // Helper to safely get provider info
 function getProviderInfo(provider: RAGProvider) {
@@ -63,9 +68,9 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
 
     const isEditing = !!configId;
 
-    // Get embedding models (downloaded models with 'Embedding' tag)
+    // Get embedding models (downloaded models with embedding type for the selected provider)
     const embeddingModels = downloadedModels.filter(m =>
-        m.provider === 'executorch' && m.type === 'embedding'
+        (m.provider === 'executorch' || m.provider === 'llama-cpp') && m.type === 'embedding'
     );
 
     useEffect(() => {

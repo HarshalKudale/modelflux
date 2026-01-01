@@ -463,6 +463,30 @@
                 "tokenizer": "https://huggingface.co/software-mansion/react-native-executorch-all-MiniLM-L6-v2/resolve/main/tokenizer.json",
                 "tokenizerConfig": "https://huggingface.co/software-mansion/react-native-executorch-all-MiniLM-L6-v2/resolve/main/tokenizer_config.json"
             }
+        },
+        {
+            "id": "llama-cpp-qwen3-0-6b",
+            "name": "Qwen 3 0.6B GGUF",
+            "description": "Lightweight Qwen 3 model for llama.cpp with thinking capability",
+            "provider": "llama-cpp",
+            "type": "llm",
+            "params": "0.6B",
+            "size": "~0.4 GB",
+            "assets": {
+                "model": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf"
+            }
+        },
+        {
+            "id": "llama-cpp-nomic-embed-v1-5",
+            "name": "Nomic Embed Text v1.5 GGUF",
+            "description": "Text embedding model for RAG using llama.cpp",
+            "provider": "llama-cpp",
+            "type": "embedding",
+            "params": "137M",
+            "size": "~100 MB",
+            "assets": {
+                "model": "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf"
+            }
         }
     ]
 }

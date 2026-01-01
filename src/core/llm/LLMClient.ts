@@ -1,9 +1,10 @@
 import { LLMConfig, LLMProvider } from '../types';
-import { anthropicProvider, ExecuTorchProvider, ollamaProvider, openAIProvider } from './providers';
+import { anthropicProvider, ExecuTorchProvider, LlamaCppProvider, ollamaProvider, openAIProvider } from './providers';
 import { ILLMClient } from './types';
 
-// Create a singleton instance of ExecuTorchProvider
+// Create singleton instances of local providers
 const execuTorchProvider = new ExecuTorchProvider();
+const llamaCppProvider = new LlamaCppProvider();
 
 /**
  * Factory for creating provider-specific LLM clients
@@ -32,9 +33,8 @@ class LLMClientFactory implements ILLMClientFactory {
                 // Local on-device provider using ExecuTorch
                 return this.getOrCreate('executorch', () => execuTorchProvider);
             case 'llama-rn':
-                // Local on-device provider using llama.rn
-                // For now, uses same provider as ExecuTorch (can be split later)
-                return this.getOrCreate('llama-rn', () => execuTorchProvider);
+                // Local on-device provider using llama.rn (llama.cpp)
+                return this.getOrCreate('llama-rn', () => llamaCppProvider);
             default:
                 throw new Error(`Unknown provider: ${config.provider}`);
         }

@@ -8,6 +8,7 @@
 import { ExecuTorchEmbeddings } from '@react-native-rag/executorch';
 import { Embeddings } from 'react-native-rag';
 import { DownloadedModel, RAGProviderType } from '../types';
+import { LlamaEmbeddings } from './LlamaEmbeddings';
 import { IEmbeddingFactory } from './types';
 
 /**
@@ -21,6 +22,9 @@ class EmbeddingFactory implements IEmbeddingFactory {
         switch (providerType) {
             case 'executorch':
                 return this.createExecuTorchEmbedding(model);
+
+            case 'llama-cpp':
+                return this.createLlamaEmbedding(model);
 
             case 'openai':
                 // TODO: Implement OpenAI embeddings
@@ -41,6 +45,7 @@ class EmbeddingFactory implements IEmbeddingFactory {
     isLocalProvider(providerType: RAGProviderType): boolean {
         switch (providerType) {
             case 'executorch':
+            case 'llama-cpp':
                 return true;
             case 'openai':
             case 'ollama':
@@ -64,6 +69,23 @@ class EmbeddingFactory implements IEmbeddingFactory {
         };
 
         return new ExecuTorchEmbeddings(assets);
+    }
+
+    /**
+     * Create Llama.cpp embedding instance from downloaded model
+     */
+    private async createLlamaEmbedding(model: DownloadedModel): Promise<Embeddings> {
+        console.log('[EmbeddingFactory] Creating Llama.cpp embedding with model:', model.name);
+        console.log('[EmbeddingFactory] Model path:', model.modelFilePath);
+
+        const embeddings = new LlamaEmbeddings({
+            modelSource: model.modelFilePath,
+        });
+
+        // Load the model before returning
+        await embeddings.load();
+
+        return embeddings;
     }
 }
 
