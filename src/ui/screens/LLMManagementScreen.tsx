@@ -150,7 +150,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                                     key={config.id}
                                     title={config.name}
                                     subtitle={t(`provider.${config.provider}`)}
-                                    description={`${config.baseUrl}\nModel: ${config.defaultModel}`}
+                                    description={config.isLocal ? t(`provider.${config.provider}.description`) : config.baseUrl}
                                     icon={getProviderIcon(config)}
                                     iconColor={info.color}
                                     isDefault={settings.defaultLLMId === config.id}

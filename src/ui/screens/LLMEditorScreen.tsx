@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
     ScrollView,
     StyleSheet,
     Text,
@@ -9,14 +8,13 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { EXECUTORCH_MODELS } from '../../config/executorchModels';
 import { PROVIDER_INFO, PROVIDER_PRESETS } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { llmClientFactory } from '../../core/llm';
-import { ExecutorChGenerationConfig, LLMConfig, LLMProvider, LocalModel } from '../../core/types';
-import { useExecutorchLLMStore, useLLMStore, useSettingsStore } from '../../state';
+import { ExecutorChGenerationConfig, LLMConfig, LLMProvider } from '../../core/types';
+import { useLLMStore, useSettingsStore } from '../../state';
 import { showConfirm, showError, showInfo } from '../../utils/alert';
-import { Button, Dropdown, Input, LocalModelList, LocalModelPicker } from '../components/common';
+import { Button, Dropdown, Input } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 interface LLMEditorScreenProps {
@@ -40,18 +38,6 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
     const { configs, createConfig, updateConfig, getConfigById } = useLLMStore();
     const { setDefaultLLM } = useSettingsStore();
 
-    // Local model loading state
-    const {
-        selectedModelId,
-        selectedModelName,
-        isLoading: isLoadingLocalModel,
-        downloadProgress,
-        isReady: isLocalModelReady,
-        error: loadError,
-        loadModel,
-        unload,
-    } = useExecutorchLLMStore();
-
     const isEditing = Boolean(configId);
     const existingConfig = configId ? getConfigById(configId) : null;
 
@@ -63,11 +49,6 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
     // Form state - Remote provider fields
     const [baseUrl, setBaseUrl] = useState('');
     const [apiKey, setApiKey] = useState('');
-    const [defaultModel, setDefaultModel] = useState('');
-
-    // Form state - Local provider fields
-    const [localModels, setLocalModels] = useState<LocalModel[]>([]);
-    const [defaultLocalModelId, setDefaultLocalModelId] = useState<string | undefined>(undefined);
 
     // Form state - ExecuTorch generation config
     const [genConfigTemperature, setGenConfigTemperature] = useState<string>('');
@@ -78,10 +59,6 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
     // UI state
     const [isTesting, setIsTesting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-
-    // Model fetching state (remote providers only)
-    const [availableModels, setAvailableModels] = useState<string[]>([]);
-    const [isLoadingModels, setIsLoadingModels] = useState(false);
 
     // Get provider info
     const providerInfo = PROVIDER_INFO[provider];
@@ -94,16 +71,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             setProvider(existingConfig.provider);
             setBaseUrl(existingConfig.baseUrl);
             setApiKey(existingConfig.apiKey || '');
-            setDefaultModel(existingConfig.defaultModel);
             setSupportsStreaming(existingConfig.supportsStreaming ?? true);
-            setLocalModels(existingConfig.localModels || []);
-            // Find default local model
-            if (existingConfig.localModels?.length) {
-                const defaultLocalModel = existingConfig.localModels.find(
-                    m => m.name === existingConfig.defaultModel
-                );
-                setDefaultLocalModelId(defaultLocalModel?.id);
-            }
             // Initialize ExecuTorch generation config
             if (existingConfig.executorchConfig) {
                 setGenConfigTemperature(existingConfig.executorchConfig.temperature?.toString() || '');
@@ -116,58 +84,11 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             setName(preset.name || '');
             setProvider(presetProvider);
             setBaseUrl(preset.baseUrl || '');
-            setDefaultModel(preset.defaultModel || '');
             setSupportsStreaming(preset.supportsStreaming ?? true);
-            setLocalModels([]);
-            setDefaultLocalModelId(undefined);
         }
     }, [existingConfig, presetProvider]);
 
-    // Fetch models when URL and API key are available (remote providers only)
-    const fetchModels = async () => {
-        if (isLocal) return;
-        if (!baseUrl) return;
-        if (providerInfo.apiKeyRequired && !apiKey) return;
 
-        setIsLoadingModels(true);
-        try {
-            const tempConfig: LLMConfig = {
-                id: 'temp',
-                name,
-                provider,
-                baseUrl,
-                apiKey: apiKey || undefined,
-                defaultModel: '',
-                supportsStreaming,
-                isLocal: false,
-                isEnabled: true,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            };
-
-            const client = llmClientFactory.getClient(tempConfig);
-            const models = await client.fetchModels(tempConfig);
-            setAvailableModels(models);
-        } catch (error) {
-            console.log('Failed to fetch models:', error);
-            setAvailableModels([]);
-        } finally {
-            setIsLoadingModels(false);
-        }
-    };
-
-    // Auto-fetch models when relevant fields change (remote providers only)
-    useEffect(() => {
-        if (isLocal) return;
-
-        const canFetchModels = baseUrl && (!providerInfo.apiKeyRequired || apiKey);
-        if (canFetchModels) {
-            const timer = setTimeout(() => {
-                fetchModels();
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-    }, [baseUrl, apiKey, provider, isLocal]);
 
     const handleProviderChange = async (newProvider: LLMProvider) => {
         const wasLocal = isLocalProvider(provider);
@@ -189,10 +110,6 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             if (willBeLocal) {
                 setBaseUrl('');
                 setApiKey('');
-                setAvailableModels([]);
-            } else {
-                setLocalModels([]);
-                setDefaultLocalModelId(undefined);
             }
         }
 
@@ -202,101 +119,22 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         if (!isEditing) {
             setName(preset.name || '');
             setBaseUrl(preset.baseUrl || '');
-            setDefaultModel(preset.defaultModel || '');
             setSupportsStreaming(preset.supportsStreaming ?? true);
-            setAvailableModels([]);
-            setLocalModels([]);
-            setDefaultLocalModelId(undefined);
         } else {
             // Apply streaming support from preset
             setSupportsStreaming(preset.supportsStreaming ?? true);
         }
     };
 
-    const handleAddLocalModel = (model: LocalModel) => {
-        setLocalModels(prev => [...prev, model]);
-        // Auto-set as default if it's the first model
-        if (localModels.length === 0) {
-            setDefaultLocalModelId(model.id);
-            setDefaultModel(model.name);
-        }
-    };
 
-    const handleSetDefaultLocalModel = (modelId: string) => {
-        setDefaultLocalModelId(modelId);
-        const model = localModels.find(m => m.id === modelId);
-        if (model) {
-            setDefaultModel(model.name);
-        }
-    };
-
-    const handleDeleteLocalModel = (modelId: string) => {
-        // Don't allow deleting selected/loading model
-        if (modelId === selectedModelId) {
-            showError(t('common.error'), 'Cannot delete a selected model. Unload it first.');
-            return;
-        }
-
-        setLocalModels(prev => prev.filter(m => m.id !== modelId));
-        // If we deleted the default, clear or pick a new one
-        if (defaultLocalModelId === modelId) {
-            const remaining = localModels.filter(m => m.id !== modelId);
-            if (remaining.length > 0) {
-                setDefaultLocalModelId(remaining[0].id);
-                setDefaultModel(remaining[0].name);
-            } else {
-                setDefaultLocalModelId(undefined);
-                setDefaultModel('');
-            }
-        }
-    };
-
-    // Load/unload local model
-    const handleLoadLocalModel = (modelId: string) => {
-        // For ExecuTorch, look in EXECUTORCH_MODELS
-        if (provider === 'executorch') {
-            const executorchModel = EXECUTORCH_MODELS.find(m => m.id === modelId);
-            if (executorchModel) {
-                // Need to find the downloaded model for paths
-                // For now, we just log - the actual model loading happens via ChatScreen/ModelSelector
-                console.log('[LLMEditorScreen] ExecuTorch model selected:', executorchModel.name);
-            }
-            return;
-        }
-
-        // For llama-rn, look in localModels array
-        const model = localModels.find(m => m.id === modelId);
-        if (model) {
-            // Similar to ExecuTorch, the actual loading would need DownloadedModel data
-            console.log('[LLMEditorScreen] Llama-rn model selected:', model.name);
-        }
-    };
-
-    const handleUnloadLocalModel = () => {
-        unload();
-    };
 
     const handleTestConnection = async () => {
         if (isLocal) {
-            // Local provider test: validate model files
-            if (localModels.length === 0) {
-                showError(t('common.error'), t('llm.editor.error.noModels') || 'At least one model is required');
-                return;
-            }
-
-            setIsTesting(true);
-            try {
-                // For now, just check that files exist (runtime validation would need actual runtime integration)
-                const hasValidModel = localModels.some(m => m.status === 'ready');
-                showInfo(
-                    hasValidModel ? t('common.success') : t('common.error'),
-                    hasValidModel
-                        ? (t('llm.editor.test.local.success') || 'Local model validated successfully')
-                        : (t('llm.editor.test.local.failed') || 'Failed to validate local model')
-                );
-            } finally {
-                setIsTesting(false);
-            }
+            // Local provider: no model test needed, models are selected at runtime
+            showInfo(
+                t('common.success'),
+                t('llm.editor.test.local.ready') || 'Provider is ready. Models will be selected in chat.'
+            );
         } else {
             // Remote provider test
             if (!baseUrl) {
@@ -312,7 +150,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                     provider,
                     baseUrl,
                     apiKey: apiKey || undefined,
-                    defaultModel,
+                    defaultModel: '', // Models are selected at runtime
                     supportsStreaming,
                     isLocal: false,
                     isEnabled: true,
@@ -346,28 +184,11 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         }
 
         if (isLocal) {
-            // Local provider validation
-            if (provider === 'executorch') {
-                // ExecuTorch: no validation needed - model is selected in chat, not in provider settings
-            } else {
-                // llama-rn: needs custom models added
-                if (localModels.length === 0) {
-                    showError(t('common.error'), t('llm.editor.error.noModels') || 'At least one model is required');
-                    return;
-                }
-                if (!defaultLocalModelId) {
-                    showError(t('common.error'), t('llm.editor.error.model') || 'A default model must be selected');
-                    return;
-                }
-            }
+            // Local providers: no additional validation needed - model is selected in chat
         } else {
             // Remote provider validation
             if (!baseUrl.trim()) {
                 showError(t('common.error'), t('llm.editor.error.url'));
-                return;
-            }
-            if (!defaultModel.trim()) {
-                showError(t('common.error'), t('llm.editor.error.model'));
                 return;
             }
             if (providerInfo.apiKeyRequired && !apiKey.trim()) {
@@ -405,8 +226,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 provider,
                 baseUrl: isLocal ? '' : baseUrl.trim(),
                 apiKey: isLocal ? undefined : (apiKey.trim() || undefined),
-                defaultModel: defaultModel.trim(),
-                localModels: isLocal && provider !== 'executorch' ? localModels : undefined,
+                defaultModel: '', // Models are now selected at runtime in chat
                 executorchConfig,
                 supportsStreaming,
                 isLocal,
@@ -441,17 +261,6 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         { label: t('provider.openai-spec') || 'OpenAI Compatible', value: 'openai-spec' as LLMProvider },
         { label: t('provider.ollama') || 'Ollama', value: 'ollama' as LLMProvider },
     ];
-
-    const modelOptions = availableModels.map((model) => ({
-        label: model,
-        value: model,
-    }));
-
-    const getModelHint = () => {
-        if (!baseUrl) return t('llm.editor.model.hint.noUrl');
-        if (providerInfo.apiKeyRequired && !apiKey) return t('llm.editor.model.hint.noKey');
-        return t('llm.editor.model.hint.manual');
-    };
 
     // Check if streaming is supported by this provider
     const streamingSupported = providerInfo.supportsStreaming;
@@ -529,37 +338,6 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                                 hint={t('llm.editor.apiKey.hint')}
                             />
                         )}
-
-                        {/* Default Model Selection */}
-                        <View style={styles.modelSection}>
-                            <View style={styles.modelHeader}>
-                                <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('llm.editor.defaultModel')}</Text>
-                                {isLoadingModels && (
-                                    <ActivityIndicator size="small" color={colors.tint} />
-                                )}
-                                {!isLoadingModels && baseUrl && (
-                                    <TouchableOpacity onPress={fetchModels} style={styles.refreshButton}>
-                                        <Ionicons name="refresh" size={16} color={colors.tint} />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-
-                            {availableModels.length > 0 ? (
-                                <Dropdown
-                                    value={defaultModel}
-                                    options={modelOptions}
-                                    onSelect={setDefaultModel}
-                                    placeholder={t('llm.editor.model.select')}
-                                />
-                            ) : (
-                                <Input
-                                    value={defaultModel}
-                                    onChangeText={setDefaultModel}
-                                    placeholder={provider === 'ollama' ? 'llama2' : 'gpt-4o'}
-                                    hint={getModelHint()}
-                                />
-                            )}
-                        </View>
                     </>
                 )}
 
@@ -567,7 +345,9 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 {isLocal && (
                     <View style={styles.localModelsSection}>
                         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                            {t('llm.editor.localModels') || 'Model Management'}
+                            {provider === 'executorch'
+                                ? (t('llm.editor.generationConfig.title') || 'Generation Config')
+                                : (t('llm.editor.localModels') || 'Local Provider Settings')}
                         </Text>
 
                         {/* ExecuTorch: Show generation config only (model selection is done in chat) */}
@@ -577,81 +357,49 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                                     {t('llm.editor.executorch.hint') || 'Models are selected in chat. Configure generation settings below.'}
                                 </Text>
 
-                                {/* Generation Config Section */}
-                                <View style={[styles.genConfigSection, { borderColor: colors.border }]}>
-                                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                                        {t('llm.editor.generationConfig.title') || 'Generation Config'}
-                                    </Text>
-                                    <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                                        {t('llm.editor.generationConfig.hint') || 'These settings are applied when loading the model'}
-                                    </Text>
+                                <Input
+                                    label={t('llm.editor.generationConfig.temperature') || 'Temperature'}
+                                    value={genConfigTemperature}
+                                    onChangeText={setGenConfigTemperature}
+                                    placeholder="0.7"
+                                    keyboardType="decimal-pad"
+                                    hint={t('llm.editor.generationConfig.temperatureHint') || 'Controls randomness (0.0-2.0)'}
+                                />
 
-                                    <Input
-                                        label={t('llm.editor.generationConfig.temperature') || 'Temperature'}
-                                        value={genConfigTemperature}
-                                        onChangeText={setGenConfigTemperature}
-                                        placeholder="0.7"
-                                        keyboardType="decimal-pad"
-                                        hint={t('llm.editor.generationConfig.temperatureHint') || 'Controls randomness (0.0-2.0)'}
-                                    />
+                                <Input
+                                    label={t('llm.editor.generationConfig.topp') || 'Top-P'}
+                                    value={genConfigTopp}
+                                    onChangeText={setGenConfigTopp}
+                                    placeholder="0.9"
+                                    keyboardType="decimal-pad"
+                                    hint={t('llm.editor.generationConfig.toppHint') || 'Nucleus sampling threshold (0.0-1.0)'}
+                                />
 
-                                    <Input
-                                        label={t('llm.editor.generationConfig.topp') || 'Top-P'}
-                                        value={genConfigTopp}
-                                        onChangeText={setGenConfigTopp}
-                                        placeholder="0.9"
-                                        keyboardType="decimal-pad"
-                                        hint={t('llm.editor.generationConfig.toppHint') || 'Nucleus sampling threshold (0.0-1.0)'}
-                                    />
+                                <Input
+                                    label={t('llm.editor.generationConfig.batchSize') || 'Token Batch Size'}
+                                    value={genConfigBatchSize}
+                                    onChangeText={setGenConfigBatchSize}
+                                    placeholder="10"
+                                    keyboardType="number-pad"
+                                    hint={t('llm.editor.generationConfig.batchSizeHint') || 'Tokens per batch'}
+                                />
 
-                                    <Input
-                                        label={t('llm.editor.generationConfig.batchSize') || 'Token Batch Size'}
-                                        value={genConfigBatchSize}
-                                        onChangeText={setGenConfigBatchSize}
-                                        placeholder="10"
-                                        keyboardType="number-pad"
-                                        hint={t('llm.editor.generationConfig.batchSizeHint') || 'Tokens per batch'}
-                                    />
-
-                                    <Input
-                                        label={t('llm.editor.generationConfig.batchInterval') || 'Batch Interval (ms)'}
-                                        value={genConfigBatchInterval}
-                                        onChangeText={setGenConfigBatchInterval}
-                                        placeholder="100"
-                                        keyboardType="number-pad"
-                                        hint={t('llm.editor.generationConfig.batchIntervalHint') || 'Time between batches in milliseconds'}
-                                    />
-                                </View>
+                                <Input
+                                    label={t('llm.editor.generationConfig.batchInterval') || 'Batch Interval (ms)'}
+                                    value={genConfigBatchInterval}
+                                    onChangeText={setGenConfigBatchInterval}
+                                    placeholder="100"
+                                    keyboardType="number-pad"
+                                    hint={t('llm.editor.generationConfig.batchIntervalHint') || 'Time between batches in milliseconds'}
+                                />
                             </>
                         )}
 
-                        {/* llama-rn: Keep file picker for GGUF files */}
+                        {/* llama-rn: Models are now selected in chat at runtime */}
                         {provider === 'llama-rn' && (
-                            <>
-                                <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                                    {t('llm.editor.localModels.formatHint.llama-rn') || 'Supported format: .gguf'}
-                                </Text>
-
-                                {/* Add Model Button */}
-                                <LocalModelPicker
-                                    acceptedFormats={providerInfo.supportedFormats || []}
-                                    onModelSelected={handleAddLocalModel}
-                                />
-
-                                {/* Model List */}
-                                <LocalModelList
-                                    models={localModels}
-                                    defaultModelId={defaultLocalModelId}
-                                    loadedModelId={selectedModelId ?? undefined}
-                                    isLoadingModel={isLoadingLocalModel}
-                                    loadingModelId={selectedModelId || undefined}
-                                    loadError={loadError}
-                                    onSetDefault={handleSetDefaultLocalModel}
-                                    onDeleteModel={handleDeleteLocalModel}
-                                    onLoadModel={handleLoadLocalModel}
-                                    onUnloadModel={handleUnloadLocalModel}
-                                />
-                            </>
+                            <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
+                                {t('llm.editor.llama-rn.hint') || 'Models are imported and selected in chat. This provider supports GGUF format models.'}
+                            </Text>
                         )}
                     </View>
                 )}
