@@ -14,7 +14,7 @@ import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { ThemeMode } from '../../core/types';
 import { SUPPORTED_LANGUAGES } from '../../locales';
 import { dataExportService } from '../../services';
-import { useLLMStore, useMCPStore, usePersonaStore, useSettingsStore } from '../../state';
+import { useLLMStore, usePersonaStore, useSettingsStore } from '../../state';
 import { showError, showInfo } from '../../utils/alert';
 import { SettingsSection } from '../components/settings';
 import { useAppColorScheme, useLocale } from '../hooks';
@@ -25,8 +25,7 @@ type ScreenType =
     | 'model-list'
     | 'persona-list'
     | 'persona-editor'
-    | 'mcp-list'
-    | 'mcp-editor'
+
     | 'language-select'
     | 'rag-settings'
     | 'rag-provider-list'
@@ -47,12 +46,10 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
     const { settings, setTheme } = useSettingsStore();
     const { configs } = useLLMStore();
     const { personas, loadPersonas } = usePersonaStore();
-    const { servers, loadServers } = useMCPStore();
 
     // Load data on mount
     useEffect(() => {
         loadPersonas();
-        loadServers();
     }, []);
 
     // Get current language info
@@ -175,7 +172,7 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
 
                 {/* ===== LLM SECTION ===== */}
                 <SettingsSection title={t('settings.llm.title')}>
-                    {/* Manage Providers → Navigate to list */}
+                    {/* Manage LLM Providers → Navigate to list */}
                     <TouchableOpacity
                         style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
                         onPress={() => onNavigate('llm-management')}
@@ -190,6 +187,24 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                     </TouchableOpacity>
+
+                    {/* RAG Providers → Navigate to list (conditionally shown on native) */}
+                    {Platform.OS !== 'web' && (
+                        <TouchableOpacity
+                            style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
+                            onPress={() => onNavigate('rag-provider-list')}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                    {t('settings.rag.configure')}
+                                </Text>
+                                <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                    {t('settings.rag.description')}
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
+                    )}
 
                     {/* Models → Navigate to list */}
                     <TouchableOpacity
@@ -209,7 +224,7 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
 
                     {/* Personas → Navigate to list */}
                     <TouchableOpacity
-                        style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
+                        style={[styles.settingItem, styles.linkItem]}
                         onPress={() => onNavigate('persona-list')}
                     >
                         <View style={styles.settingInfo}>
@@ -224,52 +239,6 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                     </TouchableOpacity>
-
-                    {/* MCP Servers → Navigate to list */}
-                    <TouchableOpacity
-                        style={[styles.settingItem, styles.linkItem]}
-                        onPress={() => onNavigate('mcp-list')}
-                    >
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: colors.text }]}>
-                                {t('settings.mcp.title')}
-                            </Text>
-                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                {servers.length === 0
-                                    ? t('settings.mcp.empty')
-                                    : t('settings.mcp.count', { count: servers.length })}
-                            </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
-                </SettingsSection>
-
-                {/* ===== RAG SECTION ===== */}
-                <SettingsSection title={t('settings.rag.title')}>
-                    {Platform.OS !== 'web' ? (
-                        <TouchableOpacity
-                            style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
-                            onPress={() => onNavigate('rag-provider-list')}
-                        >
-                            <View style={styles.settingInfo}>
-                                <Text style={[styles.settingLabel, { color: colors.text }]}>
-                                    {t('settings.rag.configure')}
-                                </Text>
-                                <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                    {t('settings.rag.description')}
-                                </Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-                        </TouchableOpacity>
-                    ) : (
-                        <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
-                            <View style={styles.settingInfo}>
-                                <Text style={[styles.settingLabel, { color: colors.textMuted }]}>
-                                    {t('settings.rag.unsupported')}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
                 </SettingsSection>
 
                 {/* ===== DATA MANAGEMENT SECTION ===== */}

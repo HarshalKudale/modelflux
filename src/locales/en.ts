@@ -31,7 +31,7 @@ export const en: Record<string, string> = {
     "settings.language": "Language",
     "settings.llm.title": "LLM",
     "settings.providers.title": "LLM Providers",
-    "settings.providers.manage": "Manage Providers",
+    "settings.providers.manage": "Manage LLM Providers",
     "settings.providers.count": "{count} provider(s) configured",
     "settings.data.title": "Data",
     "settings.export.title": "Export Data",
@@ -74,31 +74,7 @@ export const en: Record<string, string> = {
     "settings.personas.emptyState.description": "Add your first persona to customize how the AI behaves.",
     "settings.personas.emptyState.cta": "Create Persona",
 
-    // MCP Servers
-    "settings.mcp.title": "MCP Servers",
-    "settings.mcp.empty": "No MCP servers configured",
-    "settings.mcp.count": "{count} server(s) configured",
-    "settings.mcp.add": "Add MCP Server",
-    "settings.mcp.edit": "Edit MCP Server",
-    "settings.mcp.name": "Name",
-    "settings.mcp.namePlaceholder": "e.g., My MCP Server",
-    "settings.mcp.transport": "Transport Type",
-    "settings.mcp.transport.http": "HTTP",
-    "settings.mcp.transport.stdio": "STDIO",
-    "settings.mcp.endpoint": "Endpoint URL",
-    "settings.mcp.endpointPlaceholder": "e.g., http://localhost:3000",
-    "settings.mcp.command": "Command",
-    "settings.mcp.commandPlaceholder": "e.g., node server.js",
-    "settings.mcp.envVars": "Environment Variables",
-    "settings.mcp.envVars.add": "Add Variable",
-    "settings.mcp.delete.title": "Delete MCP Server",
-    "settings.mcp.delete.confirm": "Are you sure you want to delete \"{name}\"?",
-    "settings.mcp.emptyState.title": "No MCP servers",
-    "settings.mcp.emptyState.description": "Add your first MCP server to extend AI capabilities.",
-    "settings.mcp.emptyState.cta": "Add MCP Server",
-    "settings.mcp.test": "Test Connection",
-    "settings.mcp.test.success": "Connection successful!",
-    "settings.mcp.test.failed": "Connection failed",
+
 
     // LLM Management Screen
     "llm.management.title": "LLM Providers",
@@ -253,7 +229,6 @@ export const en: Record<string, string> = {
 
     // RAG Settings
     "settings.rag.title": "RAG (Document Context)",
-    "settings.rag.description": "Enable retrieval-augmented generation from your documents",
     "settings.rag.provider": "RAG Provider",
     "settings.rag.provider.none": "Disabled",
     "settings.rag.provider.executorch": "ExecuTorch (Local)",

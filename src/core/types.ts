@@ -207,26 +207,7 @@ export interface Persona {
     updatedAt: number;
 }
 
-/**
- * MCP Transport type
- */
-export type MCPTransport = 'http' | 'stdio';
 
-/**
- * MCP Server configuration
- */
-export interface MCPServer {
-    id: string;
-    name: string;
-    transport: MCPTransport;
-    endpoint?: string;        // For HTTP transport
-    command?: string;         // For STDIO transport
-    args?: string[];          // For STDIO transport
-    envVars: Record<string, string>;
-    isEnabled: boolean;
-    createdAt: number;
-    updatedAt: number;
-}
 
 /**
  * Theme options

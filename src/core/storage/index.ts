@@ -2,7 +2,7 @@ export { conversationRepository } from './ConversationRepository';
 export { downloadedModelRepository } from './DownloadedModelRepository';
 export { llmConfigRepository } from './LLMConfigRepository';
 export { llmProviderRepository } from './LLMProviderRepository';
-export { mcpServerRepository } from './MCPServerRepository';
+
 export { messageRepository } from './MessageRepository';
 export { personaRepository } from './PersonaRepository';
 export { ragConfigRepository } from './RAGConfigRepository';
@@ -14,7 +14,7 @@ export type { IConversationRepository } from './ConversationRepository';
 export type { IDownloadedModelRepository } from './DownloadedModelRepository';
 export type { ILLMConfigRepository } from './LLMConfigRepository';
 export type { ILLMProviderRepository } from './LLMProviderRepository';
-export type { IMCPServerRepository } from './MCPServerRepository';
+
 export type { IMessageRepository } from './MessageRepository';
 export type { IPersonaRepository } from './PersonaRepository';
 export type { ISettingsRepository } from './SettingsRepository';
