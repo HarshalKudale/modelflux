@@ -168,10 +168,28 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
         try {
             // Create embedding instance via factory
             console.log('[RAGRuntimeStore] Creating embedding instance...');
-            const embeddingsInstance = await embeddingFactory.createEmbedding(
-                config.provider as RAGProviderType,
-                model
-            );
+
+            // For remote providers (Ollama, OpenAI), pass config info
+            const isRemoteProvider = config.provider === 'ollama' || config.provider === 'openai';
+            let embeddingsInstance: Embeddings;
+
+            if (isRemoteProvider && (model as any)._remoteConfig) {
+                const remoteConfig = (model as any)._remoteConfig;
+                embeddingsInstance = await embeddingFactory.createEmbedding(
+                    config.provider as RAGProviderType,
+                    model,
+                    {
+                        baseUrl: remoteConfig.baseUrl,
+                        model: config.modelId, // The embedding model name
+                        headers: remoteConfig.headers,
+                    }
+                );
+            } else {
+                embeddingsInstance = await embeddingFactory.createEmbedding(
+                    config.provider as RAGProviderType,
+                    model
+                );
+            }
 
             // Create/load vector store
             console.log('[RAGRuntimeStore] Creating/loading vector store...');
@@ -383,7 +401,37 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
                 return false;
             }
 
-            // Get model info - prefer stored paths, fallback to downloaded models lookup
+            // Check if this is a remote provider (Ollama, OpenAI)
+            const isRemoteProvider = defaultConfig.provider === 'ollama' || defaultConfig.provider === 'openai';
+
+            if (isRemoteProvider) {
+                // For remote providers, we need baseUrl from LLM config
+                const { useLLMStore } = await import('./llmStore');
+                const llmConfig = useLLMStore.getState().configs.find(c => c.provider === defaultConfig.provider);
+
+                if (!llmConfig?.baseUrl) {
+                    console.log('[RAGRuntimeStore] No LLM config found for remote provider:', defaultConfig.provider);
+                    return false;
+                }
+
+                // Create a placeholder model object for remote providers
+                // The actual embedding is handled by the remote server
+                const remoteModel = {
+                    id: defaultConfig.modelId,
+                    modelId: defaultConfig.modelId,
+                    name: defaultConfig.modelName || defaultConfig.modelId,
+                    // Store remote config info for embedding factory
+                    _remoteConfig: {
+                        baseUrl: llmConfig.baseUrl,
+                        headers: llmConfig.headers,
+                    },
+                } as unknown as import('../core/types').DownloadedModel;
+
+                await get().initialize(defaultConfig, remoteModel);
+                return get().status === 'ready';
+            }
+
+            // For local providers, get model info - prefer stored paths, fallback to downloaded models lookup
             let model: import('../core/types').DownloadedModel;
 
             if (defaultConfig.modelPath && defaultConfig.tokenizerPath) {

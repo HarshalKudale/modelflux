@@ -1,14 +1,8 @@
-/**
- * Embedding Factory - Native Implementation
- * 
- * Creates embedding instances based on provider type.
- * This is the native implementation for iOS/Android.
- */
-
 import { ExecuTorchEmbeddings } from '@react-native-rag/executorch';
 import { Embeddings } from 'react-native-rag';
 import { DownloadedModel, RAGProviderType } from '../types';
 import { LlamaEmbeddings } from './LlamaEmbeddings';
+import { OllamaEmbeddings, OllamaEmbeddingsConfig } from './OllamaEmbeddings';
 import { IEmbeddingFactory } from './types';
 
 /**
@@ -18,7 +12,11 @@ class EmbeddingFactory implements IEmbeddingFactory {
     /**
      * Create an embedding instance for the given provider and model
      */
-    async createEmbedding(providerType: RAGProviderType, model: DownloadedModel): Promise<Embeddings> {
+    async createEmbedding(
+        providerType: RAGProviderType,
+        model: DownloadedModel,
+        ollamaConfig?: OllamaEmbeddingsConfig
+    ): Promise<Embeddings> {
         switch (providerType) {
             case 'executorch':
                 return this.createExecuTorchEmbedding(model);
@@ -31,8 +29,10 @@ class EmbeddingFactory implements IEmbeddingFactory {
                 throw new Error('OpenAI embeddings not yet implemented');
 
             case 'ollama':
-                // TODO: Implement Ollama embeddings
-                throw new Error('Ollama embeddings not yet implemented');
+                if (!ollamaConfig) {
+                    throw new Error('Ollama config required for Ollama embeddings');
+                }
+                return this.createOllamaEmbedding(ollamaConfig);
 
             default:
                 throw new Error(`Unknown provider type: ${providerType}`);
@@ -87,6 +87,22 @@ class EmbeddingFactory implements IEmbeddingFactory {
 
         return embeddings;
     }
+
+    /**
+     * Create Ollama embedding instance from config
+     */
+    private async createOllamaEmbedding(config: OllamaEmbeddingsConfig): Promise<Embeddings> {
+        console.log('[EmbeddingFactory] Creating Ollama embedding with model:', config.model);
+        console.log('[EmbeddingFactory] Base URL:', config.baseUrl);
+
+        const embeddings = new OllamaEmbeddings(config);
+
+        // Load (verify connection) before returning
+        await embeddings.load();
+
+        return embeddings;
+    }
 }
 
 export const embeddingFactory = new EmbeddingFactory();
+

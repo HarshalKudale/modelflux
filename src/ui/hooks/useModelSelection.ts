@@ -7,6 +7,7 @@
  * - Downloaded models from useModelDownloadStore
  * - Local model state from useExecutorchLLMStore and useLlamaCppLLMStore
  * - Model filtering by provider type (executorch, llama-cpp, remote)
+ * - Ollama model classification (completion vs embedding)
  * - Model loading dispatch to the correct store
  */
 
@@ -19,6 +20,7 @@ import {
     useLlamaCppLLMStore,
     useLLMStore,
     useModelDownloadStore,
+    useOllamaModelStore,
     usePersonaStore,
 } from '../../state';
 
@@ -90,6 +92,13 @@ export function useModelSelection(): UseModelSelectionReturn {
         loadModel: loadLlamaCppModel,
     } = useLlamaCppLLMStore();
 
+    // Ollama model store for completion/embedding classification
+    const {
+        completionModels: ollamaCompletionModels,
+        hasFetched: ollamaHasFetched,
+        fetchAndClassifyModels: fetchOllamaModels,
+    } = useOllamaModelStore();
+
     // Persona store
     const { personas, loadPersonas, getPersonaById } = usePersonaStore();
 
@@ -136,14 +145,28 @@ export function useModelSelection(): UseModelSelectionReturn {
                 .map(dm => dm.name);
         }
 
-        // For remote providers - use fetched models if available
+        // For Ollama, show only completion models (not embedding models)
+        if (config.provider === 'ollama') {
+            // If we have classified models, use only completion models
+            if (ollamaCompletionModels.length > 0) {
+                return ollamaCompletionModels;
+            }
+            // Fall back to all fetched models if classification not done
+            if (availableModels[config.id] && availableModels[config.id].length > 0) {
+                return availableModels[config.id];
+            }
+            // Fallback to popular models
+            return POPULAR_MODELS[config.provider] || [];
+        }
+
+        // For other remote providers - use fetched models if available
         if (availableModels[config.id] && availableModels[config.id].length > 0) {
             return availableModels[config.id];
         }
 
         // Fallback to popular models for the provider
         return POPULAR_MODELS[config.provider] || [];
-    }, [downloadedModels, availableModels]);
+    }, [downloadedModels, availableModels, ollamaCompletionModels]);
 
     // Find downloaded model by display name
     const getDownloadedModelByName = useCallback((name: string): DownloadedModel | undefined => {
@@ -166,8 +189,13 @@ export function useModelSelection(): UseModelSelectionReturn {
         const config = getConfigById(configId);
         if (config && !isLocalProvider(config.provider)) {
             await fetchModels(configId);
+
+            // For Ollama, also trigger model classification (only once)
+            if (config.provider === 'ollama' && !ollamaHasFetched && config.baseUrl) {
+                fetchOllamaModels(config.baseUrl, config.headers);
+            }
         }
-    }, [getConfigById, fetchModels]);
+    }, [getConfigById, fetchModels, ollamaHasFetched, fetchOllamaModels]);
 
     return {
         // LLM Configs
@@ -197,3 +225,4 @@ export function useModelSelection(): UseModelSelectionReturn {
         getPersonaById,
     };
 }
+

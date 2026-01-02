@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { RAGProvider } from '../../core/types';
-import { useModelDownloadStore, useProviderConfigStore } from '../../state';
+import { useLLMStore, useModelDownloadStore, useOllamaModelStore, useProviderConfigStore } from '../../state';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 interface RAGProviderEditorScreenProps {
@@ -22,8 +22,8 @@ interface RAGProviderEditorScreenProps {
     onBack: () => void;
 }
 
-// Selectable providers (local providers only for now)
-type SelectableRAGProvider = 'executorch' | 'llama-cpp';
+// Selectable providers (local + ollama)
+type SelectableRAGProvider = 'executorch' | 'llama-cpp' | 'ollama';
 
 // RAG provider info
 const RAG_PROVIDER_INFO: Record<SelectableRAGProvider, { name: string; color: string; description: string }> = {
@@ -37,17 +37,22 @@ const RAG_PROVIDER_INFO: Record<SelectableRAGProvider, { name: string; color: st
         color: '#FF6B35',
         description: 'On-device embeddings using llama.rn',
     },
+    ollama: {
+        name: 'Ollama',
+        color: '#1D1D1D',
+        description: 'Embeddings via Ollama server',
+    },
 };
 
 // Selectable providers list
-const RAG_PROVIDERS: SelectableRAGProvider[] = ['executorch', 'llama-cpp'];
+const RAG_PROVIDERS: SelectableRAGProvider[] = ['executorch', 'llama-cpp', 'ollama'];
 
 // Helper to safely get provider info
 function getProviderInfo(provider: RAGProvider) {
-    if (provider === 'none' || provider === 'openai' || provider === 'ollama') {
+    if (provider === 'none' || provider === 'openai') {
         return { name: provider.charAt(0).toUpperCase() + provider.slice(1), color: '#888888', description: 'Provider' };
     }
-    return RAG_PROVIDER_INFO[provider];
+    return RAG_PROVIDER_INFO[provider as SelectableRAGProvider];
 }
 
 export function RAGProviderEditorScreen({ configId, provider: initialProvider, onBack }: RAGProviderEditorScreenProps) {
@@ -57,6 +62,15 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
 
     const { configs, addProvider, updateProvider, getProviderById } = useProviderConfigStore();
     const { downloadedModels, loadDownloadedModels } = useModelDownloadStore();
+    const { configs: llmConfigs } = useLLMStore();
+
+    // Ollama model store for embedding models
+    const {
+        embeddingModels: ollamaEmbeddingModels,
+        hasFetched: ollamaHasFetched,
+        isFetching: ollamaIsFetching,
+        fetchAndClassifyModels: fetchOllamaModels,
+    } = useOllamaModelStore();
 
     // Form state
     const [name, setName] = useState('');
@@ -68,10 +82,18 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
 
     const isEditing = !!configId;
 
-    // Get embedding models (downloaded models with embedding type for the selected provider)
-    const embeddingModels = downloadedModels.filter(m =>
+    // Get Ollama LLM config for baseUrl
+    const ollamaConfig = llmConfigs.find(c => c.provider === 'ollama');
+
+    // Get embedding models based on selected provider
+    const localEmbeddingModels = downloadedModels.filter(m =>
         (m.provider === 'executorch' || m.provider === 'llama-cpp') && m.type === 'embedding'
     );
+
+    // Use Ollama embedding models from store when Ollama is selected
+    const embeddingModels = provider === 'ollama'
+        ? ollamaEmbeddingModels.map(name => ({ id: name, name, description: '', tags: [] as string[] }))
+        : localEmbeddingModels;
 
     useEffect(() => {
         loadDownloadedModels();
@@ -94,6 +116,13 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
             }
         }
     }, [configId]);
+
+    // Fetch Ollama embedding models once when Ollama is selected
+    useEffect(() => {
+        if (provider === 'ollama' && !ollamaHasFetched && ollamaConfig?.baseUrl) {
+            fetchOllamaModels(ollamaConfig.baseUrl, ollamaConfig.headers);
+        }
+    }, [provider, ollamaHasFetched, ollamaConfig, fetchOllamaModels]);
 
     const handleSave = async () => {
         if (!name.trim() || !selectedModelId) return;

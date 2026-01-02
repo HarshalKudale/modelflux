@@ -1,12 +1,3 @@
-/**
- * Sources Modal
- * 
- * Full-screen modal for managing document sources (PDFs) for RAG.
- * Allows users to add, view, rename, and delete sources.
- * 
- * Lazily initializes the RAG runtime when the modal is opened.
- */
-
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useEffect, useState } from 'react';
@@ -26,8 +17,6 @@ import { processSource } from '../../../core/rag/sourceProcessor';
 import { sourceRepository } from '../../../core/storage';
 import { Source } from '../../../core/types';
 import {
-    useModelDownloadStore,
-    useProviderConfigStore,
     useRAGRuntimeStore,
     useSourceStore
 } from '../../../state';
@@ -52,16 +41,12 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
         error: ragError,
         isProcessing,
         processingProgress,
-        initialize: initializeRag,
         reset: resetRag,
         loadPersistedState,
         reprocess,
         addChunks,
+        ensureReady,
     } = useRAGRuntimeStore();
-
-    // Provider config store
-    const { getDefaultProvider, loadConfigs } = useProviderConfigStore();
-    const { downloadedModels } = useModelDownloadStore();
 
     const [initError, setInitError] = useState<string | null>(null);
     const [isAddingSource, setIsAddingSource] = useState(false);
@@ -78,7 +63,7 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
         onClose();
     };
 
-    // Lazy initialization of RAG runtime when modal opens
+    // Lazy initialization of RAG runtime when modal opens using ensureReady
     useEffect(() => {
         if (visible) {
             const initializeModal = async () => {
@@ -87,26 +72,13 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                 // Load persisted tracking state first
                 await loadPersistedState();
 
-                // Reload RAG configs to get fresh data
-                await loadConfigs();
-                const defaultConfig = getDefaultProvider();
-
-                console.log('[SourcesModal] Fresh defaultConfig:', defaultConfig);
-
                 // Only initialize if not already ready or stale
                 if (status === 'idle' || status === 'error') {
-                    if (defaultConfig) {
-                        // Find the downloaded model for this config
-                        const model = downloadedModels.find(m => m.id === defaultConfig.modelId);
+                    console.log('[SourcesModal] Using ensureReady for initialization');
+                    setInitError(null);
 
-                        if (model) {
-                            console.log('[SourcesModal] Initializing RAG with model:', model.name);
-                            setInitError(null);
-                            initializeRag(defaultConfig, model);
-                        } else {
-                            setInitError('Embedding model not found or not downloaded');
-                        }
-                    } else {
+                    const ready = await ensureReady();
+                    if (!ready) {
                         setInitError('No RAG provider configured. Please configure one in Settings.');
                     }
                 }
@@ -114,7 +86,7 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
 
             initializeModal();
         }
-    }, [visible, status, downloadedModels, getDefaultProvider, initializeRag, loadSources, loadPersistedState, loadConfigs]);
+    }, [visible, status, ensureReady, loadSources, loadPersistedState]);
 
     // Handle reprocessing sources with current model
     const handleReprocess = async () => {

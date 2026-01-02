@@ -15,7 +15,7 @@ export const K_DOCUMENTS_TO_RETRIEVE = 5;
 /**
  * Text splitter configuration
  */
-export const TEXT_SPLITTER_CHUNK_SIZE = 1000;
+export const TEXT_SPLITTER_CHUNK_SIZE = 900;
 export const TEXT_SPLITTER_CHUNK_OVERLAP = 100;
 
 /**

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { RAGConfig, RAGProvider } from '../../core/types';
-import { useModelDownloadStore, useProviderConfigStore } from '../../state';
+import { useLLMStore, useModelDownloadStore, useOllamaModelStore, useProviderConfigStore } from '../../state';
 import { showConfirm, showError, showInfo } from '../../utils/alert';
 import { ResourceCard } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
@@ -21,8 +21,8 @@ interface RAGProviderListScreenProps {
     onBack: () => void;
 }
 
-// Selectable providers (local providers only for now)
-type SelectableRAGProvider = 'executorch' | 'llama-cpp';
+// Selectable providers (local + ollama)
+type SelectableRAGProvider = 'executorch' | 'llama-cpp' | 'ollama';
 
 // RAG provider info
 const RAG_PROVIDER_INFO: Record<SelectableRAGProvider, { name: string; color: string; description: string }> = {
@@ -36,14 +36,19 @@ const RAG_PROVIDER_INFO: Record<SelectableRAGProvider, { name: string; color: st
         color: '#FF6B35',
         description: 'On-device embeddings using llama.rn',
     },
+    ollama: {
+        name: 'Ollama',
+        color: '#1D1D1D',
+        description: 'Embeddings via Ollama server',
+    },
 };
 
 // Helper to safely get provider info
 function getProviderInfo(provider: RAGProvider) {
-    if (provider === 'none' || provider === 'openai' || provider === 'ollama') {
+    if (provider === 'none' || provider === 'openai') {
         return { name: provider.charAt(0).toUpperCase() + provider.slice(1), color: '#888888', description: 'Provider' };
     }
-    return RAG_PROVIDER_INFO[provider];
+    return RAG_PROVIDER_INFO[provider as SelectableRAGProvider];
 }
 
 export function RAGProviderListScreen({ onNavigate, onBack }: RAGProviderListScreenProps) {
@@ -53,24 +58,62 @@ export function RAGProviderListScreen({ onNavigate, onBack }: RAGProviderListScr
 
     const { configs, loadConfigs, removeProvider, setDefaultProvider } = useProviderConfigStore();
     const { downloadedModels, loadDownloadedModels } = useModelDownloadStore();
+    const { configs: llmConfigs } = useLLMStore();
+
+    // Ollama model store for embedding models
+    const {
+        embeddingModels: ollamaEmbeddingModels,
+        hasFetched: ollamaHasFetched,
+        fetchAndClassifyModels: fetchOllamaModels,
+    } = useOllamaModelStore();
 
     useEffect(() => {
         loadConfigs();
         loadDownloadedModels();
     }, []);
 
-    // RAG providers available for adding (typed as selectable only)
-    const providerOptions: SelectableRAGProvider[] = ['executorch', 'llama-cpp'];
+    // Get Ollama LLM config for baseUrl
+    const ollamaConfig = llmConfigs.find(c => c.provider === 'ollama');
+
+    // RAG providers available for adding
+    const providerOptions: SelectableRAGProvider[] = ['executorch', 'llama-cpp', 'ollama'];
 
     // Get embedding models (downloaded models with 'Embedding' tag)
     const embeddingModels = downloadedModels.filter(m =>
         m.type === 'embedding'
     );
 
+    // Check if Ollama has embedding models available
+    const hasOllamaEmbeddingModels = ollamaEmbeddingModels.length > 0;
 
     const handleAddProvider = (provider: RAGProvider) => {
+        // For Ollama, check if there's an LLM config and embedding models
+        if (provider === 'ollama') {
+            if (!ollamaConfig) {
+                showInfo(
+                    'Ollama Not Configured',
+                    'Please add an Ollama LLM provider first in Settings → Manage LLM Providers.'
+                );
+                return;
+            }
+            // Trigger fetch if not done yet
+            if (!ollamaHasFetched && ollamaConfig.baseUrl) {
+                fetchOllamaModels(ollamaConfig.baseUrl, ollamaConfig.headers);
+            }
+            // If no embedding models after fetch, show message
+            if (ollamaHasFetched && !hasOllamaEmbeddingModels) {
+                showInfo(
+                    'No Embedding Models',
+                    'No embedding models found on your Ollama server. Please pull an embedding model like nomic-embed-text.'
+                );
+                return;
+            }
+            onNavigate('rag-provider-editor', { provider });
+            return;
+        }
+
+        // For local providers, check for downloaded embedding models
         if (embeddingModels.length === 0) {
-            // No embedding models available - show message
             showInfo(
                 t('rag.noEmbeddingModelsTitle'),
                 t('rag.noEmbeddingModels')
