@@ -1,11 +1,20 @@
+/**
+ * ChatScreen
+ * 
+ * Main chat interface with simplified model selection using ModelPicker.
+ * Uses useModelSelection hook for centralized model state management.
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../config/theme';
-import { isLocalProvider, useConversationStore, useExecutorchLLMStore, useLLMStore, useModelDownloadStore, usePersonaStore, useSourceStore } from '../../state';
-import { ChatHeader, MessageInput, MessageList, ModelSettingsPanel, SourceSelector } from '../components/chat';
-import { useAppColorScheme } from '../hooks';
+import { DownloadedModel } from '../../core/types';
+import { isLocalProvider, useConversationStore, useLLMStore, useSourceStore } from '../../state';
+import { ChatHeader, MessageInput, MessageList, SourceSelector } from '../components/chat';
+import { ModelPicker } from '../components/common';
+import { useAppColorScheme, useModelSelection } from '../hooks';
 
 // Maximum width for chat content on web (similar to ChatGPT/Claude interfaces)
 const MAX_CONTENT_WIDTH = 800;
@@ -33,6 +42,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const colors = Colors[colorScheme];
     const shadows = Shadows[colorScheme];
 
+    // Conversation store
     const {
         currentConversationId,
         isStreaming,
@@ -47,7 +57,6 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     } = useConversationStore();
 
     // Subscribe to message maps separately to ensure proper reactive updates
-    // When these maps change, the component will re-render
     const currentMessageMap = useConversationStore((state) => state.currentMessageMap);
     const currentThinkingMessageMap = useConversationStore((state) => state.currentThinkingMessageMap);
 
@@ -55,44 +64,35 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     const currentStreamingContent = currentConversationId ? (currentMessageMap[currentConversationId] || '') : '';
     const currentStreamingThinkingContent = currentConversationId ? (currentThinkingMessageMap[currentConversationId] || '') : '';
 
-    const { configs, availableModels, fetchModels, isLoadingModels, testConnection, getConfigById } = useLLMStore();
-    const { personas, loadPersonas, getPersonaById } = usePersonaStore();
+    // Centralized model selection hook
+    const {
+        enabledConfigs,
+        getConfigById,
+        localModelState,
+        loadLocalModel,
+    } = useModelSelection();
+
+    // LLM store for connection testing
+    const { testConnection } = useLLMStore();
     const { sources, loadSources } = useSourceStore();
 
-    // Load personas and sources on mount
+    const hasNoLLM = enabledConfigs.length === 0;
+
+    // Load sources on mount
     useEffect(() => {
-        loadPersonas();
         loadSources();
-    }, []);
+    }, [loadSources]);
 
     // Set initial provider if configs exist
     useEffect(() => {
-        if (!pendingProviderId && configs.length > 0) {
-            const enabledConfigs = configs.filter(c => c.isEnabled);
-            if (enabledConfigs.length > 0) {
-                setPendingProviderId(enabledConfigs[0].id);
-            }
+        if (!pendingProviderId && enabledConfigs.length > 0) {
+            setPendingProviderId(enabledConfigs[0].id);
         }
-    }, [configs, pendingProviderId]);
-
-    // Fetch models when provider changes
-    useEffect(() => {
-        if (pendingProviderId) {
-            fetchModels(pendingProviderId);
-        }
-    }, [pendingProviderId]);
-
-    // Set initial model when models are loaded
-    useEffect(() => {
-        if (pendingProviderId && availableModels[pendingProviderId]?.length > 0 && !pendingModel) {
-            setPendingModel(availableModels[pendingProviderId][0]);
-        }
-    }, [availableModels, pendingProviderId, pendingModel]);
+    }, [enabledConfigs, pendingProviderId]);
 
     // Test provider connections on mount
     useEffect(() => {
         const testProviders = async () => {
-            const enabledConfigs = configs.filter(c => c.isEnabled);
             for (const config of enabledConfigs) {
                 try {
                     const isOnline = await testConnection(config.id);
@@ -102,28 +102,15 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                 }
             }
         };
-        if (configs.length > 0) {
+        if (enabledConfigs.length > 0) {
             testProviders();
         }
-    }, [configs]);
+    }, [enabledConfigs, testConnection]);
 
     const conversation = getCurrentConversation();
     const currentMessages = getCurrentMessages();
-    const enabledConfigs = configs.filter((c) => c.isEnabled);
-    const hasNoLLM = enabledConfigs.length === 0;
 
-    // Get local model state from executorchLLMStore (must be before functions that use it)
-    const {
-        selectedModelName,
-        selectedModelId,
-        isReady: isLocalModelReady,
-        isLoading: isLocalModelLoading,
-        downloadProgress,
-        loadModel,
-    } = useExecutorchLLMStore();
-    const { downloadedModels } = useModelDownloadStore();
-
-    // Get selected provider (must be before functions that use it)
+    // Get selected provider
     const selectedProvider = pendingProviderId ? getConfigById(pendingProviderId) : undefined;
 
     // Determine if this is a new conversation (no messages yet)
@@ -133,43 +120,35 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     useEffect(() => {
         if (!conversation) return;
 
-        // Get the LLM config for this conversation
         const conversationProvider = conversation.activeLLMId
             ? getConfigById(conversation.activeLLMId)
             : null;
 
         if (conversationProvider && isLocalProvider(conversationProvider.provider)) {
-            // For local providers, sync with currently loaded local model
-            if (selectedModelName && isLocalModelReady) {
-                // Sync pendingProviderId and pendingModel
+            if (localModelState.selectedModelName && localModelState.isReady) {
                 if (pendingProviderId !== conversationProvider.id) {
                     setPendingProviderId(conversationProvider.id);
                 }
-                if (pendingModel !== selectedModelName) {
-                    setPendingModel(selectedModelName);
+                if (pendingModel !== localModelState.selectedModelName) {
+                    setPendingModel(localModelState.selectedModelName);
                 }
             }
         }
-    }, [conversation?.id, conversation?.activeLLMId, selectedModelName, isLocalModelReady, getConfigById]);
+    }, [conversation?.id, conversation?.activeLLMId, localModelState.selectedModelName, localModelState.isReady, getConfigById, pendingProviderId, pendingModel]);
 
     const handleSend = async () => {
         if (!inputValue.trim()) return;
         const message = inputValue;
-        const sourcesToUse = [...selectedSourceIds]; // Copy before clearing
+        const sourcesToUse = [...selectedSourceIds];
         setInputValue('');
-
-        // Dismiss keyboard to give more screen space
         Keyboard.dismiss();
 
-        // If no conversation exists, create one first with pending selections
         if (!currentConversationId) {
             try {
                 await createConversation(pendingProviderId, pendingModel, pendingPersonaId);
-                // Clear pending selections
                 setPendingProviderId(undefined);
                 setPendingModel(undefined);
                 setPendingPersonaId(undefined);
-                // Small delay to ensure state is updated
                 setTimeout(async () => {
                     await sendMessage(message, sourcesToUse);
                 }, 100);
@@ -181,31 +160,16 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         }
     };
 
-    const handleProviderChange = (providerId: string | undefined) => {
+    // Handler for provider changes from ModelPicker
+    const handleProviderChange = (providerId: string) => {
         setPendingProviderId(providerId);
-        setPendingModel(undefined); // Reset model when provider changes
-        if (providerId) {
-            fetchModels(providerId);
-        }
+        setPendingModel(undefined);
     };
 
-    const handleModelChange = (model: string | undefined) => {
+    // Handler for model changes from ModelPicker (includes automatic local model loading)
+    const handleModelChange = (model: string, downloadedModel?: DownloadedModel) => {
         setPendingModel(model);
-
-        // If this is an ExecuTorch provider, trigger model loading
-        if (selectedProvider && isLocalProvider(selectedProvider.provider) && model) {
-            // Find the model in downloaded models by name
-            const downloadedModel = downloadedModels.find(m => m.name === model);
-            if (downloadedModel) {
-                // Check if this model is already loaded - skip if same model
-                if (selectedModelId === downloadedModel.modelId && isLocalModelReady) {
-                    console.log('[ChatScreen] Model already loaded:', downloadedModel.modelId);
-                    return;
-                }
-                console.log('[ChatScreen] Triggering local model load:', downloadedModel.modelId, downloadedModel.name);
-                loadModel(downloadedModel.modelId, downloadedModel.name, downloadedModel);
-            }
-        }
+        // ModelPicker already handles local model loading via its internal hook
     };
 
     const handlePersonaChange = (personaId: string | undefined) => {
@@ -218,6 +182,20 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         }
     };
 
+    // Handler for settings modal model changes (for existing conversations)
+    const handleSettingsModelChange = async (model: string, downloadedModel?: DownloadedModel) => {
+        if (conversation?.activeLLMId) {
+            await setActiveLLM(conversation.activeLLMId, model);
+            // ModelPicker handles local model loading internally
+        }
+    };
+
+    const handleSettingsProviderChange = async (providerId: string) => {
+        if (conversation) {
+            await setActiveLLM(providerId, '');
+        }
+    };
+
     // Check if existing conversation uses a local provider
     const existingConversationProvider = conversation?.activeLLMId
         ? getConfigById(conversation.activeLLMId)
@@ -227,48 +205,18 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         : false;
 
     // For existing conversations with local provider, require explicit model selection
-    // The local model must be loaded and ready to use
-    const localProviderNeedsSelection = !isNewConversation && existingUsesLocalProvider && !isLocalModelReady;
+    const localProviderNeedsSelection = !isNewConversation && existingUsesLocalProvider && !localModelState.isReady;
 
-    // Input should be disabled if:
-    // 1. No LLM is configured
-    // 2. Local model is currently loading
-    // 3. Existing conversation uses local provider but model not ready (needs selection)
-    const isLocalModelLoading_needsLoad = selectedProvider && isLocalProvider(selectedProvider.provider) && !isLocalModelReady && isLocalModelLoading;
+    // Input disabled states
+    const isLocalModelLoading_needsLoad = selectedProvider && isLocalProvider(selectedProvider.provider) && !localModelState.isReady && localModelState.isLoading;
     const isInputDisabled = hasNoLLM || !!isLocalModelLoading_needsLoad || localProviderNeedsSelection;
 
-    // Show loading banner for local model (for both new and existing conversations)
-    const isNewConversationLocalLoading = selectedProvider && isLocalProvider(selectedProvider.provider) && isLocalModelLoading;
-    const isExistingConversationLocalLoading = existingUsesLocalProvider && isLocalModelLoading;
+    // Loading banner states
+    const isNewConversationLocalLoading = selectedProvider && isLocalProvider(selectedProvider.provider) && localModelState.isLoading;
+    const isExistingConversationLocalLoading = existingUsesLocalProvider && localModelState.isLoading;
     const showLocalModelLoadingBanner = !!(isNewConversationLocalLoading || isExistingConversationLocalLoading);
 
-    // Show processing indicator when sending message - this stays true until response completes
-    // The MessageList will decide whether to show spinner or streaming content based on streamingContent
     const isProcessing = isSendingMessage;
-
-    // Get current persona name for display
-    const currentPersona = conversation?.personaId
-        ? getPersonaById(conversation.personaId)
-        : pendingPersonaId
-            ? getPersonaById(pendingPersonaId)
-            : null;
-
-
-
-    const currentModels = (() => {
-        if (!pendingProviderId) return [];
-
-        // For local providers, show loaded model if ready
-        if (selectedProvider && isLocalProvider(selectedProvider.provider)) {
-            if (selectedModelName && isLocalModelReady) {
-                return [selectedModelName];
-            }
-            return []; // No model loaded yet
-        }
-
-        // For remote providers, use availableModels
-        return availableModels[pendingProviderId] || [];
-    })();
 
     return (
         <KeyboardAvoidingView
@@ -289,9 +237,9 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                 <View style={[styles.loadingBanner, { backgroundColor: colors.tint + '15', borderColor: colors.tint }]}>
                     <ActivityIndicator size="small" color={colors.tint} />
                     <Text style={[styles.loadingBannerText, { color: colors.tint }]}>
-                        {downloadProgress > 0 && downloadProgress < 1
-                            ? `Downloading model: ${(downloadProgress * 100).toFixed(2)}%`
-                            : `Loading ${selectedModelName || 'model'}...`}
+                        {localModelState.downloadProgress > 0 && localModelState.downloadProgress < 1
+                            ? `Downloading model: ${(localModelState.downloadProgress * 100).toFixed(2)}%`
+                            : `Loading ${localModelState.selectedModelName || 'model'}...`}
                     </Text>
                 </View>
             )}
@@ -304,24 +252,16 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         streamingThinkingContent={isStreaming ? currentStreamingThinkingContent : undefined}
                         isLoading={false}
                         isProcessing={isProcessing}
-                        isNewConversation={isNewConversation}
-                        // Provider selection
-                        providers={enabledConfigs}
                         selectedProviderId={pendingProviderId}
-                        onProviderChange={handleProviderChange}
-                        providerConnectionStatus={providerConnectionStatus}
-                        // Model selection  
-                        availableModels={currentModels}
-                        isLoadingModels={isLoadingModels}
                         selectedModel={pendingModel}
-                        onModelChange={handleModelChange}
-                        // Persona selection
-                        personas={personas}
                         selectedPersonaId={pendingPersonaId}
+                        onProviderChange={handleProviderChange}
+                        onModelChange={handleModelChange}
                         onPersonaChange={handlePersonaChange}
                         onNavigateToProviders={() => router.push('/llm-management')}
                         onNavigateToPersonas={() => router.push('/persona-list')}
-                        hasConfigs={!hasNoLLM}
+                        onNavigateToModels={() => router.push('/model-list')}
+                        providerConnectionStatus={providerConnectionStatus}
                     />
 
                     <MessageInput
@@ -329,7 +269,6 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         onChange={setInputValue}
                         onSend={async () => {
                             await handleSend();
-                            // Clear source selection after sending
                             setSelectedSourceIds([]);
                         }}
                         onStop={cancelStreaming}
@@ -341,6 +280,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                     />
                 </View>
             </View>
+
             {/* Settings Modal for Existing Conversations */}
             <Modal
                 visible={showSettingsModal}
@@ -359,7 +299,6 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                             <Text style={[styles.modalTitle, { color: colors.text }]}>Conversation Settings</Text>
                             <TouchableOpacity
                                 onPress={() => {
-                                    // Only allow closing if provider and model are selected
                                     if (conversation?.activeLLMId && conversation?.activeModel) {
                                         setShowSettingsModal(false);
                                     }
@@ -373,49 +312,23 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                                 <Ionicons name="close" size={24} color={colors.text} />
                             </TouchableOpacity>
                         </View>
-                        <ModelSettingsPanel
-                            providers={enabledConfigs}
+                        <ModelPicker
+                            mode="panel"
                             selectedProviderId={conversation?.activeLLMId}
-                            onProviderChange={async (id) => {
-                                if (id) {
-                                    // Clear model when provider changes - user must select new model
-                                    await setActiveLLM(id, '');
-                                    fetchModels(id);
-                                }
-                            }}
-                            providerConnectionStatus={providerConnectionStatus}
+                            selectedModel={(!conversation?.activeModel || localProviderNeedsSelection) ? undefined : conversation?.activeModel}
+                            selectedPersonaId={conversation?.personaId}
+                            onProviderChange={handleSettingsProviderChange}
+                            onModelChange={handleSettingsModelChange}
                             onNavigateToProviders={() => {
                                 setShowSettingsModal(false);
                                 router.push('/llm-management');
                             }}
-                            availableModels={conversation?.activeLLMId ? (availableModels[conversation.activeLLMId] || []) : []}
-                            isLoadingModels={isLoadingModels}
-                            // Show empty if model is empty string or if local provider needs selection
-                            selectedModel={(!conversation?.activeModel || localProviderNeedsSelection) ? undefined : conversation?.activeModel}
-                            onModelChange={async (model) => {
-                                if (model && conversation?.activeLLMId) {
-                                    await setActiveLLM(conversation.activeLLMId, model);
-
-                                    // If this is a local provider, trigger model loading immediately
-                                    if (existingUsesLocalProvider) {
-                                        const downloadedModel = downloadedModels.find(m => m.name === model);
-                                        if (downloadedModel) {
-                                            console.log('[ChatScreen] Settings modal: Triggering local model load:', downloadedModel.modelId, downloadedModel.name);
-                                            loadModel(downloadedModel.modelId, downloadedModel.name, downloadedModel);
-                                        }
-                                    }
-                                }
-                            }}
-                            personas={personas}
-                            selectedPersonaId={conversation?.personaId}
-                            onPersonaChange={async (_id: string | undefined) => {
-                                // Persona changes for existing conversations not yet supported
-                                // Could add setPersona to conversationStore if needed
-                            }}
-                            onNavigateToPersonas={() => {
+                            onNavigateToModels={() => {
                                 setShowSettingsModal(false);
-                                router.push('/persona-list');
+                                router.push('/model-list');
                             }}
+                            providerConnectionStatus={providerConnectionStatus}
+                            showPersona={false}
                         />
                     </View>
                 </Pressable>

@@ -102,17 +102,29 @@ export class ExecuTorchProvider implements ILLMProvider {
                 rawBuffer += token;
 
                 // Parse thinking tags
-                if (!isInThinkingMode && rawBuffer.startsWith('<think>')) {
+                const thinkOpenTag = '<think>';
+                const thinkCloseTag = '</think>';
+
+                if (!isInThinkingMode && rawBuffer.startsWith(thinkOpenTag)) {
                     isInThinkingMode = true;
-                    thinkingBuffer = rawBuffer.slice(7); // After '<think>'
-                } else if (isInThinkingMode) {
-                    const closeTagIndex = rawBuffer.indexOf('</think>');
+                    // Check if closing tag is already in the buffer
+                    const closeTagIndex = rawBuffer.indexOf(thinkCloseTag);
                     if (closeTagIndex !== -1) {
-                        thinkingBuffer = rawBuffer.slice(7, closeTagIndex);
-                        messageBuffer = rawBuffer.slice(closeTagIndex + 8); // After '</think>'
+                        // Both open and close tags in same buffer
+                        thinkingBuffer = rawBuffer.slice(thinkOpenTag.length, closeTagIndex);
+                        messageBuffer = rawBuffer.slice(closeTagIndex + thinkCloseTag.length);
                         isInThinkingMode = false;
                     } else {
-                        thinkingBuffer = rawBuffer.slice(7);
+                        thinkingBuffer = rawBuffer.slice(thinkOpenTag.length);
+                    }
+                } else if (isInThinkingMode) {
+                    const closeTagIndex = rawBuffer.indexOf(thinkCloseTag);
+                    if (closeTagIndex !== -1) {
+                        thinkingBuffer = rawBuffer.slice(thinkOpenTag.length, closeTagIndex);
+                        messageBuffer = rawBuffer.slice(closeTagIndex + thinkCloseTag.length);
+                        isInThinkingMode = false;
+                    } else {
+                        thinkingBuffer = rawBuffer.slice(thinkOpenTag.length);
                     }
                 } else {
                     messageBuffer = rawBuffer;

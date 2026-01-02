@@ -2,10 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, FlatList, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
-import { LLMConfig, Message, Persona } from '../../../core/types';
+import { DownloadedModel, Message } from '../../../core/types';
+import { useLLMStore } from '../../../state';
 import { useAppColorScheme } from '../../hooks';
+import { ModelPicker } from '../common';
 import { MessageBubble } from './MessageBubble';
-import { ModelSettingsPanel } from './ModelSettingsPanel';
 
 interface MessageListProps {
     messages: Message[];
@@ -13,21 +14,19 @@ interface MessageListProps {
     streamingThinkingContent?: string;
     isLoading: boolean;
     isProcessing?: boolean;
-    // Provider/Model/Persona selection props
-    isNewConversation?: boolean;
-    providers?: LLMConfig[];
+    // Selection state (controlled by parent)
     selectedProviderId?: string;
-    onProviderChange?: (providerId: string | undefined) => void;
-    availableModels?: string[];
-    isLoadingModels?: boolean;
     selectedModel?: string;
-    onModelChange?: (model: string | undefined) => void;
-    personas?: Persona[];
     selectedPersonaId?: string;
+    // Callbacks for parent state updates
+    onProviderChange?: (providerId: string) => void;
+    onModelChange?: (model: string, downloadedModel?: DownloadedModel) => void;
     onPersonaChange?: (personaId: string | undefined) => void;
+    // Navigation
     onNavigateToProviders?: () => void;
     onNavigateToPersonas?: () => void;
-    hasConfigs?: boolean;
+    onNavigateToModels?: () => void;
+    // Optional: provider connection status
     providerConnectionStatus?: Record<string, boolean>;
 }
 
@@ -40,20 +39,15 @@ export function MessageList({
     streamingThinkingContent,
     isLoading,
     isProcessing = false,
-    isNewConversation = false,
-    providers = [],
     selectedProviderId,
-    onProviderChange,
-    availableModels = [],
-    isLoadingModels = false,
     selectedModel,
-    onModelChange,
-    personas = [],
     selectedPersonaId,
+    onProviderChange,
+    onModelChange,
     onPersonaChange,
     onNavigateToProviders,
     onNavigateToPersonas,
-    hasConfigs = true,
+    onNavigateToModels,
     providerConnectionStatus = {},
 }: MessageListProps) {
     const colorScheme = useAppColorScheme();
@@ -64,6 +58,10 @@ export function MessageList({
     // Track content height and layout height for scroll calculations
     const contentHeightRef = useRef(0);
     const layoutHeightRef = useRef(0);
+
+    // Check if any LLM configs exist
+    const { configs } = useLLMStore();
+    const hasConfigs = configs.some(c => c.isEnabled);
 
     // Handle scroll events to determine if user is at bottom
     const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -107,7 +105,7 @@ export function MessageList({
         );
     }
 
-    // Empty state with dropdowns for new conversations
+    // Empty state with model picker for new conversations
     if (messages.length === 0 && !isProcessing && !streamingContent) {
         return (
             <View style={styles.centerContainer}>
@@ -120,21 +118,20 @@ export function MessageList({
                         : 'Configure an LLM provider in Settings to get started.'}
                 </Text>
 
-                {hasConfigs && (
-                    <ModelSettingsPanel
-                        providers={providers}
+                {hasConfigs && onProviderChange && onModelChange && (
+                    <ModelPicker
+                        mode="panel"
                         selectedProviderId={selectedProviderId}
-                        onProviderChange={(id) => onProviderChange?.(id)}
-                        providerConnectionStatus={providerConnectionStatus}
-                        onNavigateToProviders={onNavigateToProviders}
-                        availableModels={availableModels}
-                        isLoadingModels={isLoadingModels}
                         selectedModel={selectedModel}
-                        onModelChange={(model) => onModelChange?.(model)}
-                        personas={personas}
                         selectedPersonaId={selectedPersonaId}
-                        onPersonaChange={(id) => onPersonaChange?.(id)}
+                        onProviderChange={onProviderChange}
+                        onModelChange={onModelChange}
+                        onPersonaChange={onPersonaChange}
+                        onNavigateToProviders={onNavigateToProviders}
                         onNavigateToPersonas={onNavigateToPersonas}
+                        onNavigateToModels={onNavigateToModels}
+                        providerConnectionStatus={providerConnectionStatus}
+                        showPersona={true}
                     />
                 )}
 
