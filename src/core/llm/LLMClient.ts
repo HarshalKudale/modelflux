@@ -32,9 +32,9 @@ class LLMClientFactory implements ILLMClientFactory {
             case 'executorch':
                 // Local on-device provider using ExecuTorch
                 return this.getOrCreate('executorch', () => execuTorchProvider);
-            case 'llama-rn':
-                // Local on-device provider using llama.rn (llama.cpp)
-                return this.getOrCreate('llama-rn', () => llamaCppProvider);
+            case 'llama-cpp':
+                // Local on-device provider using llama.cpp
+                return this.getOrCreate('llama-cpp', () => llamaCppProvider);
             default:
                 throw new Error(`Unknown provider: ${config.provider}`);
         }

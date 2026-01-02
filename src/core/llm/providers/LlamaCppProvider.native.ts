@@ -1,13 +1,13 @@
 /**
  * Llama.cpp Provider - Native Implementation
  *
- * Provider for running LLM models on-device using llama.rn.
+ * Provider for running LLM models on-device using llama.cpp.
  *
  * Design notes:
  * - Uses context.completion() with token callback for streaming
  * - Processes tokens into thinking/content and calls onToken/onThinking
  * - Checks isStreaming from conversationStore, if false calls stopCompletion()
- * - Based on llama.rn API: https://github.com/mybigday/llama.rn
+ * - Based on llama.rn API: https://github.com/mybigday/llama.rn (library is called llama.rn but runs llama.cpp)
  */
 
 import { LLMConfig } from '../../types';
@@ -65,7 +65,7 @@ export class LlamaCppProvider implements ILLMProvider {
             throw new LLMError(
                 'Local model not loaded.',
                 LLMErrorCode.MODEL_NOT_FOUND,
-                'llama-rn'
+                'llama-cpp'
             );
         }
 
@@ -225,6 +225,6 @@ export class LlamaCppProvider implements ILLMProvider {
     private wrapError(error: unknown): LLMError {
         if (error instanceof LLMError) return error;
         const message = error instanceof Error ? error.message : String(error);
-        return new LLMError(message, LLMErrorCode.UNKNOWN, 'llama-rn');
+        return new LLMError(message, LLMErrorCode.UNKNOWN, 'llama-cpp');
     }
 }

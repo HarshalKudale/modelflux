@@ -27,7 +27,7 @@ interface LLMEditorScreenProps {
  * Helper to determine if a provider is a local on-device provider
  */
 function isLocalProvider(provider: LLMProvider): boolean {
-    return provider === 'executorch' || provider === 'llama-rn';
+    return provider === 'executorch' || provider === 'llama-cpp';
 }
 
 export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorScreenProps) {
@@ -254,7 +254,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         }
     };
 
-    // Local providers (executorch, llama-rn) are NOT listed here
+    // Local providers (executorch, llama-cpp) are NOT listed here
     // They are available directly in the model selector as built-in options
     const providerOptions = [
         { label: t('provider.openai') || 'OpenAI', value: 'openai' as LLMProvider },
@@ -392,10 +392,10 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                             </>
                         )}
 
-                        {/* llama-rn: Models are now selected in chat at runtime */}
-                        {provider === 'llama-rn' && (
+                        {/* llama-cpp: Models are now selected in chat at runtime */}
+                        {provider === 'llama-cpp' && (
                             <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                                {t('llm.editor.llama-rn.hint') || 'Models are imported and selected in chat. This provider supports GGUF format models.'}
+                                {t('llm.editor.llama-cpp.hint') || 'Models are imported and selected in chat. This provider supports GGUF format models.'}
                             </Text>
                         )}
                     </View>

@@ -1,7 +1,7 @@
 /**
  * Llama.cpp Provider - Web Stub
  *
- * Stub implementation for web platform where llama.rn is not supported.
+ * Stub implementation for web platform where llama.cpp is not supported.
  */
 
 import { LLMConfig } from '../../types';
@@ -28,7 +28,7 @@ export class LlamaCppProvider implements ILLMProvider {
         throw new LLMError(
             'Llama.cpp is not supported on web platform.',
             LLMErrorCode.PROVIDER_NOT_SUPPORTED,
-            'llama-rn'
+            'llama-cpp'
         );
     }
 

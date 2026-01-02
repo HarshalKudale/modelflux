@@ -19,7 +19,7 @@ import { LLMConfig, LLMProvider, LLMProviderCategory, generateId } from '../type
 import { storageAdapter } from './StorageAdapter';
 
 // Local provider types that are fixed and non-removable
-const LOCAL_PROVIDER_TYPES: LLMProvider[] = ['executorch', 'llama-rn'];
+const LOCAL_PROVIDER_TYPES: LLMProvider[] = ['executorch', 'llama-cpp'];
 
 // Remote provider types that are user-managed
 const REMOTE_PROVIDER_TYPES: LLMProvider[] = ['openai', 'openai-spec', 'anthropic', 'ollama'];
@@ -35,7 +35,7 @@ const DEFAULT_LOCAL_CONFIGS: Record<string, Omit<LLMConfig, 'id' | 'createdAt' |
         isLocal: true,
         isEnabled: true,
     },
-    // llama-rn can be added here when implemented
+    // llama-cpp can be added here when implemented
 };
 
 export interface ILLMProviderRepository {

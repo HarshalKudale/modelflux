@@ -3,7 +3,7 @@
  * Web platform doesn't support background downloads or notifications
  */
 
-import { ExecutorchModel } from '../config/executorchModels';
+import { DownloadableModel } from '../config/downloadableModels';
 import { DownloadedModel } from '../core/types';
 
 type ProgressCallback = (modelId: string, progress: number) => void;
@@ -22,7 +22,7 @@ export function clearDownloadCallbacks() {
     // No-op on web
 }
 
-export async function startDownload(_model: ExecutorchModel): Promise<void> {
+export async function startDownload(_model: DownloadableModel): Promise<void> {
     throw new Error('Model downloads are not supported on web. Please use the mobile app.');
 }
 

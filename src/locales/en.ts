@@ -119,7 +119,7 @@ export const en: Record<string, string> = {
     "llm.editor.localModels": "Model Management",
     "llm.editor.localModels.builtIn": "Select a pre-configured model to download and use",
     "llm.editor.localModels.formatHint.executorch": "Supported format: .pte",
-    "llm.editor.localModels.formatHint.llama-rn": "Supported format: .gguf",
+    "llm.editor.localModels.formatHint.llama-cpp": "Supported format: .gguf",
     "llm.editor.model.selectPlaceholder": "Choose a model...",
     "llm.editor.model.download": "Download Model",
     "llm.editor.model.downloading": "Downloading... {progress}%",
@@ -159,7 +159,7 @@ export const en: Record<string, string> = {
     "provider.anthropic": "Anthropic Claude",
     "provider.ollama": "Ollama",
     "provider.executorch": "ExecuTorch (Local)",
-    "provider.llama-rn": "llama.rn (Local)",
+    "provider.llama-cpp": "Llama.cpp (Local)",
 
     // Provider Types - Descriptions
     "provider.openai.description": "Official OpenAI API (GPT-4, etc.)",
@@ -167,7 +167,7 @@ export const en: Record<string, string> = {
     "provider.anthropic.description": "Anthropic Claude API with thinking support",
     "provider.ollama.description": "Local Ollama server",
     "provider.executorch.description": "On-device AI with Meta ExecuTorch (.pte models)",
-    "provider.llama-rn.description": "Run GGUF models locally with llama.rn",
+    "provider.llama-cpp.description": "Run GGUF models locally with llama.cpp",
 
     // Chat Screen
     "chat.input.placeholder": "Type a message...",

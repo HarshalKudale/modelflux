@@ -1,6 +1,6 @@
 /**
  * Model Download Service - Native
- * Handles downloading ExecutorCh models with true background download support.
+ * Handles downloading local models with true background download support.
  * Uses @kesha-antonov/react-native-background-downloader for downloads that
  * continue even when app is closed or terminated by OS.
  */
@@ -14,7 +14,7 @@ import {
 import * as Notifications from 'expo-notifications';
 import { PermissionsAndroid, Platform } from 'react-native';
 import RNFS from 'react-native-fs';
-import { EXECUTORCH_MODELS, ExecutorchModel } from '../config/executorchModels';
+import { DOWNLOADABLE_MODELS, DownloadableModel } from '../config/downloadableModels';
 import { downloadedModelRepository } from '../core/storage';
 import { DownloadedModel } from '../core/types';
 
@@ -34,7 +34,7 @@ interface DownloadMetadata {
 
 // Track active downloads - maps modelId to its download tasks
 const activeDownloads = new Map<string, {
-    model: ExecutorchModel;
+    model: DownloadableModel;
     tasks: Map<FileType, DownloadTask>;
     completedFiles: Map<FileType, string>; // fileType -> filePath
     totalBytesExpected: number;
@@ -444,7 +444,7 @@ async function handleDownloadError(modelId: string, errorMessage: string): Promi
 /**
  * Start downloading a model
  */
-export async function startDownload(model: ExecutorchModel): Promise<void> {
+export async function startDownload(model: DownloadableModel): Promise<void> {
     const modelId = model.id;
 
     // Check if already downloading
@@ -658,7 +658,7 @@ export async function reattachBackgroundDownloads(): Promise<void> {
         // Re-attach to each model's downloads
         for (const [modelId, tasks] of tasksByModel) {
             // Find the model definition
-            const model = EXECUTORCH_MODELS.find(m => m.id === modelId);
+            const model = DOWNLOADABLE_MODELS.find((m: DownloadableModel) => m.id === modelId);
             if (!model) {
                 console.warn(`[ModelDownload] Model not found for ${modelId}, stopping tasks`);
                 for (const task of tasks) {

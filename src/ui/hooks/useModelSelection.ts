@@ -137,8 +137,8 @@ export function useModelSelection(): UseModelSelectionReturn {
                 .map(dm => dm.name);
         }
 
-        // For llama-rn (llama.cpp), show downloaded llama-cpp LLM models
-        if (config.provider === LLMProviderKey.LlamaRN) {
+        // For llama-cpp, show downloaded llama-cpp LLM models
+        if (config.provider === LLMProviderKey.LlamaCpp) {
             return downloadedModels
                 .filter(dm => dm.provider === 'llama-cpp' && dm.type === 'llm')
                 .map(dm => dm.name);

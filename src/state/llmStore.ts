@@ -19,11 +19,11 @@ const DEFAULT_EXECUTORCH_CONFIG: LLMConfig = {
     updatedAt: 0,
 };
 
-// Default Llama.rn config that's pre-installed on native platforms
-const DEFAULT_LLAMA_RN_CONFIG: LLMConfig = {
-    id: 'llama-rn-default',
+// Default Llama.cpp config that's pre-installed on native platforms
+const DEFAULT_LLAMA_CPP_CONFIG: LLMConfig = {
+    id: 'llama-cpp-default',
     name: 'Llama.cpp (Local)',
-    provider: 'llama-rn',
+    provider: 'llama-cpp',
     baseUrl: '',
     defaultModel: '',
     supportsStreaming: true,
@@ -91,17 +91,17 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
                     console.log('[LLMStore] Added default ExecuTorch config');
                 }
 
-                // Ensure Llama.rn is available
-                const hasLlamaRn = configs.some(c => c.provider === LLMProviderKey.LlamaRN);
-                if (!hasLlamaRn) {
-                    const llamaRnConfig = {
-                        ...DEFAULT_LLAMA_RN_CONFIG,
+                // Ensure Llama.cpp is available
+                const hasLlamaCpp = configs.some(c => c.provider === LLMProviderKey.LlamaCpp);
+                if (!hasLlamaCpp) {
+                    const llamaCppConfig = {
+                        ...DEFAULT_LLAMA_CPP_CONFIG,
                         createdAt: now,
                         updatedAt: now,
                     };
-                    await llmConfigRepository.create(llamaRnConfig);
-                    configs = [...configs, llamaRnConfig];
-                    console.log('[LLMStore] Added default Llama.rn config');
+                    await llmConfigRepository.create(llamaCppConfig);
+                    configs = [...configs, llamaCppConfig];
+                    console.log('[LLMStore] Added default Llama.cpp config');
                 }
             }
 

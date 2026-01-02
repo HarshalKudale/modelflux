@@ -330,5 +330,5 @@ export const useExecutorchLLMStore = create<ExecutorchLLMStore>((set, get) => ({
  * Helper function to check if a provider is a local on-device provider
  */
 export function isLocalProvider(provider: string): boolean {
-    return provider === 'executorch' || provider === 'llama-rn';
+    return provider === 'executorch' || provider === 'llama-cpp';
 }

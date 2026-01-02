@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { ExecutorchModel } from '../config/executorchModels';
+import { DownloadableModel } from '../config/downloadableModels';
 import { downloadedModelRepository } from '../core/storage';
 import { DownloadedModel } from '../core/types';
 import {
@@ -33,7 +33,7 @@ interface ModelDownloadState {
 
     // Actions
     loadDownloadedModels: () => Promise<void>;
-    startDownload: (model: ExecutorchModel) => Promise<void>;
+    startDownload: (model: DownloadableModel) => Promise<void>;
     cancelDownload: (modelId: string) => Promise<void>;
     isDownloading: (modelId: string) => boolean;
     isDownloaded: (modelId: string) => boolean;
@@ -90,7 +90,7 @@ export const useModelDownloadStore = create<ModelDownloadState>((set, get) => {
             }
         },
 
-        startDownload: async (model: ExecutorchModel) => {
+        startDownload: async (model: DownloadableModel) => {
             const { activeDownloads } = get();
 
             // Check if already downloading

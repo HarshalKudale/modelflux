@@ -103,5 +103,5 @@ export function processTokenWithThinking(): void {
 }
 
 export function isLocalProvider(provider: string): boolean {
-    return provider === 'executorch' || provider === 'llama-rn';
+    return provider === 'executorch' || provider === 'llama-cpp';
 }

@@ -16,7 +16,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { EXECUTORCH_MODELS, ExecutorchModel, ExecutorchModelProvider } from '../../config/executorchModels';
+import { DOWNLOADABLE_MODELS, DownloadableModel } from '../../config/downloadableModels';
 import { MODEL_TYPE_PRESETS, ModelType } from '../../config/modelTypePresets';
 import { getLocalProviders, PROVIDER_LIST } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
@@ -27,7 +27,8 @@ import { LocalModelImportModal } from '../components/common/LocalModelImportModa
 import { useAppColorScheme, useLocale } from '../hooks';
 
 // Provider filter types (Row 1) - uses local providers from presets
-type ProviderFilter = 'all' | ExecutorchModelProvider;
+import { DownloadedModelProvider } from '../../core/types';
+type ProviderFilter = 'all' | DownloadedModelProvider;
 
 // Model type filter types (Row 2) - uses model types from presets
 type ModelTypeFilter = 'all' | ModelType;
@@ -69,12 +70,12 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
     // Filter models based on search and filter criteria
     const filteredModels = useMemo(() => {
         // Start with catalog models
-        let models: ExecutorchModel[] = [...EXECUTORCH_MODELS];
+        let models: DownloadableModel[] = [...DOWNLOADABLE_MODELS];
 
-        // Add imported models (local ones not in catalog)
+        // Merge with imported models from downloaded models
         const importedModels = downloadedModels
-            .filter((dm) => dm.modelId.startsWith('local-'))
-            .map((dm): ExecutorchModel => ({
+            .filter((dm) => dm.tags?.includes('custom'))
+            .map((dm): DownloadableModel => ({
                 id: dm.modelId,
                 name: dm.name,
                 description: dm.description,
@@ -138,7 +139,7 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
     }, [searchQuery, providerFilter, modelTypeFilter, activeDownloads, downloadedModels]);
 
     // Handle download button press
-    const handleDownload = async (model: ExecutorchModel) => {
+    const handleDownload = async (model: DownloadableModel) => {
         try {
             await startDownload(model);
         } catch (error) {
@@ -240,7 +241,7 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
     };
 
     // Render model item
-    const renderModelItem = ({ item: model }: { item: ExecutorchModel }) => {
+    const renderModelItem = ({ item: model }: { item: DownloadableModel }) => {
         const downloading = isDownloading(model.id);
         const downloaded = isDownloaded(model.id);
         const progress = getDownloadProgress(model.id);
@@ -451,9 +452,9 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                     data={[
                         { value: 'all' as ProviderFilter, label: t('models.filter.all') },
                         ...getLocalProviders().map((provider) => ({
-                            value: (provider === 'llama-rn' ? 'llama-cpp' : provider) as ProviderFilter,
+                            value: provider as ProviderFilter,
                             label: PROVIDER_LIST[provider as LLMProvider]?.isLocal
-                                ? provider === 'llama-rn'
+                                ? provider === 'llama-cpp'
                                     ? 'Llama.cpp'
                                     : provider.charAt(0).toUpperCase() + provider.slice(1)
                                 : provider,

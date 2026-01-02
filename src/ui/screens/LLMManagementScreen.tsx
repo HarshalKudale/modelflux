@@ -88,7 +88,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
         );
     };
 
-    // Local providers (executorch, llama-rn) are NOT listed here
+    // Local providers (executorch, llama-cpp) are NOT listed here
     // They are available directly in the model selector as built-in options
     const providerOptions: LLMProvider[] = ['openai', 'openai-spec', 'ollama'];
 

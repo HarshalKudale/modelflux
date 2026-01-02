@@ -21,7 +21,7 @@ export enum LLMProviderKey {
     Anthropic = 'anthropic',
     Ollama = 'ollama',
     Executorch = 'executorch',
-    LlamaRN = 'llama-rn',
+    LlamaCpp = 'llama-cpp',
 }
 
 /**
@@ -31,7 +31,7 @@ export enum LLMProviderKey {
  * - anthropic: Anthropic Claude API
  * - ollama: Ollama local server
  * - executorch: Local on-device AI with Meta ExecuTorch (.pte models)
- * - llama-rn: Local on-device AI with llama.rn (.gguf models)
+ * - llama-cpp: Local on-device AI with llama.cpp (.gguf models)
  */
 export type LLMProvider = `${LLMProviderKey}`;
 
@@ -330,7 +330,7 @@ export interface ExportedData {
 /**
  * Tag for categorizing models
  */
-export type ModelTag = 'executorch' | 'llama-rn' | 'custom' | 'Thinking' | 'Function Calling' | 'Quantized' | 'Embedding' | 'LLM';
+export type ModelTag = 'executorch' | 'llama-cpp' | 'custom' | 'Thinking' | 'Function Calling' | 'Quantized' | 'Embedding' | 'LLM';
 
 /**
  * Download status for models
@@ -355,7 +355,7 @@ export interface DownloadedModel {
     modelId: string;                 // Reference to source model (e.g., ExecutorchModel id)
     name: string;
     description: string;
-    provider: DownloadedModelProvider; // Provider: executorch or llama-rn
+    provider: DownloadedModelProvider; // Provider: executorch or llama-cpp
     type: DownloadedModelType;         // Type: llm, embedding, image-gen, tts, stt
     tags: ModelTag[];                // Additional tags like ['Quantized', 'Thinking']
     localPath: string;               // Local file system path to model folder

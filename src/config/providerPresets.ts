@@ -129,8 +129,8 @@ export const PROVIDER_LIST: Record<LLMProvider, ProviderConfig> = {
         isAddable: false,
         defaultBaseUrl: '',
     },
-    [LLMProviderKey.LlamaRN]: {
-        id: LLMProviderKey.LlamaRN,
+    [LLMProviderKey.LlamaCpp]: {
+        id: LLMProviderKey.LlamaCpp,
         name: 'Llama.cpp',
         icon: 'hardware-chip',
         color: '#FF6B35',
