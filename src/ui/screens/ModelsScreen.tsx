@@ -16,19 +16,21 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { EXECUTORCH_MODELS, ExecutorchModel } from '../../config/executorchModels';
+import { EXECUTORCH_MODELS, ExecutorchModel, ExecutorchModelProvider } from '../../config/executorchModels';
+import { MODEL_TYPE_PRESETS, ModelType } from '../../config/modelTypePresets';
+import { getLocalProviders, PROVIDER_INFO } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
-import { DownloadedModelType } from '../../core/types';
+import { DownloadedModelType, LLMProvider } from '../../core/types';
 import { importLocalModel } from '../../services/ModelDownloadService';
 import { useModelDownloadStore } from '../../state';
 import { LocalModelImportModal } from '../components/common/LocalModelImportModal';
 import { useAppColorScheme, useLocale } from '../hooks';
 
-// Provider filter types (Row 1)
-type ProviderFilter = 'all' | 'executorch' | 'llama-cpp';
+// Provider filter types (Row 1) - uses local providers from presets
+type ProviderFilter = 'all' | ExecutorchModelProvider;
 
-// Model type filter types (Row 2)
-type ModelTypeFilter = 'all' | 'llm' | 'embedding' | 'image-gen' | 'tts' | 'stt';
+// Model type filter types (Row 2) - uses model types from presets
+type ModelTypeFilter = 'all' | ModelType;
 
 interface ModelsScreenProps {
     onBack: () => void;
@@ -112,26 +114,9 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 break;
         }
 
-        // Apply model type filter (Row 2)
-        switch (modelTypeFilter) {
-            case 'llm':
-                models = models.filter((m) => m.type === 'llm');
-                break;
-            case 'embedding':
-                models = models.filter((m) => m.type === 'embedding');
-                break;
-            case 'image-gen':
-                models = models.filter((m) => m.type === 'image-gen');
-                break;
-            case 'tts':
-                models = models.filter((m) => m.type === 'tts');
-                break;
-            case 'stt':
-                models = models.filter((m) => m.type === 'stt');
-                break;
-            default:
-                // 'all' - show all model types
-                break;
+        // Apply model type filter (Row 2) - dynamic based on presets
+        if (modelTypeFilter !== 'all') {
+            models = models.filter((m) => m.type === modelTypeFilter);
         }
 
         // Sort: importing models first, then downloading, then by name
@@ -458,15 +443,21 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 </View>
             </View>
 
-            {/* Provider Filter Chips (Row 1) */}
+            {/* Provider Filter Chips (Row 1) - Local providers from presets */}
             <View style={styles.filterContainer}>
                 <FlatList
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     data={[
                         { value: 'all' as ProviderFilter, label: t('models.filter.all') },
-                        { value: 'executorch' as ProviderFilter, label: 'Executorch' },
-                        { value: 'llama-cpp' as ProviderFilter, label: 'Llama.cpp' },
+                        ...getLocalProviders().map((provider) => ({
+                            value: (provider === 'llama-rn' ? 'llama-cpp' : provider) as ProviderFilter,
+                            label: PROVIDER_INFO[provider as LLMProvider]?.isLocal
+                                ? provider === 'llama-rn'
+                                    ? 'Llama.cpp'
+                                    : provider.charAt(0).toUpperCase() + provider.slice(1)
+                                : provider,
+                        })),
                     ]}
                     keyExtractor={(item) => item.value}
                     renderItem={({ item }) =>
@@ -476,18 +467,17 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 />
             </View>
 
-            {/* Model Type Filter Chips (Row 2) */}
+            {/* Model Type Filter Chips (Row 2) - Model types from presets */}
             <View style={styles.filterContainer}>
                 <FlatList
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     data={[
                         { value: 'all' as ModelTypeFilter, label: t('models.filter.all') },
-                        { value: 'llm' as ModelTypeFilter, label: 'LLM' },
-                        { value: 'embedding' as ModelTypeFilter, label: 'Embedding' },
-                        { value: 'image-gen' as ModelTypeFilter, label: 'Image Gen' },
-                        { value: 'tts' as ModelTypeFilter, label: 'TTS' },
-                        { value: 'stt' as ModelTypeFilter, label: 'STT' },
+                        ...MODEL_TYPE_PRESETS.map((type) => ({
+                            value: type.id as ModelTypeFilter,
+                            label: type.name,
+                        })),
                     ]}
                     keyExtractor={(item) => item.value}
                     renderItem={({ item }) =>

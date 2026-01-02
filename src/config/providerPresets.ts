@@ -1,6 +1,18 @@
 import { LLMConfig, LLMProvider, LocalModelFormat } from '../core/types';
 
 /**
+ * Supported platforms for providers
+ */
+export type ProviderPlatform = 'android' | 'ios' | 'web';
+
+/**
+ * Provider capabilities - determines what the provider can do
+ * - llm: Can be used for LLM chat/generation
+ * - embedding: Can be used for embeddings (RAG)
+ */
+export type ProviderCapability = 'llm' | 'embedding';
+
+/**
  * Provider display info type
  * Note: displayName and description are localized using t(`provider.${provider}`) and t(`provider.${provider}.description`)
  */
@@ -17,8 +29,14 @@ export interface ProviderDisplayInfo {
     isLocal: boolean;
     /** Supported model file formats for local providers */
     supportedFormats?: LocalModelFormat[];
-    /** Whether streaming is supported */
-    supportsStreaming: boolean;
+    /** Supported platforms */
+    platforms: ProviderPlatform[];
+    /** Provider capabilities (llm, embedding) */
+    capabilities: ProviderCapability[];
+    /** Whether this provider can be deleted by user */
+    isDeletable: boolean;
+    /** Whether new instances of this provider can be added */
+    isAddable: boolean;
 }
 
 /**
@@ -117,7 +135,10 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         urlEditable: false,
         apiKeyRequired: true,
         isLocal: false,
-        supportsStreaming: true,
+        platforms: ['android', 'ios', 'web'],
+        capabilities: ['llm'],
+        isDeletable: true,
+        isAddable: true,
     },
     'openai-spec': {
         icon: 'server',
@@ -125,7 +146,10 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         urlEditable: true,
         apiKeyRequired: false,
         isLocal: false,
-        supportsStreaming: true,
+        platforms: ['android', 'ios', 'web'],
+        capabilities: ['llm'],
+        isDeletable: true,
+        isAddable: true,
     },
     anthropic: {
         icon: 'chatbubbles',
@@ -133,7 +157,10 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         urlEditable: false,
         apiKeyRequired: true,
         isLocal: false,
-        supportsStreaming: true,
+        platforms: ['android', 'ios', 'web'],
+        capabilities: ['llm'],
+        isDeletable: true,
+        isAddable: true,
     },
     ollama: {
         icon: 'hardware-chip',
@@ -141,7 +168,10 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         urlEditable: true,
         apiKeyRequired: false,
         isLocal: false,
-        supportsStreaming: true,
+        platforms: ['android', 'ios', 'web'],
+        capabilities: ['llm', 'embedding'],
+        isDeletable: true,
+        isAddable: true,
     },
     executorch: {
         icon: 'phone-portrait',
@@ -150,7 +180,10 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         apiKeyRequired: false,
         isLocal: true,
         supportedFormats: ['pte'],
-        supportsStreaming: false,
+        platforms: ['android', 'ios'],
+        capabilities: ['llm', 'embedding'],
+        isDeletable: false,
+        isAddable: false,
     },
     'llama-rn': {
         icon: 'hardware-chip',
@@ -159,7 +192,35 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         apiKeyRequired: false,
         isLocal: true,
         supportedFormats: ['gguf'],
-        supportsStreaming: true,
+        platforms: ['android', 'ios'],
+        capabilities: ['llm', 'embedding'],
+        isDeletable: false,
+        isAddable: false,
     },
+};
+
+/**
+ * Helper functions for working with providers
+ */
+
+/** Get all local providers (for Models screen Row 1 filter) */
+export const getLocalProviders = (): LLMProvider[] => {
+    return (Object.entries(PROVIDER_INFO) as [LLMProvider, ProviderDisplayInfo][])
+        .filter(([_, info]) => info.isLocal)
+        .map(([provider]) => provider);
+};
+
+/** Get providers that support a specific capability */
+export const getProvidersByCapability = (capability: ProviderCapability): LLMProvider[] => {
+    return (Object.entries(PROVIDER_INFO) as [LLMProvider, ProviderDisplayInfo][])
+        .filter(([_, info]) => info.capabilities.includes(capability))
+        .map(([provider]) => provider);
+};
+
+/** Get local providers that support a specific capability (for downloads/models) */
+export const getLocalProvidersByCapability = (capability: ProviderCapability): LLMProvider[] => {
+    return (Object.entries(PROVIDER_INFO) as [LLMProvider, ProviderDisplayInfo][])
+        .filter(([_, info]) => info.isLocal && info.capabilities.includes(capability))
+        .map(([provider]) => provider);
 };
 

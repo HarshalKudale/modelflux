@@ -262,9 +262,6 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         { label: t('provider.ollama') || 'Ollama', value: 'ollama' as LLMProvider },
     ];
 
-    // Check if streaming is supported by this provider
-    const streamingSupported = providerInfo.supportsStreaming;
-
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
             {/* Header */}
