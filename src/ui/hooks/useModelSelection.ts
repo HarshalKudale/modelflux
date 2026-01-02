@@ -12,8 +12,7 @@
  */
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { POPULAR_MODELS } from '../../config/providerPresets';
-import { DownloadedModel, LLMConfig, Persona } from '../../core/types';
+import { DownloadedModel, LLMConfig, LLMProviderKey, Persona } from '../../core/types';
 import {
     isLocalProvider,
     useExecutorchLLMStore,
@@ -132,21 +131,21 @@ export function useModelSelection(): UseModelSelectionReturn {
     // Get models for a config - handles local vs remote providers
     const getModelsForConfig = useCallback((config: LLMConfig): string[] => {
         // For ExecuTorch, show downloaded executorch LLM models
-        if (config.provider === 'executorch') {
+        if (config.provider === LLMProviderKey.Executorch) {
             return downloadedModels
                 .filter(dm => dm.provider === 'executorch' && dm.type === 'llm')
                 .map(dm => dm.name);
         }
 
         // For llama-rn (llama.cpp), show downloaded llama-cpp LLM models
-        if (config.provider === 'llama-rn') {
+        if (config.provider === LLMProviderKey.LlamaRN) {
             return downloadedModels
                 .filter(dm => dm.provider === 'llama-cpp' && dm.type === 'llm')
                 .map(dm => dm.name);
         }
 
         // For Ollama, show only completion models (not embedding models)
-        if (config.provider === 'ollama') {
+        if (config.provider === LLMProviderKey.Ollama) {
             // If we have classified models, use only completion models
             if (ollamaCompletionModels.length > 0) {
                 return ollamaCompletionModels;
@@ -155,8 +154,8 @@ export function useModelSelection(): UseModelSelectionReturn {
             if (availableModels[config.id] && availableModels[config.id].length > 0) {
                 return availableModels[config.id];
             }
-            // Fallback to popular models
-            return POPULAR_MODELS[config.provider] || [];
+            // Return empty for now - models should be fetched
+            return [];
         }
 
         // For other remote providers - use fetched models if available
@@ -164,8 +163,8 @@ export function useModelSelection(): UseModelSelectionReturn {
             return availableModels[config.id];
         }
 
-        // Fallback to popular models for the provider
-        return POPULAR_MODELS[config.provider] || [];
+        // Return empty array - models should be fetched from provider
+        return [];
     }, [downloadedModels, availableModels, ollamaCompletionModels]);
 
     // Find downloaded model by display name
@@ -191,7 +190,7 @@ export function useModelSelection(): UseModelSelectionReturn {
             await fetchModels(configId);
 
             // For Ollama, also trigger model classification (only once)
-            if (config.provider === 'ollama' && !ollamaHasFetched && config.baseUrl) {
+            if (config.provider === LLMProviderKey.Ollama && !ollamaHasFetched && config.baseUrl) {
                 fetchOllamaModels(config.baseUrl, config.headers);
             }
         }

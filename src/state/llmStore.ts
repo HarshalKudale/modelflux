@@ -1,9 +1,9 @@
 import { Platform } from 'react-native';
 import { create } from 'zustand';
-import { PROVIDER_PRESETS } from '../config/providerPresets';
+import { PROVIDER_LIST } from '../config/providerPresets';
 import { llmClientFactory } from '../core/llm';
 import { llmConfigRepository } from '../core/storage';
-import { LLMConfig, LLMProvider, generateId } from '../core/types';
+import { LLMConfig, LLMProvider, LLMProviderKey, generateId } from '../core/types';
 
 // Default ExecuTorch config that's pre-installed on native platforms
 const DEFAULT_EXECUTORCH_CONFIG: LLMConfig = {
@@ -79,7 +79,7 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
                 const now = Date.now();
 
                 // Ensure ExecuTorch is available
-                const hasExecuTorch = configs.some(c => c.provider === 'executorch');
+                const hasExecuTorch = configs.some(c => c.provider === LLMProviderKey.Executorch);
                 if (!hasExecuTorch) {
                     const execuTorchConfig = {
                         ...DEFAULT_EXECUTORCH_CONFIG,
@@ -92,7 +92,7 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
                 }
 
                 // Ensure Llama.rn is available
-                const hasLlamaRn = configs.some(c => c.provider === 'llama-rn');
+                const hasLlamaRn = configs.some(c => c.provider === LLMProviderKey.LlamaRN);
                 if (!hasLlamaRn) {
                     const llamaRnConfig = {
                         ...DEFAULT_LLAMA_RN_CONFIG,
@@ -136,17 +136,17 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
     },
 
     createFromPreset: async (provider, apiKey) => {
-        const preset = PROVIDER_PRESETS[provider];
+        const providerConfig = PROVIDER_LIST[provider];
         const now = Date.now();
         const config: LLMConfig = {
             id: generateId(),
-            name: preset.name || provider,
+            name: providerConfig.name || provider,
             provider,
-            baseUrl: preset.baseUrl || '',
+            baseUrl: providerConfig.defaultBaseUrl || '',
             apiKey,
-            defaultModel: preset.defaultModel || '',
-            supportsStreaming: preset.supportsStreaming ?? true,
-            isLocal: preset.isLocal || false,
+            defaultModel: '',
+            supportsStreaming: true,
+            isLocal: providerConfig.isLocal || false,
             isEnabled: true,
             createdAt: now,
             updatedAt: now,

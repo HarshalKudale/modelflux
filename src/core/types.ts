@@ -12,7 +12,20 @@ export const generateId = (): string => {
 };
 
 /**
- * Supported LLM provider types
+ * LLM Provider keys - enum for type-safe provider references
+ * Use this enum instead of hardcoding provider strings
+ */
+export enum LLMProviderKey {
+    OpenAI = 'openai',
+    OpenAISpec = 'openai-spec',
+    Anthropic = 'anthropic',
+    Ollama = 'ollama',
+    Executorch = 'executorch',
+    LlamaRN = 'llama-rn',
+}
+
+/**
+ * Supported LLM provider types (derived from enum for compatibility)
  * - openai: Official OpenAI API with fixed URL
  * - openai-spec: OpenAI-compatible API with custom URL (for LM Studio, etc.)
  * - anthropic: Anthropic Claude API
@@ -20,7 +33,7 @@ export const generateId = (): string => {
  * - executorch: Local on-device AI with Meta ExecuTorch (.pte models)
  * - llama-rn: Local on-device AI with llama.rn (.gguf models)
  */
-export type LLMProvider = 'openai' | 'openai-spec' | 'anthropic' | 'ollama' | 'executorch' | 'llama-rn';
+export type LLMProvider = `${LLMProviderKey}`;
 
 /**
  * Provider category for distinguishing local vs remote providers

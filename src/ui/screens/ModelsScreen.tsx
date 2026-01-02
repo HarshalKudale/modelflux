@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EXECUTORCH_MODELS, ExecutorchModel, ExecutorchModelProvider } from '../../config/executorchModels';
 import { MODEL_TYPE_PRESETS, ModelType } from '../../config/modelTypePresets';
-import { getLocalProviders, PROVIDER_INFO } from '../../config/providerPresets';
+import { getLocalProviders, PROVIDER_LIST } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { DownloadedModelType, LLMProvider } from '../../core/types';
 import { importLocalModel } from '../../services/ModelDownloadService';
@@ -452,7 +452,7 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                         { value: 'all' as ProviderFilter, label: t('models.filter.all') },
                         ...getLocalProviders().map((provider) => ({
                             value: (provider === 'llama-rn' ? 'llama-cpp' : provider) as ProviderFilter,
-                            label: PROVIDER_INFO[provider as LLMProvider]?.isLocal
+                            label: PROVIDER_LIST[provider as LLMProvider]?.isLocal
                                 ? provider === 'llama-rn'
                                     ? 'Llama.cpp'
                                     : provider.charAt(0).toUpperCase() + provider.slice(1)

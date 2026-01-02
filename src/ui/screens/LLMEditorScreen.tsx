@@ -8,7 +8,7 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PROVIDER_INFO, PROVIDER_PRESETS } from '../../config/providerPresets';
+import { PROVIDER_LIST } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { llmClientFactory } from '../../core/llm';
 import { ExecutorChGenerationConfig, LLMConfig, LLMProvider } from '../../core/types';
@@ -61,7 +61,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
     const [isSaving, setIsSaving] = useState(false);
 
     // Get provider info
-    const providerInfo = PROVIDER_INFO[provider];
+    const providerInfo = PROVIDER_LIST[provider];
     const isLocal = isLocalProvider(provider);
 
     // Initialize form with existing config or preset
@@ -80,11 +80,11 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 setGenConfigBatchInterval(existingConfig.executorchConfig.batchTimeInterval?.toString() || '');
             }
         } else if (presetProvider) {
-            const preset = PROVIDER_PRESETS[presetProvider];
-            setName(preset.name || '');
+            const providerConfig = PROVIDER_LIST[presetProvider];
+            setName(providerConfig.name || '');
             setProvider(presetProvider);
-            setBaseUrl(preset.baseUrl || '');
-            setSupportsStreaming(preset.supportsStreaming ?? true);
+            setBaseUrl(providerConfig.defaultBaseUrl || '');
+            setSupportsStreaming(true);
         }
     }, [existingConfig, presetProvider]);
 
@@ -114,15 +114,15 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
         }
 
         setProvider(newProvider);
-        const preset = PROVIDER_PRESETS[newProvider];
+        const providerConfig = PROVIDER_LIST[newProvider];
 
         if (!isEditing) {
-            setName(preset.name || '');
-            setBaseUrl(preset.baseUrl || '');
-            setSupportsStreaming(preset.supportsStreaming ?? true);
+            setName(providerConfig.name || '');
+            setBaseUrl(providerConfig.defaultBaseUrl || '');
+            setSupportsStreaming(true);
         } else {
-            // Apply streaming support from preset
-            setSupportsStreaming(preset.supportsStreaming ?? true);
+            // All providers support streaming by default
+            setSupportsStreaming(true);
         }
     };
 

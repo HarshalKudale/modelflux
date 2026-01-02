@@ -1,4 +1,12 @@
-import { LLMConfig, LLMProvider, LocalModelFormat } from '../core/types';
+/**
+ * Provider Configuration - Single Source of Truth
+ * 
+ * This file contains all provider configuration in one place.
+ * Use PROVIDER_LIST for all provider-related lookups.
+ * Use LLMProviderKey enum from types.ts instead of hardcoding provider strings.
+ */
+
+import { LLMProvider, LLMProviderKey, LocalModelFormat } from '../core/types';
 
 /**
  * Supported platforms for providers
@@ -13,10 +21,14 @@ export type ProviderPlatform = 'android' | 'ios' | 'web';
 export type ProviderCapability = 'llm' | 'embedding';
 
 /**
- * Provider display info type
- * Note: displayName and description are localized using t(`provider.${provider}`) and t(`provider.${provider}.description`)
+ * Complete provider configuration
+ * Includes display info, behavior settings, and default values
  */
-export interface ProviderDisplayInfo {
+export interface ProviderConfig {
+    /** Provider key (matches LLMProviderKey enum) */
+    id: LLMProvider;
+    /** Display name */
+    name: string;
     /** Icon name from Ionicons */
     icon: string;
     /** Theme color for the provider */
@@ -37,99 +49,18 @@ export interface ProviderDisplayInfo {
     isDeletable: boolean;
     /** Whether new instances of this provider can be added */
     isAddable: boolean;
+    /** Default base URL for remote providers */
+    defaultBaseUrl: string;
 }
 
 /**
- * Default provider configurations.
- * Users can use these as templates.
+ * PROVIDER_LIST - Single source of truth for all provider configuration
+ * Use LLMProviderKey enum to access entries
  */
-export const PROVIDER_PRESETS: Record<LLMProvider, Partial<LLMConfig>> = {
-    openai: {
+export const PROVIDER_LIST: Record<LLMProvider, ProviderConfig> = {
+    [LLMProviderKey.OpenAI]: {
+        id: LLMProviderKey.OpenAI,
         name: 'OpenAI',
-        provider: 'openai',
-        baseUrl: 'https://api.openai.com/v1',
-        defaultModel: 'gpt-4o',
-        supportsStreaming: true,
-        isLocal: false,
-        isEnabled: true,
-    },
-
-    'openai-spec': {
-        name: 'OpenAI Compatible',
-        provider: 'openai-spec',
-        baseUrl: '',
-        defaultModel: '',
-        supportsStreaming: true,
-        isLocal: false,
-        isEnabled: true,
-    },
-
-    anthropic: {
-        name: 'Anthropic Claude',
-        provider: 'anthropic',
-        baseUrl: 'https://api.anthropic.com/v1',
-        defaultModel: 'claude-3-5-sonnet-20241022',
-        supportsStreaming: true,
-        isLocal: false,
-        isEnabled: true,
-    },
-
-    ollama: {
-        name: 'Ollama (Local)',
-        provider: 'ollama',
-        baseUrl: 'http://localhost:11434',
-        defaultModel: '',
-        supportsStreaming: true,
-        isLocal: false,
-        isEnabled: true,
-    },
-
-    executorch: {
-        name: 'ExecuTorch (Local)',
-        provider: 'executorch',
-        baseUrl: '',
-        defaultModel: '',
-        supportsStreaming: false,
-        isLocal: true,
-        isEnabled: true,
-    },
-
-    'llama-rn': {
-        name: 'llama.rn (Local)',
-        provider: 'llama-rn',
-        baseUrl: '',
-        defaultModel: '',
-        supportsStreaming: true,
-        isLocal: true,
-        isEnabled: true,
-    },
-};
-
-/**
- * Popular models for each provider (fallback when API fetch fails)
- */
-export const POPULAR_MODELS: Record<LLMProvider, string[]> = {
-    openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-    'openai-spec': [],
-    anthropic: [
-        'claude-3-5-sonnet-20241022',
-        'claude-3-5-haiku-20241022',
-        'claude-3-opus-20240229',
-        'claude-3-sonnet-20240229',
-        'claude-3-haiku-20240307',
-    ],
-    ollama: [],
-    executorch: [],
-    'llama-rn': [],
-};
-
-/**
- * Provider display info
- * Note: For localized displayName use t(`provider.${provider}`)
- * Note: For localized description use t(`provider.${provider}.description`)
- */
-export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
-    openai: {
         icon: 'logo-openai',
         color: '#10a37f',
         urlEditable: false,
@@ -139,8 +70,11 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         capabilities: ['llm'],
         isDeletable: true,
         isAddable: true,
+        defaultBaseUrl: 'https://api.openai.com/v1',
     },
-    'openai-spec': {
+    [LLMProviderKey.OpenAISpec]: {
+        id: LLMProviderKey.OpenAISpec,
+        name: 'OpenAI Compatible',
         icon: 'server',
         color: '#8b5cf6',
         urlEditable: true,
@@ -150,8 +84,11 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         capabilities: ['llm'],
         isDeletable: true,
         isAddable: true,
+        defaultBaseUrl: '',
     },
-    anthropic: {
+    [LLMProviderKey.Anthropic]: {
+        id: LLMProviderKey.Anthropic,
+        name: 'Anthropic Claude',
         icon: 'chatbubbles',
         color: '#d4a27f',
         urlEditable: false,
@@ -161,8 +98,11 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         capabilities: ['llm'],
         isDeletable: true,
         isAddable: true,
+        defaultBaseUrl: 'https://api.anthropic.com/v1',
     },
-    ollama: {
+    [LLMProviderKey.Ollama]: {
+        id: LLMProviderKey.Ollama,
+        name: 'Ollama',
         icon: 'hardware-chip',
         color: '#6366f1',
         urlEditable: true,
@@ -172,8 +112,11 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         capabilities: ['llm', 'embedding'],
         isDeletable: true,
         isAddable: true,
+        defaultBaseUrl: 'http://localhost:11434',
     },
-    executorch: {
+    [LLMProviderKey.Executorch]: {
+        id: LLMProviderKey.Executorch,
+        name: 'ExecuTorch',
         icon: 'phone-portrait',
         color: '#0668E1',
         urlEditable: false,
@@ -184,8 +127,11 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         capabilities: ['llm', 'embedding'],
         isDeletable: false,
         isAddable: false,
+        defaultBaseUrl: '',
     },
-    'llama-rn': {
+    [LLMProviderKey.LlamaRN]: {
+        id: LLMProviderKey.LlamaRN,
+        name: 'Llama.cpp',
         icon: 'hardware-chip',
         color: '#FF6B35',
         urlEditable: false,
@@ -196,6 +142,7 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
         capabilities: ['llm', 'embedding'],
         isDeletable: false,
         isAddable: false,
+        defaultBaseUrl: '',
     },
 };
 
@@ -205,22 +152,61 @@ export const PROVIDER_INFO: Record<LLMProvider, ProviderDisplayInfo> = {
 
 /** Get all local providers (for Models screen Row 1 filter) */
 export const getLocalProviders = (): LLMProvider[] => {
-    return (Object.entries(PROVIDER_INFO) as [LLMProvider, ProviderDisplayInfo][])
-        .filter(([_, info]) => info.isLocal)
-        .map(([provider]) => provider);
+    return (Object.values(PROVIDER_LIST) as ProviderConfig[])
+        .filter((config) => config.isLocal)
+        .map((config) => config.id);
+};
+
+/** Get all remote providers */
+export const getRemoteProviders = (): LLMProvider[] => {
+    return (Object.values(PROVIDER_LIST) as ProviderConfig[])
+        .filter((config) => !config.isLocal)
+        .map((config) => config.id);
 };
 
 /** Get providers that support a specific capability */
 export const getProvidersByCapability = (capability: ProviderCapability): LLMProvider[] => {
-    return (Object.entries(PROVIDER_INFO) as [LLMProvider, ProviderDisplayInfo][])
-        .filter(([_, info]) => info.capabilities.includes(capability))
-        .map(([provider]) => provider);
+    return (Object.values(PROVIDER_LIST) as ProviderConfig[])
+        .filter((config) => config.capabilities.includes(capability))
+        .map((config) => config.id);
 };
 
 /** Get local providers that support a specific capability (for downloads/models) */
 export const getLocalProvidersByCapability = (capability: ProviderCapability): LLMProvider[] => {
-    return (Object.entries(PROVIDER_INFO) as [LLMProvider, ProviderDisplayInfo][])
-        .filter(([_, info]) => info.isLocal && info.capabilities.includes(capability))
-        .map(([provider]) => provider);
+    return (Object.values(PROVIDER_LIST) as ProviderConfig[])
+        .filter((config) => config.isLocal && config.capabilities.includes(capability))
+        .map((config) => config.id);
 };
 
+/** Check if a provider is local */
+export const isLocalProvider = (provider: LLMProvider): boolean => {
+    return PROVIDER_LIST[provider]?.isLocal ?? false;
+};
+
+/** Get provider config by key */
+export const getProviderConfig = (provider: LLMProvider): ProviderConfig => {
+    return PROVIDER_LIST[provider];
+};
+
+// ============================================================================
+// DEPRECATED - These are kept for backward compatibility during migration
+// Remove after all usages are updated
+// ============================================================================
+
+/** @deprecated Use PROVIDER_LIST instead */
+export const PROVIDER_INFO = PROVIDER_LIST;
+
+/** @deprecated Use PROVIDER_LIST[provider].name instead */
+export const PROVIDER_PRESETS: Record<LLMProvider, { name: string; provider: LLMProvider; baseUrl: string; isLocal: boolean; isEnabled: boolean }> =
+    Object.fromEntries(
+        Object.values(PROVIDER_LIST).map((config) => [
+            config.id,
+            {
+                name: config.name,
+                provider: config.id,
+                baseUrl: config.defaultBaseUrl,
+                isLocal: config.isLocal,
+                isEnabled: true,
+            },
+        ])
+    ) as any;

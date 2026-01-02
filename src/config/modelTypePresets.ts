@@ -6,9 +6,17 @@
  */
 
 /**
- * Model type identifier
+ * Model type keys - enum for type-safe model type references
  */
-export type ModelType = 'llm' | 'embedding';
+export enum ModelTypeKey {
+    LLM = 'llm',
+    Embedding = 'embedding',
+}
+
+/**
+ * Model type identifier (derived from enum)
+ */
+export type ModelType = `${ModelTypeKey}`;
 
 /**
  * Model type display info
