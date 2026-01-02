@@ -87,7 +87,7 @@ export function RAGProviderEditorScreen({ configId, provider: initialProvider, o
 
     // Get embedding models based on selected provider
     const localEmbeddingModels = downloadedModels.filter(m =>
-        (m.provider === 'executorch' || m.provider === 'llama-cpp') && m.type === 'embedding'
+        m.provider === provider && m.type === 'embedding'
     );
 
     // Use Ollama embedding models from store when Ollama is selected

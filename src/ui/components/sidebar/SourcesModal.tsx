@@ -81,6 +81,9 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                     if (!ready) {
                         setInitError('No RAG provider configured. Please configure one in Settings.');
                     }
+                } else {
+                    // Clear any previous error if we're now ready/stale
+                    setInitError(null);
                 }
             };
 
@@ -251,23 +254,24 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
             );
         }
 
-        if (initError || ragError) {
-            return (
-                <View style={[styles.statusBar, { backgroundColor: colors.error + '20' }]}>
-                    <Ionicons name="warning-outline" size={18} color={colors.error} />
-                    <Text style={[styles.statusText, { color: colors.error }]} numberOfLines={2}>
-                        {initError || ragError}
-                    </Text>
-                </View>
-            );
-        }
-
+        // Show ready status first (prioritize success over stale errors)
         if (isReady) {
             return (
                 <View style={[styles.statusBar, { backgroundColor: colors.success + '20' }]}>
                     <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
                     <Text style={[styles.statusText, { color: colors.success }]}>
                         {t('rag.ready')}
+                    </Text>
+                </View>
+            );
+        }
+
+        if (initError || ragError) {
+            return (
+                <View style={[styles.statusBar, { backgroundColor: colors.error + '20' }]}>
+                    <Ionicons name="warning-outline" size={18} color={colors.error} />
+                    <Text style={[styles.statusText, { color: colors.error }]} numberOfLines={2}>
+                        {initError || ragError}
                     </Text>
                 </View>
             );
