@@ -46,7 +46,7 @@ export function Footer() {
                                 </Link>
                             </li>
                             <li>
-                                <a href="https://github.com/your-repo/lmhub" target="_blank" rel="noopener noreferrer" className="text-foreground-secondary hover:text-foreground transition-colors">
+                                <a href="https://github.com/HarshalKudale/lmhub" target="_blank" rel="noopener noreferrer" className="text-foreground-secondary hover:text-foreground transition-colors">
                                     GitHub
                                 </a>
                             </li>

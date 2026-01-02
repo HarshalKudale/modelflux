@@ -16,21 +16,54 @@ export default function DocsLayout({
 
                     <nav className="space-y-6">
                         <div>
-                            <h3 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wider mb-2">Introduction</h3>
+                            <h3 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wider mb-2">Getting Started</h3>
                             <ul className="space-y-1">
                                 <li>
                                     <Link href="/docs" className="block px-3 py-2 text-sm text-foreground hover:bg-background rounded-md transition-colors font-medium">
-                                        Getting Started
+                                        Overview
+                                    </Link>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wider mb-2">Providers</h3>
+                            <ul className="space-y-1">
+                                <li>
+                                    <Link href="/docs/providers" className="block px-3 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background rounded-md transition-colors">
+                                        LLM Providers
                                     </Link>
                                 </li>
                                 <li>
-                                    <Link href="/docs#features" className="block px-3 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background rounded-md transition-colors">
-                                        Core Features
+                                    <Link href="/docs/local-models" className="block px-3 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background rounded-md transition-colors">
+                                        Local Models
                                     </Link>
                                 </li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wider mb-2">Features</h3>
+                            <ul className="space-y-1">
+                                <li>
+                                    <Link href="/docs/rag" className="block px-3 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background rounded-md transition-colors">
+                                        RAG & Sources
+                                    </Link>
+                                </li>
+                                <li>
+                                    <Link href="/docs/personas" className="block px-3 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background rounded-md transition-colors">
+                                        Personas
+                                    </Link>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div>
+                            <h3 className="text-sm font-semibold text-foreground-secondary uppercase tracking-wider mb-2">Reference</h3>
+                            <ul className="space-y-1">
                                 <li>
                                     <Link href="/docs#web-limitations" className="block px-3 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background rounded-md transition-colors">
-                                        Web Support
+                                        Web Limitations
                                     </Link>
                                 </li>
                             </ul>
