@@ -359,15 +359,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 messages: chatMessages,
                 model: currentModelId,
                 thinkingEnabled: conversation.thinkingEnabled,
-                // New callback-based streaming (decoupled from direct store access)
                 onToken: (content: string) => {
                     get().updateCurrentMessage(currentConversationId, content);
                 },
                 onThinking: (content: string) => {
                     get().updateCurrentThinkingMessage(currentConversationId, content);
                 },
-                // Deprecated - kept for compatibility
-                conversationId: currentConversationId,
             });
 
             // Wait for stream to complete - callbacks update currentMessageMap

@@ -1,6 +1,13 @@
 import { LLMConfig, LLMProvider } from '../types';
-import { anthropicProvider, ExecuTorchProvider, LlamaCppProvider, ollamaProvider, openAIProvider } from './providers';
-import { ILLMClient } from './types';
+import { aisdkProvider, ExecuTorchProvider, LlamaCppProvider } from './providers';
+
+// Unified interface for all providers
+interface ILLMClient {
+    sendMessageStream(request: import('./types').LLMRequest): AsyncGenerator<import('./types').LLMStreamChunk, void, unknown>;
+    interrupt(): void;
+    fetchModels(config: LLMConfig): Promise<string[]>;
+    testConnection(config: LLMConfig): Promise<boolean>;
+}
 
 // Create singleton instances of local providers
 const execuTorchProvider = new ExecuTorchProvider();
@@ -19,16 +26,11 @@ class LLMClientFactory implements ILLMClientFactory {
     getClient(config: LLMConfig): ILLMClient {
         switch (config.provider) {
             case 'openai':
-                // Official OpenAI API
-                return this.getOrCreate('openai', () => openAIProvider);
             case 'openai-spec':
-                // OpenAI-compatible API (uses same provider, just different URL)
-                return this.getOrCreate('openai-spec', () => openAIProvider);
             case 'anthropic':
-                // Anthropic Claude API
-                return this.getOrCreate('anthropic', () => anthropicProvider);
             case 'ollama':
-                return this.getOrCreate('ollama', () => ollamaProvider);
+                // All remote providers use AI SDK adapter
+                return aisdkProvider;
             case 'executorch':
                 // Local on-device provider using ExecuTorch
                 return this.getOrCreate('executorch', () => execuTorchProvider);
@@ -52,4 +54,3 @@ class LLMClientFactory implements ILLMClientFactory {
 }
 
 export const llmClientFactory = new LLMClientFactory();
-

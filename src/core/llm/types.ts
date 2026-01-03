@@ -21,9 +21,6 @@ export interface LLMRequest {
     signal?: AbortSignal;
     thinkingEnabled?: boolean;
 
-    // @deprecated Use onToken callback instead - kept for migration
-    conversationId?: string;
-
     /**
      * Callback invoked with accumulated content on each token.
      * Used by stores to update UI during streaming.
@@ -106,7 +103,7 @@ export class LLMError extends Error {
 
 /**
  * LLM Provider Interface
- * 
+ *
  * All providers must implement:
  * - sendMessageStream(): Main entry point, yields LLMStreamChunk
  * - interrupt(): Stops active generation (abort HTTP or stop native model)
@@ -132,9 +129,3 @@ export interface ILLMProvider {
     fetchModels(llmConfig: LLMConfig): Promise<string[]>;
     testConnection(llmConfig: LLMConfig): Promise<boolean>;
 }
-
-/**
- * Legacy aliases for backward compatibility
- */
-export type IRemoteProvider = ILLMProvider;
-export type ILLMClient = ILLMProvider;
