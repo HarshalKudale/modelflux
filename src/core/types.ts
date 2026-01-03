@@ -122,10 +122,14 @@ export interface Conversation {
 
     // Persona (immutable after creation)
     personaId?: string;
-    systemPrompt?: string;           // Compiled system prompt (immutable)
+    personaPrompt?: string;          // Persona-specific system prompt (empty if no persona)
+    contextPrompt?: string;          // RAG context instruction (set when sources first attached)
 
     // RAG sources (accumulates with each message)
     attachedSourceIds?: number[];    // Source IDs used in this conversation
+
+    // @deprecated Use personaPrompt instead - kept for migration compatibility
+    systemPrompt?: string;
 
     // Features
     thinkingEnabled?: boolean;
@@ -207,17 +211,38 @@ export interface Message {
 
 /**
  * Persona for customizing LLM behavior
+ * Based on Character Card V2 specification (simplified subset)
+ * @see https://github.com/malfoyslastname/character-card-spec-v2
  */
 export interface Persona {
+    // Identity
     id: string;
     name: string;
-    description?: string;
-    systemPrompt: string;
+
+    // Character Card V2 fields (simplified)
+    description: string;              // Character description/background
+    personality: string;              // Personality traits
+    scenario: string;                 // Roleplay scenario/setting
+
+    // Prompt fields
+    system_prompt: string;            // Base system prompt template
+    post_history_instructions: string; // Instructions placed after chat history (jailbreak/UJB)
+
+    // Metadata
+    creator_notes: string;            // Notes for users (NOT used in prompts)
+
+    // Pre-compiled prompt (LLMHub extension - generated at save time)
+    compiledSystemPrompt: string;
+
+    // Timestamps
+    createdAt: number;
+    updatedAt: number;
+
+    // @deprecated Legacy fields - kept for migration
+    systemPrompt?: string;            // Use system_prompt instead
     age?: string;
     location?: string;
     job?: string;
-    createdAt: number;
-    updatedAt: number;
 }
 
 

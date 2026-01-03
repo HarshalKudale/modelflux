@@ -131,47 +131,84 @@ function formatContextString(
 }
 
 /**
- * Compile system prompt for a new conversation.
+ * Compile system prompt for a persona.
  * 
- * Called at conversation creation time ONLY.
- * System prompt = persona details + persona prompt + context instruction
+ * Called when:
+ * 1. Persona is created/updated (stored in persona.compiledSystemPrompt)
+ * 2. Conversation is created without pre-compiled prompt (fallback)
+ * 
+ * Prompt structure (Character Card V2):
+ * - Personality traits
+ * - Scenario/setting
+ * - System prompt (main instructions)
+ * - Context instruction (RAG support)
+ * - Post-history instructions (at end of chat, before response)
  * 
  * @param persona - The persona (if any)
  * @returns Compiled system prompt
  */
-export function compileSystemPrompt(persona: Persona | null): string {
-    let systemContent = '';
-
-    if (persona) {
-        // Build persona details
-        const personaDetails: string[] = [];
-        if (persona.name) personaDetails.push(`Name: ${persona.name}`);
-        if (persona.age) personaDetails.push(`Age: ${persona.age}`);
-        if (persona.location) personaDetails.push(`Location: ${persona.location}`);
-        if (persona.job) personaDetails.push(`Job: ${persona.job}`);
-
-        systemContent = persona.systemPrompt || '';
-        if (personaDetails.length > 0) {
-            systemContent = `${personaDetails.join(', ')}\n\n${systemContent}`;
-        }
+export function compileSystemPrompt(persona: Persona | null, includeRagContext: boolean = true): string {
+    if (!persona) {
+        // No persona - return context instruction only if RAG sources are attached
+        return includeRagContext ? CONTEXT_INSTRUCTION : '';
     }
 
-    // Always append context instruction (sources may be added later)
-    systemContent = systemContent
-        ? `${systemContent}\n\n${CONTEXT_INSTRUCTION}`
-        : CONTEXT_INSTRUCTION;
+    const parts: string[] = [];
 
-    return systemContent;
+    // Character name and description
+    if (persona.name) {
+        parts.push(`You are ${persona.name}.`);
+    }
+    if (persona.description) {
+        parts.push(persona.description);
+    }
+
+    // Personality traits
+    if (persona.personality) {
+        parts.push(`Personality: ${persona.personality}`);
+    }
+
+    // Scenario/setting
+    if (persona.scenario) {
+        parts.push(`Scenario: ${persona.scenario}`);
+    }
+
+    // Main system prompt (V2 field or legacy field)
+    const mainPrompt = persona.system_prompt || persona.systemPrompt || '';
+    if (mainPrompt) {
+        parts.push(mainPrompt);
+    }
+
+    // Only append context instruction if RAG sources are attached
+    if (includeRagContext) {
+        parts.push(CONTEXT_INSTRUCTION);
+    }
+
+    // Post-history instructions are NOT added here - they go after chat history
+    // This is handled in prepareChatMessages
+
+    return parts.filter(p => p.trim()).join('\n\n');
+}
+
+/**
+ * Get post-history instructions from persona.
+ * These are placed after the chat history, before the model responds.
+ * 
+ * @param persona - The persona
+ * @returns Post-history instructions or empty string
+ */
+export function getPostHistoryInstructions(persona: Persona | null): string {
+    return persona?.post_history_instructions || '';
 }
 
 /**
  * Prepare ChatMessage array for LLM request.
  * 
  * This function:
- * 1. Adds system prompt from conversation at the top
+ * 1. Combines personaPrompt + contextPrompt from conversation as system prompt
  * 2. For each message, prefixes message.context with message.content using <context> tags
  * 
- * @param conversation - The conversation (contains systemPrompt)
+ * @param conversation - The conversation (contains personaPrompt, contextPrompt)
  * @param messages - Message history
  * @returns ChatMessage array ready for LLM
  */
@@ -181,11 +218,31 @@ export function prepareChatMessages(
 ): ChatMessage[] {
     const chatMessages: ChatMessage[] = [];
 
+    // Combine prompt parts from conversation
+    const promptParts: string[] = [];
+
+    // Add persona prompt (empty if no persona)
+    if (conversation.personaPrompt) {
+        promptParts.push(conversation.personaPrompt);
+    }
+
+    // Add context prompt (set when sources first attached)
+    if (conversation.contextPrompt) {
+        promptParts.push(conversation.contextPrompt);
+    }
+
+    // Fallback: check for legacy systemPrompt field (migration compatibility)
+    if (promptParts.length === 0 && conversation.systemPrompt) {
+        promptParts.push(conversation.systemPrompt);
+    }
+
+    const systemPromptContent = promptParts.join('\n\n');
+
     // Add system prompt at the top
-    if (conversation.systemPrompt) {
+    if (systemPromptContent) {
         chatMessages.push({
             role: 'system',
-            content: conversation.systemPrompt,
+            content: systemPromptContent,
         });
     }
 

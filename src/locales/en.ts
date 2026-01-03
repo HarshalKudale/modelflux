@@ -46,23 +46,40 @@ export const en: Record<string, string> = {
     "settings.import.failed": "Import Failed",
     "settings.about.title": "About",
 
-    // Personas
+    // Personas - Character Card V2
     "settings.personas.title": "Personas",
     "settings.personas.create": "Create Persona",
     "settings.personas.edit": "Edit Persona",
+
+    // Identity section
+    "settings.personas.identity": "Identity",
     "settings.personas.name": "Name",
     "settings.personas.namePlaceholder": "e.g., Creative Writer",
     "settings.personas.description": "Description",
-    "settings.personas.descriptionPlaceholder": "A brief description of this persona",
+    "settings.personas.descriptionPlaceholder": "Character background and description...",
+    "settings.personas.personality": "Personality",
+    "settings.personas.personalityPlaceholder": "e.g., Friendly, curious, helpful...",
+
+    // Scenario section
+    "settings.personas.scenarioSection": "Scenario",
+    "settings.personas.scenario": "Scenario",
+    "settings.personas.scenarioPlaceholder": "The setting or context for conversations...",
+
+    // Prompts section
+    "settings.personas.promptsSection": "Prompts",
     "settings.personas.systemPrompt": "System Prompt",
-    "settings.personas.systemPromptPlaceholder": "Describe how the AI should behave...",
-    "settings.personas.optionalDetails": "Optional Details",
-    "settings.personas.age": "Age",
-    "settings.personas.agePlaceholder": "e.g., 30",
-    "settings.personas.location": "Location",
-    "settings.personas.locationPlaceholder": "e.g., San Francisco",
-    "settings.personas.job": "Job",
-    "settings.personas.jobPlaceholder": "e.g., Software Engineer",
+    "settings.personas.systemPromptPlaceholder": "Main instructions for the AI behavior...",
+    "settings.personas.postHistoryInstructions": "Post-History Instructions",
+    "settings.personas.postHistoryInstructionsPlaceholder": "Instructions placed after chat history...",
+    "settings.personas.characters": "characters",
+
+    // Metadata section
+    "settings.personas.metadataSection": "Metadata",
+    "settings.personas.creatorNotes": "Creator Notes",
+    "settings.personas.creatorNotesPlaceholder": "Notes for users about this persona...",
+    "settings.personas.creatorNotesHint": "These notes are for reference only and not used in prompts.",
+
+    // List/management
     "settings.personas.empty": "No personas yet",
     "settings.personas.count": "{count} persona(s) configured",
     "settings.personas.delete.title": "Delete Persona",
@@ -73,6 +90,7 @@ export const en: Record<string, string> = {
     "settings.personas.emptyState.title": "No personas yet",
     "settings.personas.emptyState.description": "Add your first persona to customize how the AI behaves.",
     "settings.personas.emptyState.cta": "Create Persona",
+
 
 
 

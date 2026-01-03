@@ -17,7 +17,7 @@ import { useAppColorScheme, useLocale } from '../../hooks';
 interface PersonaEditorModalProps {
     visible: boolean;
     persona?: Persona | null;
-    onSave: (personaData: Omit<Persona, 'id' | 'createdAt' | 'updatedAt'>) => void;
+    onSave: (personaData: Omit<Persona, 'id' | 'createdAt' | 'updatedAt' | 'compiledSystemPrompt'>) => void;
     onClose: () => void;
 }
 
@@ -31,38 +31,47 @@ export function PersonaEditorModal({
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
+    // Form state - Character Card V2 fields
     const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [personality, setPersonality] = useState('');
+    const [scenario, setScenario] = useState('');
     const [systemPrompt, setSystemPrompt] = useState('');
-    const [age, setAge] = useState('');
-    const [location, setLocation] = useState('');
-    const [job, setJob] = useState('');
+    const [postHistoryInstructions, setPostHistoryInstructions] = useState('');
+    const [creatorNotes, setCreatorNotes] = useState('');
 
     useEffect(() => {
         if (persona) {
             setName(persona.name);
-            setSystemPrompt(persona.systemPrompt);
-            setAge(persona.age || '');
-            setLocation(persona.location || '');
-            setJob(persona.job || '');
+            setDescription(persona.description || '');
+            setPersonality(persona.personality || '');
+            setScenario(persona.scenario || '');
+            setSystemPrompt(persona.system_prompt || persona.systemPrompt || '');
+            setPostHistoryInstructions(persona.post_history_instructions || '');
+            setCreatorNotes(persona.creator_notes || '');
         } else {
             setName('');
+            setDescription('');
+            setPersonality('');
+            setScenario('');
             setSystemPrompt('');
-            setAge('');
-            setLocation('');
-            setJob('');
+            setPostHistoryInstructions('');
+            setCreatorNotes('');
         }
     }, [persona, visible]);
 
-    const isValid = name.trim() && systemPrompt.trim();
+    const isValid = name.trim().length > 0;
 
     const handleSave = () => {
         if (!isValid) return;
         onSave({
             name: name.trim(),
-            systemPrompt: systemPrompt.trim(),
-            age: age.trim() || undefined,
-            location: location.trim() || undefined,
-            job: job.trim() || undefined,
+            description: description.trim(),
+            personality: personality.trim(),
+            scenario: scenario.trim(),
+            system_prompt: systemPrompt.trim(),
+            post_history_instructions: postHistoryInstructions.trim(),
+            creator_notes: creatorNotes.trim(),
         });
     };
 
@@ -95,6 +104,11 @@ export function PersonaEditorModal({
                     </View>
 
                     <ScrollView style={styles.form} contentContainerStyle={styles.formContent}>
+                        {/* Identity Section */}
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                            {t('settings.personas.identity')}
+                        </Text>
+
                         {/* Name - Required */}
                         <View style={styles.field}>
                             <Text style={[styles.label, { color: colors.text }]}>
@@ -116,10 +130,10 @@ export function PersonaEditorModal({
                             />
                         </View>
 
-                        {/* System Prompt - Required */}
+                        {/* Description */}
                         <View style={styles.field}>
                             <Text style={[styles.label, { color: colors.text }]}>
-                                {t('settings.personas.systemPrompt')} *
+                                {t('settings.personas.description')}
                             </Text>
                             <TextInput
                                 style={[
@@ -128,6 +142,88 @@ export function PersonaEditorModal({
                                         backgroundColor: colors.backgroundSecondary,
                                         color: colors.text,
                                         borderColor: colors.border,
+                                    },
+                                ]}
+                                value={description}
+                                onChangeText={setDescription}
+                                placeholder={t('settings.personas.descriptionPlaceholder')}
+                                placeholderTextColor={colors.textMuted}
+                                multiline
+                                numberOfLines={2}
+                                textAlignVertical="top"
+                            />
+                        </View>
+
+                        {/* Personality */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, { color: colors.text }]}>
+                                {t('settings.personas.personality')}
+                            </Text>
+                            <TextInput
+                                style={[
+                                    styles.textArea,
+                                    {
+                                        backgroundColor: colors.backgroundSecondary,
+                                        color: colors.text,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                                value={personality}
+                                onChangeText={setPersonality}
+                                placeholder={t('settings.personas.personalityPlaceholder')}
+                                placeholderTextColor={colors.textMuted}
+                                multiline
+                                numberOfLines={2}
+                                textAlignVertical="top"
+                            />
+                        </View>
+
+                        {/* Scenario Section */}
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                            {t('settings.personas.scenarioSection')}
+                        </Text>
+
+                        <View style={styles.field}>
+                            <Text style={[styles.label, { color: colors.text }]}>
+                                {t('settings.personas.scenario')}
+                            </Text>
+                            <TextInput
+                                style={[
+                                    styles.textArea,
+                                    {
+                                        backgroundColor: colors.backgroundSecondary,
+                                        color: colors.text,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                                value={scenario}
+                                onChangeText={setScenario}
+                                placeholder={t('settings.personas.scenarioPlaceholder')}
+                                placeholderTextColor={colors.textMuted}
+                                multiline
+                                numberOfLines={2}
+                                textAlignVertical="top"
+                            />
+                        </View>
+
+                        {/* Prompts Section */}
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                            {t('settings.personas.promptsSection')}
+                        </Text>
+
+                        {/* System Prompt */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, { color: colors.text }]}>
+                                {t('settings.personas.systemPrompt')}
+                            </Text>
+                            <TextInput
+                                style={[
+                                    styles.textArea,
+                                    {
+                                        backgroundColor: colors.backgroundSecondary,
+                                        color: colors.text,
+                                        borderColor: colors.border,
+                                        minHeight: 100,
                                     },
                                 ]}
                                 value={systemPrompt}
@@ -140,69 +236,60 @@ export function PersonaEditorModal({
                             />
                         </View>
 
-                        {/* Optional Fields */}
+                        {/* Post History Instructions */}
+                        <View style={styles.field}>
+                            <Text style={[styles.label, { color: colors.text }]}>
+                                {t('settings.personas.postHistoryInstructions')}
+                            </Text>
+                            <TextInput
+                                style={[
+                                    styles.textArea,
+                                    {
+                                        backgroundColor: colors.backgroundSecondary,
+                                        color: colors.text,
+                                        borderColor: colors.border,
+                                    },
+                                ]}
+                                value={postHistoryInstructions}
+                                onChangeText={setPostHistoryInstructions}
+                                placeholder={t('settings.personas.postHistoryInstructionsPlaceholder')}
+                                placeholderTextColor={colors.textMuted}
+                                multiline
+                                numberOfLines={2}
+                                textAlignVertical="top"
+                            />
+                        </View>
+
+                        {/* Metadata Section */}
                         <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
-                            {t('settings.personas.optionalDetails')}
+                            {t('settings.personas.metadataSection')}
                         </Text>
 
+                        {/* Creator Notes */}
                         <View style={styles.field}>
                             <Text style={[styles.label, { color: colors.text }]}>
-                                {t('settings.personas.age')}
+                                {t('settings.personas.creatorNotes')}
                             </Text>
                             <TextInput
                                 style={[
-                                    styles.input,
+                                    styles.textArea,
                                     {
                                         backgroundColor: colors.backgroundSecondary,
                                         color: colors.text,
                                         borderColor: colors.border,
                                     },
                                 ]}
-                                value={age}
-                                onChangeText={setAge}
-                                placeholder={t('settings.personas.agePlaceholder')}
+                                value={creatorNotes}
+                                onChangeText={setCreatorNotes}
+                                placeholder={t('settings.personas.creatorNotesPlaceholder')}
                                 placeholderTextColor={colors.textMuted}
+                                multiline
+                                numberOfLines={2}
+                                textAlignVertical="top"
                             />
-                        </View>
-
-                        <View style={styles.field}>
-                            <Text style={[styles.label, { color: colors.text }]}>
-                                {t('settings.personas.location')}
+                            <Text style={[styles.hint, { color: colors.textMuted }]}>
+                                {t('settings.personas.creatorNotesHint')}
                             </Text>
-                            <TextInput
-                                style={[
-                                    styles.input,
-                                    {
-                                        backgroundColor: colors.backgroundSecondary,
-                                        color: colors.text,
-                                        borderColor: colors.border,
-                                    },
-                                ]}
-                                value={location}
-                                onChangeText={setLocation}
-                                placeholder={t('settings.personas.locationPlaceholder')}
-                                placeholderTextColor={colors.textMuted}
-                            />
-                        </View>
-
-                        <View style={styles.field}>
-                            <Text style={[styles.label, { color: colors.text }]}>
-                                {t('settings.personas.job')}
-                            </Text>
-                            <TextInput
-                                style={[
-                                    styles.input,
-                                    {
-                                        backgroundColor: colors.backgroundSecondary,
-                                        color: colors.text,
-                                        borderColor: colors.border,
-                                    },
-                                ]}
-                                value={job}
-                                onChangeText={setJob}
-                                placeholder={t('settings.personas.jobPlaceholder')}
-                                placeholderTextColor={colors.textMuted}
-                            />
                         </View>
                     </ScrollView>
 
@@ -246,7 +333,7 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         width: Math.min(width - 32, 500),
-        maxHeight: height * 0.8,
+        maxHeight: height * 0.85,
         borderRadius: BorderRadius.lg,
         overflow: 'hidden',
     },
@@ -295,12 +382,16 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.md,
     },
     textArea: {
-        minHeight: 100,
+        minHeight: 60,
         borderRadius: BorderRadius.md,
         borderWidth: 1,
         paddingHorizontal: Spacing.md,
         paddingVertical: Spacing.sm,
         fontSize: FontSizes.md,
+    },
+    hint: {
+        fontSize: FontSizes.xs,
+        marginTop: Spacing.xs,
     },
     footer: {
         flexDirection: 'row',

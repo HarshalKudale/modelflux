@@ -5,6 +5,7 @@ import { Conversation, Message, generateId } from '../core/types';
 import { isLocalProvider, useExecutorchLLMStore } from './executorchLLMStore';
 import { useLLMStore } from './llmStore';
 import {
+    CONTEXT_INSTRUCTION,
     compileSystemPrompt,
     prepareChatMessages
 } from './messageHelpers';
@@ -88,11 +89,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         const modelId = model || providerConfig?.defaultModel || '';
         const providerType = providerConfig?.provider || 'openai';
 
-        // Compile system prompt from persona (always includes context instruction)
+        // Get persona prompt (without RAG context instruction)
         const persona = personaId
             ? usePersonaStore.getState().personas.find(p => p.id === personaId) || null
             : null;
-        const systemPrompt = compileSystemPrompt(persona);
+        // Use pre-compiled prompt if available, otherwise generate (for legacy personas)
+        const personaPrompt = persona?.compiledSystemPrompt || compileSystemPrompt(persona, false);
 
         const now = Date.now();
         const conversation: Conversation = {
@@ -105,7 +107,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             modelId,
             providerType,
             personaId,
-            systemPrompt,
+            personaPrompt: personaPrompt || undefined,  // Persona prompt (empty if no persona)
+            contextPrompt: undefined,                    // RAG context (set when sources first attached)
             // Deprecated fields for migration compatibility
             activeLLMId: providerId,
             activeModel: modelId,
@@ -269,9 +272,28 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
         // Generate RAG context if sources are selected - RAG store handles lazy init internally
         let contextResult = { contextMap: {} as Record<number, string>, contextString: '' };
+        let updatedConversation = conversation;
 
         if (selectedSourceIds && selectedSourceIds.length > 0) {
             contextResult = await useRAGRuntimeStore.getState().generateContext(content, selectedSourceIds);
+
+            // Set contextPrompt on conversation if not already set (first time sources attached)
+            if (!conversation.contextPrompt) {
+                try {
+                    updatedConversation = await conversationRepository.update({
+                        ...conversation,
+                        contextPrompt: CONTEXT_INSTRUCTION,
+                    });
+                    set((state) => ({
+                        conversations: state.conversations.map((c) =>
+                            c.id === currentConversationId ? updatedConversation : c
+                        ),
+                    }));
+                    console.log('[conversationStore] Set contextPrompt on conversation (first source attached)');
+                } catch (error) {
+                    console.error('[conversationStore] Failed to update contextPrompt:', error);
+                }
+            }
         }
 
         // Create user message - context stored in message.context field
@@ -314,8 +336,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 await get().updateConversationTitle(currentConversationId, title);
             }
 
-            // Build chat messages using helper (pulls systemPrompt from conversation)
-            const chatMessages = prepareChatMessages(conversation, currentMessages);
+            // Build chat messages using helper (uses updated conversation with contextPrompt)
+            const chatMessages = prepareChatMessages(updatedConversation, currentMessages);
 
             const client = llmClientFactory.getClient(llmConfig);
             // Store reference for interrupt calls

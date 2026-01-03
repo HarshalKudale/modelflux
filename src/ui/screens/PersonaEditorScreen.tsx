@@ -32,13 +32,14 @@ export function PersonaEditorScreen({ personaId, onBack }: PersonaEditorScreenPr
     const isEditing = Boolean(personaId);
     const existingPersona = personaId ? getPersonaById(personaId) : null;
 
-    // Form state
+    // Form state - Character Card V2 fields
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
+    const [personality, setPersonality] = useState('');
+    const [scenario, setScenario] = useState('');
     const [systemPrompt, setSystemPrompt] = useState('');
-    const [age, setAge] = useState('');
-    const [location, setLocation] = useState('');
-    const [job, setJob] = useState('');
+    const [postHistoryInstructions, setPostHistoryInstructions] = useState('');
+    const [creatorNotes, setCreatorNotes] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     // Initialize form with existing persona
@@ -46,18 +47,20 @@ export function PersonaEditorScreen({ personaId, onBack }: PersonaEditorScreenPr
         if (existingPersona) {
             setName(existingPersona.name);
             setDescription(existingPersona.description || '');
-            setSystemPrompt(existingPersona.systemPrompt);
-            setAge(existingPersona.age || '');
-            setLocation(existingPersona.location || '');
-            setJob(existingPersona.job || '');
+            setPersonality(existingPersona.personality || '');
+            setScenario(existingPersona.scenario || '');
+            // Support both V2 and legacy field
+            setSystemPrompt(existingPersona.system_prompt || existingPersona.systemPrompt || '');
+            setPostHistoryInstructions(existingPersona.post_history_instructions || '');
+            setCreatorNotes(existingPersona.creator_notes || '');
         }
     }, [existingPersona]);
 
-    const isValid = name.trim() && systemPrompt.trim();
+    const isValid = name.trim().length > 0;
 
     const handleSave = async () => {
         if (!isValid) {
-            showError(t('common.error'), t('settings.personas.name') + ' and ' + t('settings.personas.systemPrompt') + ' are required.');
+            showError(t('common.error'), t('settings.personas.name') + ' is required.');
             return;
         }
 
@@ -66,11 +69,12 @@ export function PersonaEditorScreen({ personaId, onBack }: PersonaEditorScreenPr
         try {
             const personaData = {
                 name: name.trim(),
-                description: description.trim() || undefined,
-                systemPrompt: systemPrompt.trim(),
-                age: age.trim() || undefined,
-                location: location.trim() || undefined,
-                job: job.trim() || undefined,
+                description: description.trim(),
+                personality: personality.trim(),
+                scenario: scenario.trim(),
+                system_prompt: systemPrompt.trim(),
+                post_history_instructions: postHistoryInstructions.trim(),
+                creator_notes: creatorNotes.trim(),
             };
 
             if (isEditing && existingPersona) {
@@ -112,6 +116,11 @@ export function PersonaEditorScreen({ personaId, onBack }: PersonaEditorScreenPr
                 style={styles.keyboardView}
             >
                 <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+                    {/* Identity Section */}
+                    <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                        {t('settings.personas.identity')}
+                    </Text>
+
                     {/* Name - Required */}
                     <Input
                         label={`${t('settings.personas.name')} *`}
@@ -120,22 +129,53 @@ export function PersonaEditorScreen({ personaId, onBack }: PersonaEditorScreenPr
                         placeholder={t('settings.personas.namePlaceholder')}
                     />
 
-                    {/* Description - Optional */}
+                    {/* Description */}
                     <Input
                         label={t('settings.personas.description')}
                         value={description}
                         onChangeText={setDescription}
                         placeholder={t('settings.personas.descriptionPlaceholder')}
+                        multiline
+                        numberOfLines={3}
                     />
 
-                    {/* System Prompt - Required */}
+                    {/* Personality */}
+                    <Input
+                        label={t('settings.personas.personality')}
+                        value={personality}
+                        onChangeText={setPersonality}
+                        placeholder={t('settings.personas.personalityPlaceholder')}
+                        multiline
+                        numberOfLines={2}
+                    />
+
+                    {/* Scenario Section */}
+                    <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                        {t('settings.personas.scenarioSection')}
+                    </Text>
+
+                    <Input
+                        label={t('settings.personas.scenario')}
+                        value={scenario}
+                        onChangeText={setScenario}
+                        placeholder={t('settings.personas.scenarioPlaceholder')}
+                        multiline
+                        numberOfLines={3}
+                    />
+
+                    {/* Prompts Section */}
+                    <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                        {t('settings.personas.promptsSection')}
+                    </Text>
+
+                    {/* System Prompt */}
                     <View style={styles.promptSection}>
                         <View style={styles.promptHeader}>
                             <Text style={[styles.label, { color: colors.text }]}>
-                                {t('settings.personas.systemPrompt')} *
+                                {t('settings.personas.systemPrompt')}
                             </Text>
                             <Text style={[styles.charCount, { color: colors.textMuted }]}>
-                                {systemPrompt.length} characters
+                                {systemPrompt.length} {t('settings.personas.characters')}
                             </Text>
                         </View>
                         <Input
@@ -147,31 +187,33 @@ export function PersonaEditorScreen({ personaId, onBack }: PersonaEditorScreenPr
                         />
                     </View>
 
-                    {/* Optional Details Section */}
+                    {/* Post History Instructions (jailbreak/UJB) */}
+                    <Input
+                        label={t('settings.personas.postHistoryInstructions')}
+                        value={postHistoryInstructions}
+                        onChangeText={setPostHistoryInstructions}
+                        placeholder={t('settings.personas.postHistoryInstructionsPlaceholder')}
+                        multiline
+                        numberOfLines={3}
+                    />
+
+                    {/* Metadata Section */}
                     <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
-                        {t('settings.personas.optionalDetails')}
+                        {t('settings.personas.metadataSection')}
                     </Text>
 
+                    {/* Creator Notes */}
                     <Input
-                        label={t('settings.personas.age')}
-                        value={age}
-                        onChangeText={setAge}
-                        placeholder={t('settings.personas.agePlaceholder')}
+                        label={t('settings.personas.creatorNotes')}
+                        value={creatorNotes}
+                        onChangeText={setCreatorNotes}
+                        placeholder={t('settings.personas.creatorNotesPlaceholder')}
+                        multiline
+                        numberOfLines={3}
                     />
-
-                    <Input
-                        label={t('settings.personas.location')}
-                        value={location}
-                        onChangeText={setLocation}
-                        placeholder={t('settings.personas.locationPlaceholder')}
-                    />
-
-                    <Input
-                        label={t('settings.personas.job')}
-                        value={job}
-                        onChangeText={setJob}
-                        placeholder={t('settings.personas.jobPlaceholder')}
-                    />
+                    <Text style={[styles.hint, { color: colors.textMuted }]}>
+                        {t('settings.personas.creatorNotesHint')}
+                    </Text>
                 </ScrollView>
 
                 {/* Sticky Bottom Action Bar */}
@@ -219,6 +261,7 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         padding: Spacing.md,
+        paddingBottom: Spacing.xl,
     },
     promptSection: {
         marginBottom: Spacing.md,
@@ -241,7 +284,12 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
-        marginTop: Spacing.sm,
+        marginTop: Spacing.lg,
+        marginBottom: Spacing.md,
+    },
+    hint: {
+        fontSize: FontSizes.xs,
+        marginTop: -Spacing.sm,
         marginBottom: Spacing.md,
     },
     bottomBar: {

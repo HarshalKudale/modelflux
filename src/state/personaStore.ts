@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { personaRepository } from '../core/storage';
 import { Persona, generateId } from '../core/types';
+import { compileSystemPrompt } from './messageHelpers';
 
 interface PersonaStoreState {
     personas: Persona[];
@@ -10,7 +11,7 @@ interface PersonaStoreState {
 
 interface PersonaStoreActions {
     loadPersonas: () => Promise<void>;
-    createPersona: (persona: Omit<Persona, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Persona>;
+    createPersona: (persona: Omit<Persona, 'id' | 'createdAt' | 'updatedAt' | 'compiledSystemPrompt'>) => Promise<Persona>;
     updatePersona: (persona: Persona) => Promise<void>;
     deletePersona: (id: string) => Promise<void>;
     getPersonaById: (id: string) => Persona | undefined;
@@ -41,11 +42,21 @@ export const usePersonaStore = create<PersonaStore>((set, get) => ({
 
     createPersona: async (personaData) => {
         const now = Date.now();
-        const persona: Persona = {
+
+        // Build persona with compiled system prompt
+        const personaWithoutCompiled = {
             ...personaData,
             id: generateId(),
             createdAt: now,
             updatedAt: now,
+            compiledSystemPrompt: '', // Placeholder
+        } as Persona;
+
+        // Generate compiled system prompt (without RAG context - sources are conversation-specific)
+        const compiledSystemPrompt = compileSystemPrompt(personaWithoutCompiled, false);
+        const persona: Persona = {
+            ...personaWithoutCompiled,
+            compiledSystemPrompt,
         };
 
         try {
@@ -64,7 +75,14 @@ export const usePersonaStore = create<PersonaStore>((set, get) => ({
 
     updatePersona: async (persona) => {
         try {
-            const updated = await personaRepository.update(persona);
+            // Regenerate compiled system prompt on every update (without RAG context - sources are conversation-specific)
+            const compiledSystemPrompt = compileSystemPrompt(persona, false);
+            const personaWithCompiledPrompt = {
+                ...persona,
+                compiledSystemPrompt,
+            };
+
+            const updated = await personaRepository.update(personaWithCompiledPrompt);
             set((state) => ({
                 personas: state.personas.map((p) => (p.id === persona.id ? updated : p)),
             }));
