@@ -5,6 +5,7 @@ import * as Sharing from 'expo-sharing';
 import { Platform, Share } from 'react-native';
 import { conversationRepository, llmConfigRepository, messageRepository, personaRepository, settingsRepository } from '../core/storage';
 import { AppSettings, Conversation, LLMConfig, Message, Persona } from '../core/types';
+import { logger } from './LoggerService.native';
 
 /**
  * Export data structure
@@ -75,7 +76,7 @@ class DataExportService {
                 file.create();
                 file.write(jsonString);
 
-                console.log('File written to:', file.uri);
+                logger.log('DataExport', 'File written to:', file.uri);
 
                 // Share the file
                 await Sharing.shareAsync(file.uri, {
@@ -86,7 +87,7 @@ class DataExportService {
 
                 return 'File shared';
             } catch (error) {
-                console.log('File export failed:', error);
+                logger.warn('DataExport', 'File export failed, using fallback:', error);
                 // Fallback to Share API with text
                 await Share.share({
                     message: jsonString,
@@ -138,7 +139,7 @@ class DataExportService {
                 stats,
             };
         } catch (error) {
-            console.error('Import error:', error);
+            logger.error('DataExport', 'Import error:', error);
             return {
                 success: false,
                 message: error instanceof Error ? error.message : 'Import failed',
@@ -168,7 +169,7 @@ class DataExportService {
                 }
                 stats.llmConfigs++;
             } catch (error) {
-                console.error('Failed to import config:', config.id, error);
+                logger.error('DataExport', 'Failed to import config:', config.id, error);
             }
         }
 
@@ -183,7 +184,7 @@ class DataExportService {
                 }
                 stats.conversations++;
             } catch (error) {
-                console.error('Failed to import conversation:', conv.id, error);
+                logger.error('DataExport', 'Failed to import conversation:', conv.id, error);
             }
         }
 
@@ -198,7 +199,7 @@ class DataExportService {
                 }
                 stats.messages++;
             } catch (error) {
-                console.error('Failed to import message:', msg.id, error);
+                logger.error('DataExport', 'Failed to import message:', msg.id, error);
             }
         }
 
@@ -207,7 +208,7 @@ class DataExportService {
             try {
                 await settingsRepository.update(data.settings);
             } catch (error) {
-                console.error('Failed to import settings:', error);
+                logger.error('DataExport', 'Failed to import settings:', error);
             }
         }
 
@@ -223,7 +224,7 @@ class DataExportService {
                     }
                     stats.personas++;
                 } catch (error) {
-                    console.error('Failed to import persona:', persona.id, error);
+                    logger.error('DataExport', 'Failed to import persona:', persona.id, error);
                 }
             }
         }

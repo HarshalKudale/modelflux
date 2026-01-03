@@ -25,7 +25,7 @@ type ScreenType =
     | 'model-list'
     | 'persona-list'
     | 'persona-editor'
-
+    | 'logs'
     | 'language-select'
     | 'rag-settings'
     | 'rag-provider-list'
@@ -281,6 +281,24 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                         ) : (
                             <Ionicons name="cloud-upload-outline" size={20} color={colors.textMuted} />
                         )}
+                    </TouchableOpacity>
+                </SettingsSection>
+
+                {/* ===== DEVELOPER SECTION ===== */}
+                <SettingsSection title={t('settings.developer.title')}>
+                    <TouchableOpacity
+                        style={[styles.settingItem, styles.linkItem]}
+                        onPress={() => onNavigate('logs')}
+                    >
+                        <View style={styles.settingInfo}>
+                            <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                {t('settings.developer.logs')}
+                            </Text>
+                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                {t('settings.developer.logsDesc')}
+                            </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                     </TouchableOpacity>
                 </SettingsSection>
 

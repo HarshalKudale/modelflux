@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { DownloadableModel } from '../config/downloadableModels';
 import { downloadedModelRepository } from '../core/storage';
 import { DownloadedModel } from '../core/types';
+import { logger } from '../services/LoggerService.native';
 import {
     cancelDownload as cancelDownloadService,
     deleteDownloadedModel as deleteDownloadedModelService,
@@ -85,7 +86,7 @@ export const useModelDownloadStore = create<ModelDownloadState>((set, get) => {
                 const completedModels = models.filter((m) => m.status === 'completed');
                 set({ downloadedModels: completedModels, isLoading: false });
             } catch (error) {
-                console.error('[ModelDownloadStore] Failed to load downloaded models:', error);
+                logger.error('ModelDownloadStore', 'Failed to load downloaded models:', error);
                 set({ isLoading: false });
             }
         },
@@ -95,13 +96,13 @@ export const useModelDownloadStore = create<ModelDownloadState>((set, get) => {
 
             // Check if already downloading
             if (activeDownloads.some((d) => d.modelId === model.id)) {
-                console.log('[ModelDownloadStore] Model already downloading:', model.id);
+                logger.log('ModelDownloadStore', 'Model already downloading:', model.id);
                 return;
             }
 
             // Check if already downloaded
             if (get().isDownloaded(model.id)) {
-                console.log('[ModelDownloadStore] Model already downloaded:', model.id);
+                logger.log('ModelDownloadStore', 'Model already downloaded:', model.id);
                 return;
             }
 

@@ -317,4 +317,15 @@ export const en: Record<string, string> = {
     "rag.initRequiredHint": "Configure a RAG provider in settings first",
     "rag.initializing": "Initializing embedding model...",
     "rag.ready": "RAG ready",
+
+    // Developer / Logs
+    "settings.developer.title": "Developer",
+    "settings.developer.logs": "View Logs",
+    "settings.developer.logsDesc": "View and share application logs",
+    "logs.title": "Logs",
+    "logs.share": "Share",
+    "logs.clear": "Clear",
+    "logs.empty": "No logs yet",
+    "logs.cleared": "Logs cleared",
+    "logs.count": "{count} log entries",
 };

@@ -10,6 +10,7 @@
 
 import { fetch } from 'expo/fetch';
 import { create } from 'zustand';
+import { logger } from '../services/LoggerService.native';
 
 interface OllamaModelInfo {
     name: string;
@@ -74,12 +75,12 @@ export const useOllamaModelStore = create<OllamaModelStore>((set, get) => ({
     fetchAndClassifyModels: async (baseUrl: string, headers?: Record<string, string>) => {
         // Only fetch once per app session
         if (get().hasFetched || get().isFetching) {
-            console.log('[OllamaModelStore] Already fetched or fetching, skipping');
+            logger.debug('OllamaModelStore', 'Already fetched or fetching, skipping');
             return;
         }
 
         set({ isFetching: true, error: null });
-        console.log('[OllamaModelStore] Fetching models from:', baseUrl);
+        logger.log('OllamaModelStore', 'Fetching models from:', baseUrl);
 
         try {
             // Step 1: Fetch all models via /api/tags
@@ -98,7 +99,7 @@ export const useOllamaModelStore = create<OllamaModelStore>((set, get) => ({
             const tagsData = await tagsResponse.json();
             const models: { name: string }[] = tagsData.models || [];
 
-            console.log('[OllamaModelStore] Found', models.length, 'models');
+            logger.log('OllamaModelStore', 'Found', models.length, 'models');
 
             // Step 2: Get capabilities for each model via /api/show
             const completionModels: string[] = [];
@@ -116,7 +117,7 @@ export const useOllamaModelStore = create<OllamaModelStore>((set, get) => ({
                     });
 
                     if (!showResponse.ok) {
-                        console.warn('[OllamaModelStore] Failed to get info for:', model.name);
+                        logger.warn('OllamaModelStore', 'Failed to get info for:', model.name);
                         // Default to completion if we can't determine capabilities
                         completionModels.push(model.name);
                         continue;
@@ -125,7 +126,7 @@ export const useOllamaModelStore = create<OllamaModelStore>((set, get) => ({
                     const showData = await showResponse.json();
                     const capabilities: string[] = showData.capabilities || [];
 
-                    console.log('[OllamaModelStore] Model:', model.name, 'capabilities:', capabilities);
+                    logger.debug('OllamaModelStore', 'Model:', model.name, 'capabilities:', capabilities);
 
                     // Classify based on capabilities
                     if (capabilities.includes('embedding')) {
@@ -140,7 +141,7 @@ export const useOllamaModelStore = create<OllamaModelStore>((set, get) => ({
                         completionModels.push(model.name);
                     }
                 } catch (error) {
-                    console.warn('[OllamaModelStore] Error fetching model info:', model.name, error);
+                    logger.warn('OllamaModelStore', 'Error fetching model info:', model.name, error);
                     // Default to completion on error
                     completionModels.push(model.name);
                 }
@@ -153,11 +154,11 @@ export const useOllamaModelStore = create<OllamaModelStore>((set, get) => ({
                 hasFetched: true,
             });
 
-            console.log('[OllamaModelStore] Classification complete:',
+            logger.log('OllamaModelStore', 'Classification complete:',
                 completionModels.length, 'completion,',
                 embeddingModels.length, 'embedding');
         } catch (error) {
-            console.error('[OllamaModelStore] Error fetching models:', error);
+            logger.error('OllamaModelStore', 'Error fetching models:', error);
             set({
                 error: error instanceof Error ? error.message : 'Failed to fetch Ollama models',
                 isFetching: false,
@@ -171,7 +172,7 @@ export const useOllamaModelStore = create<OllamaModelStore>((set, get) => ({
     getEmbeddingModels: () => get().embeddingModels,
 
     reset: () => {
-        console.log('[OllamaModelStore] Resetting store');
+        logger.debug('OllamaModelStore', 'Resetting store');
         set(initialState);
     },
 

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { LLMError, llmClientFactory } from '../core/llm';
 import { conversationRepository, messageRepository } from '../core/storage';
 import { Conversation, Message, generateId } from '../core/types';
+import { logger } from '../services/LoggerService.native';
 import { isLocalProvider, useExecutorchLLMStore } from './executorchLLMStore';
 import { useLLMStore } from './llmStore';
 import {
@@ -149,7 +150,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                     // Get currently loaded local model from executorchLLMStore
                     const { selectedModelId, selectedModelName } = useExecutorchLLMStore.getState();
                     if (selectedModelId && selectedModelName && currentModelId !== selectedModelId) {
-                        console.log('[conversationStore] Syncing local model for conversation:', selectedModelId);
+                        logger.log('ConversationStore', 'Syncing local model for conversation:', selectedModelId);
                         // Update conversation to use the currently loaded local model
                         try {
                             const updated = await conversationRepository.update({
@@ -163,7 +164,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                                 ),
                             }));
                         } catch (error) {
-                            console.error('Failed to sync local model:', error);
+                            logger.error('ConversationStore', 'Failed to sync local model:', error);
                         }
                     }
                 }
@@ -289,9 +290,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                             c.id === currentConversationId ? updatedConversation : c
                         ),
                     }));
-                    console.log('[conversationStore] Set contextPrompt on conversation (first source attached)');
+                    logger.log('ConversationStore', 'Set contextPrompt on conversation (first source attached)');
                 } catch (error) {
-                    console.error('[conversationStore] Failed to update contextPrompt:', error);
+                    logger.error('ConversationStore', 'Failed to update contextPrompt:', error);
                 }
             }
         }
@@ -345,8 +346,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
             // Clear current message for this conversation before starting
             get().clearCurrentMessage(currentConversationId);
-            console.log(chatMessages);
-            console.log('[conversationStore] Calling sendMessageStream with', chatMessages.length, 'messages');
+            logger.log('ConversationStore', 'Calling sendMessageStream with', chatMessages.length, 'messages');
 
             // Set isStreaming=true - use new callbacks for streaming updates
             set({ isStreaming: true });
@@ -453,7 +453,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             try {
                 activeProvider.interrupt();
             } catch (e) {
-                console.warn('[conversationStore] Error interrupting provider:', e);
+                logger.warn('ConversationStore', 'Error interrupting provider:', e);
             }
             activeProvider = null;
         }
@@ -497,9 +497,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                                 ],
                             },
                         }));
-                        console.log('[conversationStore] Saved interrupted message with', partialContent.length, 'chars');
+                        logger.log('ConversationStore', 'Saved interrupted message with', partialContent.length, 'chars');
                     } catch (error) {
-                        console.error('[conversationStore] Failed to save interrupted message:', error);
+                        logger.error('ConversationStore', 'Failed to save interrupted message:', error);
                     }
                 }
             }
@@ -592,7 +592,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 },
             }));
 
-            console.log('[conversationStore] Deleted last assistant message, re-sending...');
+            logger.log('ConversationStore', 'Deleted last assistant message, re-sending...');
 
             // Re-send the last user message (with its original context if any)
             // Note: We use the original sourceIds/contextIds from the user message

@@ -150,6 +150,13 @@ function RootLayoutNav() {
               presentation: 'modal',
             }}
           />
+          <Stack.Screen
+            name="logs"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
         </Stack>
       </ThemeProvider>
     </GestureHandlerRootView>

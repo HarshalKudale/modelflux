@@ -17,6 +17,7 @@ import RNFS from 'react-native-fs';
 import { DOWNLOADABLE_MODELS, DownloadableModel } from '../config/downloadableModels';
 import { downloadedModelRepository } from '../core/storage';
 import { DownloadedModel } from '../core/types';
+import { logger } from './LoggerService.native';
 
 // Notification channel for Android
 const DOWNLOAD_CHANNEL_ID = 'model-downloads';
@@ -189,7 +190,7 @@ async function requestStoragePermission(): Promise<boolean> {
     // The react-native-fs library handles this transparently
     const sdkVersion = Platform.Version;
     if (typeof sdkVersion === 'number' && sdkVersion >= 29) {
-        console.log('[ModelDownload] Android 10+, no storage permission needed');
+        logger.debug('ModelDownload', 'Android 10+, no storage permission needed');
         return true;
     }
 
@@ -204,7 +205,7 @@ async function requestStoragePermission(): Promise<boolean> {
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
     } catch (err) {
-        console.warn('[ModelDownload] Permission request error:', err);
+        logger.warn('ModelDownload', 'Permission request error:', err);
         return false;
     }
 }
@@ -217,7 +218,7 @@ async function ensureModelsDir(): Promise<void> {
     const exists = await RNFS.exists(modelsDirPath);
     if (!exists) {
         await RNFS.mkdir(modelsDirPath);
-        console.log(`[ModelDownload] Created models directory: ${modelsDirPath}`);
+        logger.log('ModelDownload', 'Created models directory:', modelsDirPath);
     }
 }
 
@@ -229,7 +230,7 @@ async function ensureModelDir(modelId: string): Promise<string> {
     const exists = await RNFS.exists(modelDirPath);
     if (!exists) {
         await RNFS.mkdir(modelDirPath);
-        console.log(`[ModelDownload] Created model directory: ${modelDirPath}`);
+        logger.log('ModelDownload', 'Created model directory:', modelDirPath);
     }
     return modelDirPath;
 }
@@ -315,11 +316,11 @@ async function handleFileComplete(
     location: string,
     taskId: string
 ): Promise<void> {
-    console.log(`[ModelDownload] File complete: ${fileType} for ${modelId}`);
+    logger.log('ModelDownload', 'File complete:', fileType, 'for', modelId);
 
     const download = activeDownloads.get(modelId);
     if (!download) {
-        console.warn(`[ModelDownload] No active download found for ${modelId}`);
+        logger.warn('ModelDownload', 'No active download found for', modelId);
         completeHandler(taskId);
         return;
     }
@@ -358,7 +359,7 @@ async function finalizeDownload(modelId: string): Promise<void> {
     const download = activeDownloads.get(modelId);
     if (!download) return;
 
-    console.log(`[ModelDownload] Finalizing download for ${modelId}`);
+    logger.log('ModelDownload', 'Finalizing download for', modelId);
 
     try {
         const rawModelDirPath = getModelDirPath(modelId);
