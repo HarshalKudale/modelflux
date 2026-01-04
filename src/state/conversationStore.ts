@@ -372,6 +372,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 if (chunk.done) break;
             }
 
+            // Check if streaming was cancelled - if so, cancelStreaming already saved the message
+            // This prevents duplicate messages when user interrupts during generation
+            if (!get().isStreaming) {
+                logger.log('ConversationStore', 'Streaming was cancelled, skipping message save (handled by cancelStreaming)');
+                return;
+            }
+
             // Get the final content from currentMessageMap (populated by callbacks during streaming)
             const fullContent = get().getCurrentMessage(currentConversationId);
             const thinkingContent = get().getCurrentThinkingMessage(currentConversationId);
@@ -460,8 +467,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             const partialContent = get().getCurrentMessage(currentConversationId);
             const partialThinking = get().getCurrentThinkingMessage(currentConversationId);
 
-            // If there's partial content, save it as an interrupted message
-            if (partialContent && partialContent.trim()) {
+            // If there's partial content OR partial thinking, save it as an interrupted message
+            // This ensures we preserve thinking content even if no actual response was generated
+            if ((partialContent && partialContent.trim()) || (partialThinking && partialThinking.trim())) {
                 const conversation = conversations.find((c) => c.id === currentConversationId);
                 if (conversation) {
                     const currentModelId = conversation.modelId || conversation.activeModel || '';
@@ -470,7 +478,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                         id: generateId(),
                         conversationId: currentConversationId,
                         role: 'assistant',
-                        content: partialContent,
+                        content: partialContent || '', // May be empty if interrupted during thinking
                         contentType: 'text',
                         timestamp: Date.now(),
                         // New field
@@ -494,7 +502,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                                 ],
                             },
                         }));
-                        logger.log('ConversationStore', 'Saved interrupted message with', partialContent.length, 'chars');
+                        logger.log('ConversationStore', 'Saved interrupted message with',
+                            partialContent?.length || 0, 'chars content,',
+                            partialThinking?.length || 0, 'chars thinking');
                     } catch (error) {
                         logger.error('ConversationStore', 'Failed to save interrupted message:', error);
                     }
