@@ -81,13 +81,21 @@ export class AISDKProvider {
                 ? { ollama: { think: true } }
                 : undefined;
 
+            // Use provider settings from config, with request-level override for temperature
+            const settings = llmConfig.providerSettings || {};
+
             const result = streamText({
                 model: provider(actualModel),
                 messages: messages.map((m) => ({
                     role: m.role,
                     content: m.content,
                 })),
-                temperature,
+                // Request-level temperature takes precedence, then config, then undefined (use default)
+                temperature: temperature ?? settings.temperature,
+                topP: settings.topP,
+                maxOutputTokens: settings.maxOutputTokens,
+                presencePenalty: settings.presencePenalty,
+                frequencyPenalty: settings.frequencyPenalty,
                 abortSignal: this.abortController.signal,
                 providerOptions,
             });

@@ -68,6 +68,23 @@ export interface ExecutorChGenerationConfig {
 }
 
 /**
+ * Llama.cpp generation configuration
+ * Settings used when generating text with llama.cpp models (GGUF)
+ */
+export interface LlamaCppConfig {
+    /** Context window size in tokens (default: 2048) */
+    nCtx?: number;
+    /** Controls randomness (0.0-2.0, default: 0.8) */
+    temperature?: number;
+    /** Top-P sampling threshold (0.0-1.0, default: 0.95) */
+    topP?: number;
+    /** Repetition penalty (default: 1.1, 1.0 = no penalty) */
+    repeatPenalty?: number;
+    /** Max tokens to generate (default: 2048) */
+    nPredict?: number;
+}
+
+/**
  * Local model configuration for on-device providers
  */
 export interface LocalModel {
@@ -93,7 +110,24 @@ export interface LLMConfig {
     defaultModel: string;
     headers?: Record<string, string>;
     localModels?: LocalModel[];
+
+    // Provider-specific generation configs
     executorchConfig?: ExecutorChGenerationConfig;
+    llamaCppConfig?: LlamaCppConfig;
+
+    /**
+     * Common generation settings for remote providers (AI SDK CallSettings compatible)
+     * Used by OpenAI, Anthropic, Ollama etc.
+     */
+    providerSettings?: {
+        temperature?: number;
+        topP?: number;
+        maxOutputTokens?: number;
+        presencePenalty?: number;
+        frequencyPenalty?: number;
+        topK?: number;
+    };
+
     supportsStreaming: boolean;
     isLocal: boolean;
     isEnabled: boolean;

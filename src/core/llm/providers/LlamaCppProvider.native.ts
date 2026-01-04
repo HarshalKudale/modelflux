@@ -56,10 +56,9 @@ export class LlamaCppProvider implements ILLMProvider {
     async *sendMessageStream(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { messages, onToken, onThinking } = request;
+        const { llmConfig, messages, onToken, onThinking } = request;
         const state = this.getStoreState();
         const context = state.getContext();
-        const config = state.config;
 
         if (!context || !state.isReady) {
             throw new LLMError(
@@ -95,15 +94,19 @@ export class LlamaCppProvider implements ILLMProvider {
         const thinkOpenTag = '<' + 'think>';
         const thinkCloseTag = '<' + '/think>';
 
+        // Get generation config from llmConfig
+        const genConfig = llmConfig?.llamaCppConfig;
+
         try {
             // Start generation with token callback
             const completionPromise = context.completion(
                 {
                     messages: formattedMessages,
-                    n_predict: 2048,
+                    n_predict: genConfig?.nPredict ?? 2048,
                     stop: STOP_WORDS,
-                    temperature: config.temperature,
-                    top_p: config.top_p,
+                    temperature: genConfig?.temperature ?? 0.8,
+                    top_p: genConfig?.topP ?? 0.95,
+                    // Note: repeat_penalty from llamaCppConfig is not currently supported by llama.rn types
                 },
                 (data) => {
                     // Check if streaming was stopped by UI

@@ -1,21 +1,28 @@
+/**
+ * LLM Editor Screen
+ * 
+ * Refactored to use provider-specific editor components.
+ * Provider dropdown at top, switch statement renders the appropriate editor.
+ */
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PROVIDER_LIST } from '../../config/providerPresets';
-import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
-import { llmClientFactory } from '../../core/llm';
-import { ExecutorChGenerationConfig, LLMConfig, LLMProvider } from '../../core/types';
-import { useLLMStore, useSettingsStore } from '../../state';
-import { showConfirm, showError, showInfo } from '../../utils/alert';
-import { Button, Dropdown, Input } from '../components/common';
+
+import { Colors, FontSizes, Spacing } from '../../config/theme';
+import { LLMProvider, LLMProviderKey } from '../../core/types';
+import { useLLMStore } from '../../state';
+import { showConfirm } from '../../utils/alert';
+import { Dropdown } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
+
+import {
+    AnthropicEditor,
+    ExecuTorchEditor,
+    LlamaCppEditor,
+    OllamaEditor,
+    OpenAIEditor,
+} from '../components/settings/provider-editors';
 
 interface LLMEditorScreenProps {
     configId?: string;
@@ -35,60 +42,22 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const { configs, createConfig, updateConfig, getConfigById } = useLLMStore();
-    const { setDefaultLLM } = useSettingsStore();
+    const { getConfigById } = useLLMStore();
 
     const isEditing = Boolean(configId);
     const existingConfig = configId ? getConfigById(configId) : null;
 
-    // Form state - Common fields
-    const [name, setName] = useState('');
+    // Provider state
     const [provider, setProvider] = useState<LLMProvider>('openai');
-    const [supportsStreaming, setSupportsStreaming] = useState(true);
 
-    // Form state - Remote provider fields
-    const [baseUrl, setBaseUrl] = useState('');
-    const [apiKey, setApiKey] = useState('');
-
-    // Form state - ExecuTorch generation config
-    const [genConfigTemperature, setGenConfigTemperature] = useState<string>('');
-    const [genConfigTopp, setGenConfigTopp] = useState<string>('');
-    const [genConfigBatchSize, setGenConfigBatchSize] = useState<string>('');
-    const [genConfigBatchInterval, setGenConfigBatchInterval] = useState<string>('');
-
-    // UI state
-    const [isTesting, setIsTesting] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-
-    // Get provider info
-    const providerInfo = PROVIDER_LIST[provider];
-    const isLocal = isLocalProvider(provider);
-
-    // Initialize form with existing config or preset
+    // Initialize provider from existing config or preset
     useEffect(() => {
         if (existingConfig) {
-            setName(existingConfig.name);
             setProvider(existingConfig.provider);
-            setBaseUrl(existingConfig.baseUrl);
-            setApiKey(existingConfig.apiKey || '');
-            setSupportsStreaming(existingConfig.supportsStreaming ?? true);
-            // Initialize ExecuTorch generation config
-            if (existingConfig.executorchConfig) {
-                setGenConfigTemperature(existingConfig.executorchConfig.temperature?.toString() || '');
-                setGenConfigTopp(existingConfig.executorchConfig.topp?.toString() || '');
-                setGenConfigBatchSize(existingConfig.executorchConfig.outputTokenBatchSize?.toString() || '');
-                setGenConfigBatchInterval(existingConfig.executorchConfig.batchTimeInterval?.toString() || '');
-            }
         } else if (presetProvider) {
-            const providerConfig = PROVIDER_LIST[presetProvider];
-            setName(providerConfig.name || '');
             setProvider(presetProvider);
-            setBaseUrl(providerConfig.defaultBaseUrl || '');
-            setSupportsStreaming(true);
         }
     }, [existingConfig, presetProvider]);
-
-
 
     const handleProviderChange = async (newProvider: LLMProvider) => {
         const wasLocal = isLocalProvider(provider);
@@ -105,162 +74,91 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             );
 
             if (!confirmed) return;
-
-            // Clear incompatible fields
-            if (willBeLocal) {
-                setBaseUrl('');
-                setApiKey('');
-            }
         }
 
         setProvider(newProvider);
-        const providerConfig = PROVIDER_LIST[newProvider];
-
-        if (!isEditing) {
-            setName(providerConfig.name || '');
-            setBaseUrl(providerConfig.defaultBaseUrl || '');
-            setSupportsStreaming(true);
-        } else {
-            // All providers support streaming by default
-            setSupportsStreaming(true);
-        }
     };
 
+    // Provider options for dropdown - show all providers for new configs, lock for editing
+    const getProviderOptions = () => {
+        // Remote providers that can be added by users
+        const remoteOptions = [
+            { label: t('provider.openai') || 'OpenAI', value: LLMProviderKey.OpenAI },
+            { label: t('provider.openai-spec') || 'OpenAI Compatible', value: LLMProviderKey.OpenAISpec },
+            { label: t('provider.anthropic') || 'Anthropic Claude', value: LLMProviderKey.Anthropic },
+            { label: t('provider.ollama') || 'Ollama', value: LLMProviderKey.Ollama },
+        ];
 
+        // Local providers (usually pre-configured, but user might want to edit)
+        if (isEditing && isLocalProvider(provider)) {
+            // When editing a local provider, show it in dropdown
+            const localOptions = [
+                { label: t('provider.llama-cpp') || 'Llama.cpp', value: LLMProviderKey.LlamaCpp },
+                { label: t('provider.executorch') || 'ExecuTorch', value: LLMProviderKey.Executorch },
+            ];
+            return [...remoteOptions, ...localOptions];
+        }
 
-    const handleTestConnection = async () => {
-        if (isLocal) {
-            // Local provider: no model test needed, models are selected at runtime
-            showInfo(
-                t('common.success'),
-                t('llm.editor.test.local.ready') || 'Provider is ready. Models will be selected in chat.'
-            );
-        } else {
-            // Remote provider test
-            if (!baseUrl) {
-                showError(t('common.error'), t('llm.editor.error.url'));
-                return;
-            }
+        return remoteOptions;
+    };
 
-            setIsTesting(true);
-            try {
-                const tempConfig: LLMConfig = {
-                    id: existingConfig?.id || 'temp',
-                    name,
-                    provider,
-                    baseUrl,
-                    apiKey: apiKey || undefined,
-                    defaultModel: '', // Models are selected at runtime
-                    supportsStreaming,
-                    isLocal: false,
-                    isEnabled: true,
-                    createdAt: Date.now(),
-                    updatedAt: Date.now(),
-                };
-
-                const client = llmClientFactory.getClient(tempConfig);
-                const success = await client.testConnection(tempConfig);
-
-                showInfo(
-                    success ? t('common.success') : t('common.error'),
-                    success
-                        ? t('llm.editor.test.success')
-                        : t('llm.editor.test.failed')
+    /**
+     * Render the appropriate provider editor based on selected provider
+     */
+    const renderProviderEditor = () => {
+        switch (provider) {
+            case LLMProviderKey.OpenAI:
+            case LLMProviderKey.OpenAISpec:
+                return (
+                    <OpenAIEditor
+                        configId={configId}
+                        provider={provider as 'openai' | 'openai-spec'}
+                        onBack={onBack}
+                    />
                 );
-            } catch (error) {
-                showError(t('common.error'), t('llm.editor.error.test'));
-            } finally {
-                setIsTesting(false);
-            }
+
+            case LLMProviderKey.Anthropic:
+                return (
+                    <AnthropicEditor
+                        configId={configId}
+                        onBack={onBack}
+                    />
+                );
+
+            case LLMProviderKey.Ollama:
+                return (
+                    <OllamaEditor
+                        configId={configId}
+                        onBack={onBack}
+                    />
+                );
+
+            case LLMProviderKey.LlamaCpp:
+                return (
+                    <LlamaCppEditor
+                        configId={configId}
+                        onBack={onBack}
+                    />
+                );
+
+            case LLMProviderKey.Executorch:
+                return (
+                    <ExecuTorchEditor
+                        configId={configId}
+                        onBack={onBack}
+                    />
+                );
+
+            default:
+                return (
+                    <View style={styles.errorContainer}>
+                        <Text style={[styles.errorText, { color: colors.error }]}>
+                            {t('llm.editor.unsupportedProvider') || 'Unsupported provider type'}
+                        </Text>
+                    </View>
+                );
         }
     };
-
-    const handleSave = async () => {
-        // Common validation
-        // Name validation - not required for ExecuTorch (only one allowed)
-        if (provider !== 'executorch' && !name.trim()) {
-            showError(t('common.error'), t('llm.editor.error.name'));
-            return;
-        }
-
-        if (isLocal) {
-            // Local providers: no additional validation needed - model is selected in chat
-        } else {
-            // Remote provider validation
-            if (!baseUrl.trim()) {
-                showError(t('common.error'), t('llm.editor.error.url'));
-                return;
-            }
-            if (providerInfo.apiKeyRequired && !apiKey.trim()) {
-                showError(t('common.error'), t('llm.editor.error.apiKey'));
-                return;
-            }
-        }
-
-        setIsSaving(true);
-
-        try {
-            // For ExecuTorch, use fixed name since only one provider allowed
-            const providerName = provider === 'executorch' ? 'ExecuTorch' : name.trim();
-
-            // Build ExecuTorch generation config if any values are set
-            let executorchConfig: ExecutorChGenerationConfig | undefined = undefined;
-            if (provider === 'executorch') {
-                const temp = parseFloat(genConfigTemperature);
-                const topp = parseFloat(genConfigTopp);
-                const batchSize = parseInt(genConfigBatchSize, 10);
-                const batchInterval = parseInt(genConfigBatchInterval, 10);
-
-                if (!isNaN(temp) || !isNaN(topp) || !isNaN(batchSize) || !isNaN(batchInterval)) {
-                    executorchConfig = {
-                        temperature: !isNaN(temp) ? temp : undefined,
-                        topp: !isNaN(topp) ? topp : undefined,
-                        outputTokenBatchSize: !isNaN(batchSize) ? batchSize : undefined,
-                        batchTimeInterval: !isNaN(batchInterval) ? batchInterval : undefined,
-                    };
-                }
-            }
-
-            const configData = {
-                name: providerName,
-                provider,
-                baseUrl: isLocal ? '' : baseUrl.trim(),
-                apiKey: isLocal ? undefined : (apiKey.trim() || undefined),
-                defaultModel: '', // Models are now selected at runtime in chat
-                executorchConfig,
-                supportsStreaming,
-                isLocal,
-                isEnabled: existingConfig?.isEnabled ?? true,
-            };
-
-            if (isEditing && existingConfig) {
-                await updateConfig({
-                    ...existingConfig,
-                    ...configData,
-                });
-            } else {
-                const newConfig = await createConfig(configData);
-                // If this is the first provider, set it as default
-                if (configs.length === 0) {
-                    await setDefaultLLM(newConfig.id);
-                }
-            }
-
-            onBack();
-        } catch (error) {
-            showError(t('common.error'), t('llm.editor.error.save'));
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    // Local providers (executorch, llama-cpp) are NOT listed here
-    // They are available directly in the model selector as built-in options
-    const providerOptions = [
-        { label: t('provider.openai') || 'OpenAI', value: 'openai' as LLMProvider },
-        { label: t('provider.openai-spec') || 'OpenAI Compatible', value: 'openai-spec' as LLMProvider },
-        { label: t('provider.ollama') || 'Ollama', value: 'ollama' as LLMProvider },
-    ];
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
@@ -275,155 +173,21 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                 <View style={styles.placeholder} />
             </View>
 
-            <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-                {/* ============ PROVIDER TYPE (Always visible) ============ */}
+            {/* Provider Dropdown */}
+            <View style={styles.providerSection}>
                 <Dropdown
                     label={t('llm.editor.providerType')}
                     value={provider}
-                    options={providerOptions}
+                    options={getProviderOptions()}
                     onSelect={handleProviderChange}
-                    disabled={isEditing}
+                    disabled={isEditing} // Lock provider type when editing
                 />
+            </View>
 
-                {/* Provider Description */}
-                <View style={[styles.providerInfo, { backgroundColor: colors.backgroundSecondary }]}>
-                    <Text style={[styles.providerDescription, { color: colors.textSecondary }]}>
-                        {t(`provider.${provider}.description`)}
-                    </Text>
-                </View>
-
-                {/* ============ COMMON FIELDS (Always visible) ============ */}
-                {/* Provider Name - Hidden for ExecuTorch (only one allowed) */}
-                {provider !== 'executorch' && (
-                    <Input
-                        label={t('llm.editor.name')}
-                        value={name}
-                        onChangeText={setName}
-                        placeholder={t('llm.editor.name.placeholder')}
-                    />
-                )}
-
-                {/* ============ REMOTE PROVIDER FIELDS ============ */}
-                {!isLocal && (
-                    <>
-                        {/* Base URL */}
-                        {providerInfo.urlEditable ? (
-                            <Input
-                                label={t('llm.editor.baseUrl')}
-                                value={baseUrl}
-                                onChangeText={setBaseUrl}
-                                placeholder={provider === 'ollama' ? 'http://localhost:11434' : 'https://api.example.com/v1'}
-                                hint={t('llm.editor.baseUrl.hint')}
-                            />
-                        ) : (
-                            <View style={styles.fixedField}>
-                                <Text style={[styles.fieldLabel, { color: colors.text }]}>{t('llm.editor.baseUrl')}</Text>
-                                <Text style={[styles.fixedValue, { color: colors.textSecondary }]}>
-                                    {baseUrl}
-                                </Text>
-                            </View>
-                        )}
-
-                        {/* API Key */}
-                        {providerInfo.apiKeyRequired && (
-                            <Input
-                                label={t('llm.editor.apiKey')}
-                                value={apiKey}
-                                onChangeText={setApiKey}
-                                placeholder="sk-..."
-                                secureTextEntry
-                                hint={t('llm.editor.apiKey.hint')}
-                            />
-                        )}
-                    </>
-                )}
-
-                {/* ============ LOCAL PROVIDER FIELDS ============ */}
-                {isLocal && (
-                    <View style={styles.localModelsSection}>
-                        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                            {provider === 'executorch'
-                                ? (t('llm.editor.generationConfig.title') || 'Generation Config')
-                                : (t('llm.editor.localModels') || 'Local Provider Settings')}
-                        </Text>
-
-                        {/* ExecuTorch: Show generation config only (model selection is done in chat) */}
-                        {provider === 'executorch' && (
-                            <>
-                                <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                                    {t('llm.editor.executorch.hint') || 'Models are selected in chat. Configure generation settings below.'}
-                                </Text>
-
-                                <Input
-                                    label={t('llm.editor.generationConfig.temperature') || 'Temperature'}
-                                    value={genConfigTemperature}
-                                    onChangeText={setGenConfigTemperature}
-                                    placeholder="0.7"
-                                    keyboardType="decimal-pad"
-                                    hint={t('llm.editor.generationConfig.temperatureHint') || 'Controls randomness (0.0-2.0)'}
-                                />
-
-                                <Input
-                                    label={t('llm.editor.generationConfig.topp') || 'Top-P'}
-                                    value={genConfigTopp}
-                                    onChangeText={setGenConfigTopp}
-                                    placeholder="0.9"
-                                    keyboardType="decimal-pad"
-                                    hint={t('llm.editor.generationConfig.toppHint') || 'Nucleus sampling threshold (0.0-1.0)'}
-                                />
-
-                                <Input
-                                    label={t('llm.editor.generationConfig.batchSize') || 'Token Batch Size'}
-                                    value={genConfigBatchSize}
-                                    onChangeText={setGenConfigBatchSize}
-                                    placeholder="10"
-                                    keyboardType="number-pad"
-                                    hint={t('llm.editor.generationConfig.batchSizeHint') || 'Tokens per batch'}
-                                />
-
-                                <Input
-                                    label={t('llm.editor.generationConfig.batchInterval') || 'Batch Interval (ms)'}
-                                    value={genConfigBatchInterval}
-                                    onChangeText={setGenConfigBatchInterval}
-                                    placeholder="100"
-                                    keyboardType="number-pad"
-                                    hint={t('llm.editor.generationConfig.batchIntervalHint') || 'Time between batches in milliseconds'}
-                                />
-                            </>
-                        )}
-
-                        {/* llama-cpp: Models are now selected in chat at runtime */}
-                        {provider === 'llama-cpp' && (
-                            <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                                {t('llm.editor.llama-cpp.hint') || 'Models are imported and selected in chat. This provider supports GGUF format models.'}
-                            </Text>
-                        )}
-                    </View>
-                )}
-
-                {/* ============ ACTION BUTTONS ============ */}
-                {/* Test Button */}
-                <View style={styles.testSection}>
-                    <Button
-                        title={isTesting ? t('llm.editor.testing') : t('llm.editor.test')}
-                        onPress={handleTestConnection}
-                        variant="secondary"
-                        loading={isTesting}
-                        icon={isLocal ? 'hardware-chip' : 'wifi'}
-                        fullWidth
-                    />
-                </View>
-
-                {/* Save Button */}
-                <View style={styles.saveSection}>
-                    <Button
-                        title={isSaving ? t('llm.editor.saving') : isEditing ? t('llm.editor.update') : t('llm.editor.save')}
-                        onPress={handleSave}
-                        loading={isSaving}
-                        fullWidth
-                    />
-                </View>
-            </ScrollView>
+            {/* Provider-specific Editor */}
+            <View style={styles.editorContainer}>
+                {renderProviderEditor()}
+            </View>
         </SafeAreaView>
     );
 }
@@ -450,115 +214,21 @@ const styles = StyleSheet.create({
     placeholder: {
         width: 32,
     },
-    content: {
+    providerSection: {
+        paddingHorizontal: Spacing.md,
+        paddingTop: Spacing.md,
+    },
+    editorContainer: {
         flex: 1,
     },
-    contentContainer: {
-        padding: Spacing.md,
-    },
-    providerInfo: {
-        padding: Spacing.md,
-        borderRadius: BorderRadius.md,
-        marginBottom: Spacing.md,
-    },
-    providerDescription: {
-        fontSize: FontSizes.sm,
-    },
-    toggleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: Spacing.md,
-        marginBottom: Spacing.md,
-        borderBottomWidth: 1,
-    },
-    toggleInfo: {
+    errorContainer: {
         flex: 1,
-        marginRight: Spacing.md,
-    },
-    toggleLabel: {
-        fontSize: FontSizes.md,
-        fontWeight: '500',
-    },
-    toggleHint: {
-        fontSize: FontSizes.sm,
-        marginTop: Spacing.xs,
-    },
-    fixedField: {
-        marginBottom: Spacing.md,
-    },
-    fieldLabel: {
-        fontSize: FontSizes.sm,
-        fontWeight: '600',
-        marginBottom: Spacing.xs,
-    },
-    fixedValue: {
-        fontSize: FontSizes.md,
-        paddingVertical: Spacing.sm,
-    },
-    modelSection: {
-        marginBottom: Spacing.md,
-    },
-    modelHeader: {
-        flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: Spacing.xs,
-    },
-    refreshButton: {
-        padding: Spacing.xs,
-    },
-    localModelsSection: {
-        marginBottom: Spacing.md,
-    },
-    sectionTitle: {
-        fontSize: FontSizes.md,
-        fontWeight: '600',
-        marginBottom: Spacing.xs,
-    },
-    sectionHint: {
-        fontSize: FontSizes.sm,
-        marginBottom: Spacing.md,
-    },
-    testSection: {
-        marginTop: Spacing.md,
-    },
-    saveSection: {
-        marginTop: Spacing.lg,
-        marginBottom: Spacing.xl,
-    },
-    fieldContainer: {
-        marginBottom: Spacing.md,
-    },
-    modelInfoCard: {
-        padding: Spacing.md,
-        borderRadius: BorderRadius.md,
-        marginTop: Spacing.md,
-    },
-    modelInfoName: {
-        fontSize: FontSizes.md,
-        fontWeight: '600',
-        marginBottom: Spacing.xs,
-    },
-    modelInfoDesc: {
-        fontSize: FontSizes.sm,
-        marginBottom: Spacing.md,
-    },
-    loadButtonContainer: {
-        marginTop: Spacing.sm,
-    },
-    readyText: {
-        fontSize: FontSizes.sm,
-        fontWeight: '600',
-        marginBottom: Spacing.sm,
+        padding: Spacing.xl,
     },
     errorText: {
-        fontSize: FontSizes.sm,
-        marginTop: Spacing.sm,
-    },
-    genConfigSection: {
-        marginTop: Spacing.lg,
-        paddingTop: Spacing.md,
-        borderTopWidth: 1,
+        fontSize: FontSizes.md,
+        textAlign: 'center',
     },
 });

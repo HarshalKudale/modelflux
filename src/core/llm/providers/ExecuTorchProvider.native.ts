@@ -44,7 +44,7 @@ export class ExecuTorchProvider implements ILLMProvider {
     async *sendMessageStream(
         request: LLMRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown> {
-        const { messages, onToken, onThinking } = request;
+        const { llmConfig, messages, onToken, onThinking } = request;
         const state = this.getStoreState();
         const llmModule = state.getLLMModule();
 
@@ -79,10 +79,15 @@ export class ExecuTorchProvider implements ILLMProvider {
         let resolveWait: (() => void) | null = null;
         let generationComplete = false;
 
+        // Get generation config from llmConfig
+        const genConfig = llmConfig?.executorchConfig;
+
         llmModule.configure({
             generationConfig: {
-                topp: 0.9,
-                temperature: 0.7,
+                topp: genConfig?.topp ?? 0.9,
+                temperature: genConfig?.temperature ?? 0.7,
+                outputTokenBatchSize: genConfig?.outputTokenBatchSize,
+                batchTimeInterval: genConfig?.batchTimeInterval,
             }
         })
 
