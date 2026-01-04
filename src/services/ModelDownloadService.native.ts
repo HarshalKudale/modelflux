@@ -15,8 +15,9 @@ import * as Notifications from 'expo-notifications';
 import { PermissionsAndroid, Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { DOWNLOADABLE_MODELS, DownloadableModel } from '../config/downloadableModels';
+import { ModelType } from '../config/modelTypePresets';
 import { downloadedModelRepository } from '../core/storage';
-import { DownloadedModel } from '../core/types';
+import { DownloadedModel, DownloadedModelProvider } from '../core/types';
 import { logger } from './LoggerService.native';
 
 // Notification channel for Android
@@ -771,13 +772,13 @@ export async function deleteDownloadedModel(modelId: string): Promise<void> {
 export async function importLocalModel(
     name: string,
     description: string,
-    provider: 'executorch' | 'llama-cpp',
-    type: 'llm' | 'embedding' | 'image-gen' | 'tts' | 'stt',
+    provider: DownloadedModelProvider,
+    type: ModelType,
     modelFilePath: string,
-    tokenizerFilePath: string,
+    tokenizerFilePath?: string,
     tokenizerConfigFilePath?: string
 ): Promise<DownloadedModel> {
-    console.log(`[ModelDownload] Importing local model: ${name}`);
+    console.log(`[ModelDownload] Importing local model: ${name} (provider: ${provider}, type: ${type})`);
 
     // Generate a unique model ID
     const modelId = `local-${Date.now()}`;
@@ -795,7 +796,7 @@ export async function importLocalModel(
         tags: ['custom'], // Mark as user-imported
         localPath,
         modelFilePath,
-        tokenizerFilePath,
+        tokenizerFilePath: tokenizerFilePath || '',
         tokenizerConfigFilePath: tokenizerConfigFilePath || '',
         sizeEstimate: 'Unknown',
         downloadedSize: 0,

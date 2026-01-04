@@ -12,8 +12,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { ModelType } from '../../../config/modelTypePresets';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
-import { DownloadedModelType } from '../../../core/types';
+import { DownloadedModelProvider } from '../../../core/types';
 import { useAppColorScheme } from '../../hooks';
 
 interface LocalModelImportModalProps {
@@ -22,10 +23,10 @@ interface LocalModelImportModalProps {
     onImport: (
         name: string,
         description: string,
-        provider: 'executorch',
-        type: DownloadedModelType,
+        provider: DownloadedModelProvider,
+        type: ModelType,
         modelPath: string,
-        tokenizerPath: string,
+        tokenizerPath?: string,
         tokenizerConfigPath?: string
     ) => Promise<void>;
 }

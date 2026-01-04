@@ -167,10 +167,10 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
     const handleImportLocalModel = async (
         name: string,
         description: string,
-        provider: 'executorch',
+        provider: DownloadedModelProvider,
         type: DownloadedModelType,
         modelPath: string,
-        tokenizerPath: string,
+        tokenizerPath?: string,
         tokenizerConfigPath?: string
     ) => {
         await importLocalModel(
@@ -179,7 +179,7 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
             provider,
             type,
             modelPath,
-            tokenizerPath,
+            tokenizerPath || '',
             tokenizerConfigPath
         );
         // Reload models after import

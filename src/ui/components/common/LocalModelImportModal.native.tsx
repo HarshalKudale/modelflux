@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Modal,
@@ -12,8 +12,10 @@ import {
     View,
 } from 'react-native';
 import RNFS from 'react-native-fs';
+import { MODEL_TYPE_PRESETS, ModelType, ModelTypeKey } from '../../../config/modelTypePresets';
+import { getLocalProviders, PROVIDER_LIST } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
-import { DownloadedModelType } from '../../../core/types';
+import { DownloadedModelProvider, LLMProviderKey } from '../../../core/types';
 import { pickFile } from '../../../utils/filePicker';
 import { useAppColorScheme, useLocale } from '../../hooks';
 
@@ -63,15 +65,13 @@ interface LocalModelImportModalProps {
     onImport: (
         name: string,
         description: string,
-        provider: 'executorch',
-        type: DownloadedModelType,
+        provider: DownloadedModelProvider,
+        type: ModelType,
         modelPath: string,
-        tokenizerPath: string,
+        tokenizerPath?: string,
         tokenizerConfigPath?: string
     ) => Promise<void>;
 }
-
-type Provider = 'executorch';
 
 export function LocalModelImportModal({
     visible,
@@ -83,28 +83,41 @@ export function LocalModelImportModal({
     const shadows = Shadows[colorScheme];
     const { t } = useLocale();
 
+    // Get local providers from presets
+    const localProviders = useMemo(() => {
+        return getLocalProviders().map(providerId => ({
+            value: providerId as DownloadedModelProvider,
+            label: PROVIDER_LIST[providerId].name,
+            formats: PROVIDER_LIST[providerId].supportedFormats || [],
+        }));
+    }, []);
+
+    // Get supported model types (LLM and Embedding only)
+    const modelTypes = useMemo(() => {
+        return MODEL_TYPE_PRESETS.filter(
+            mt => mt.id === ModelTypeKey.LLM || mt.id === ModelTypeKey.Embedding
+        ).map(mt => ({
+            value: mt.id,
+            label: mt.name,
+        }));
+    }, []);
+
     // Form state
-    const [provider, setProvider] = useState<Provider>('executorch');
-    const [modelType, setModelType] = useState<DownloadedModelType>('llm');
+    const [provider, setProvider] = useState<DownloadedModelProvider>(
+        localProviders[0]?.value || LLMProviderKey.Executorch
+    );
+    const [modelType, setModelType] = useState<ModelType>('llm');
     const [modelName, setModelName] = useState('');
     const [modelPath, setModelPath] = useState('');
     const [tokenizerPath, setTokenizerPath] = useState('');
     const [tokenizerConfigPath, setTokenizerConfigPath] = useState('');
     const [isImporting, setIsImporting] = useState(false);
 
-    // Provider options
-    const providers: { value: Provider; label: string }[] = [
-        { value: 'executorch', label: 'ExecuTorch' },
-    ];
-
-    // Model type options
-    const modelTypes: { value: DownloadedModelType; label: string }[] = [
-        { value: 'llm', label: 'LLM' },
-        { value: 'embedding', label: 'Embedding' },
-        { value: 'image-gen', label: 'Image Generation' },
-        { value: 'tts', label: 'Text to Speech' },
-        { value: 'stt', label: 'Speech to Text' },
-    ];
+    // Get current provider config
+    const providerConfig = PROVIDER_LIST[provider];
+    const supportedFormats = providerConfig?.supportedFormats || [];
+    const isLlamaCpp = provider === LLMProviderKey.LlamaCpp;
+    const isExecutorch = provider === LLMProviderKey.Executorch;
 
     // Handle file pick for a specific file type
     const handlePickFile = async (type: 'model' | 'tokenizer' | 'tokenizerConfig') => {
@@ -136,9 +149,31 @@ export function LocalModelImportModal({
         return path.split('/').pop() || path;
     };
 
+    // Get file extension hint based on provider
+    const getModelFileHint = (): string => {
+        if (supportedFormats.length > 0) {
+            return `Select model file (.${supportedFormats.join(', .')})`;
+        }
+        return 'Select model file';
+    };
+
+    // Reset form when provider changes
+    const handleProviderChange = (newProvider: DownloadedModelProvider) => {
+        setProvider(newProvider);
+        // Clear file paths when switching providers (different formats)
+        setModelPath('');
+        setTokenizerPath('');
+        setTokenizerConfigPath('');
+    };
+
     // Handle import
     const handleImport = async () => {
-        if (!modelName.trim() || !modelPath || !tokenizerPath) {
+        // For llama-cpp, only model file is required
+        // For executorch, model and tokenizer are required
+        if (!modelName.trim() || !modelPath) {
+            return;
+        }
+        if (isExecutorch && !tokenizerPath) {
             return;
         }
 
@@ -151,8 +186,12 @@ export function LocalModelImportModal({
             console.log('[LocalModelImport] Copying files to LLMHub/models directory...');
 
             const copiedModelPath = await copyFileToModelsDir(modelPath, modelId);
-            const copiedTokenizerPath = await copyFileToModelsDir(tokenizerPath, modelId);
+            let copiedTokenizerPath: string | undefined;
             let copiedTokenizerConfigPath: string | undefined;
+
+            if (tokenizerPath) {
+                copiedTokenizerPath = await copyFileToModelsDir(tokenizerPath, modelId);
+            }
 
             if (tokenizerConfigPath) {
                 copiedTokenizerConfigPath = await copyFileToModelsDir(tokenizerConfigPath, modelId);
@@ -160,14 +199,17 @@ export function LocalModelImportModal({
 
             console.log('[LocalModelImport] Files copied successfully');
             console.log('[LocalModelImport] Model path:', copiedModelPath);
-            console.log('[LocalModelImport] Tokenizer path:', copiedTokenizerPath);
+            if (copiedTokenizerPath) {
+                console.log('[LocalModelImport] Tokenizer path:', copiedTokenizerPath);
+            }
             if (copiedTokenizerConfigPath) {
                 console.log('[LocalModelImport] Tokenizer config path:', copiedTokenizerConfigPath);
             }
 
+            const modelTypeLabel = modelTypes.find(t => t.value === modelType)?.label || modelType;
             await onImport(
                 modelName.trim(),
-                `Imported ${modelTypes.find(t => t.value === modelType)?.label} model`,
+                `Imported ${modelTypeLabel} model`,
                 provider,
                 modelType,
                 copiedModelPath,
@@ -188,7 +230,9 @@ export function LocalModelImportModal({
     };
 
     // Check if form is valid
-    const isFormValid = modelName.trim() && modelPath && tokenizerPath;
+    // For llama-cpp: only model file required
+    // For executorch: model and tokenizer required
+    const isFormValid = modelName.trim() && modelPath && (isLlamaCpp || tokenizerPath);
 
     return (
         <Modal
@@ -220,7 +264,7 @@ export function LocalModelImportModal({
                         <View style={styles.fieldGroup}>
                             <Text style={[styles.label, { color: colors.text }]}>Provider</Text>
                             <View style={styles.chipRow}>
-                                {providers.map((p) => (
+                                {localProviders.map((p) => (
                                     <TouchableOpacity
                                         key={p.value}
                                         style={[
@@ -232,7 +276,7 @@ export function LocalModelImportModal({
                                                         : colors.backgroundSecondary,
                                             },
                                         ]}
-                                        onPress={() => setProvider(p.value)}
+                                        onPress={() => handleProviderChange(p.value)}
                                     >
                                         <Text
                                             style={[
@@ -245,6 +289,11 @@ export function LocalModelImportModal({
                                     </TouchableOpacity>
                                 ))}
                             </View>
+                            {supportedFormats.length > 0 && (
+                                <Text style={[styles.hint, { color: colors.textMuted }]}>
+                                    Supported format: .{supportedFormats.join(', .')}
+                                </Text>
+                            )}
                         </View>
 
                         {/* Model Type Selection */}
@@ -313,7 +362,7 @@ export function LocalModelImportModal({
                                         style={[styles.filePath, { color: modelPath ? colors.text : colors.textMuted }]}
                                         numberOfLines={1}
                                     >
-                                        {modelPath ? getFilename(modelPath) : 'Select model file (.pte)'}
+                                        {modelPath ? getFilename(modelPath) : getModelFileHint()}
                                     </Text>
                                 </View>
                                 <TouchableOpacity
@@ -325,66 +374,80 @@ export function LocalModelImportModal({
                             </View>
                         </View>
 
-                        {/* Tokenizer File */}
-                        <View style={styles.fieldGroup}>
-                            <Text style={[styles.label, { color: colors.text }]}>
-                                Tokenizer File <Text style={{ color: colors.error }}>*</Text>
-                            </Text>
-                            <View style={styles.filePickerRow}>
-                                <View
-                                    style={[
-                                        styles.filePathContainer,
-                                        { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
-                                    ]}
-                                >
-                                    <Text
-                                        style={[styles.filePath, { color: tokenizerPath ? colors.text : colors.textMuted }]}
-                                        numberOfLines={1}
-                                    >
-                                        {tokenizerPath ? getFilename(tokenizerPath) : 'Select tokenizer file (.json)'}
-                                    </Text>
-                                </View>
-                                <TouchableOpacity
-                                    style={[styles.pickButton, { backgroundColor: colors.tint }]}
-                                    onPress={() => handlePickFile('tokenizer')}
-                                >
-                                    <Ionicons name="add" size={20} color="#FFFFFF" />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        {/* Tokenizer Config File */}
-                        <View style={styles.fieldGroup}>
-                            <Text style={[styles.label, { color: colors.text }]}>
-                                Tokenizer Config (optional)
-                            </Text>
-                            <View style={styles.filePickerRow}>
-                                <View
-                                    style={[
-                                        styles.filePathContainer,
-                                        { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
-                                    ]}
-                                >
-                                    <Text
+                        {/* Tokenizer File - Only for ExecuTorch */}
+                        {isExecutorch && (
+                            <View style={styles.fieldGroup}>
+                                <Text style={[styles.label, { color: colors.text }]}>
+                                    Tokenizer File <Text style={{ color: colors.error }}>*</Text>
+                                </Text>
+                                <View style={styles.filePickerRow}>
+                                    <View
                                         style={[
-                                            styles.filePath,
-                                            { color: tokenizerConfigPath ? colors.text : colors.textMuted },
+                                            styles.filePathContainer,
+                                            { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
                                         ]}
-                                        numberOfLines={1}
                                     >
-                                        {tokenizerConfigPath
-                                            ? getFilename(tokenizerConfigPath)
-                                            : 'Select config file (.json)'}
-                                    </Text>
+                                        <Text
+                                            style={[styles.filePath, { color: tokenizerPath ? colors.text : colors.textMuted }]}
+                                            numberOfLines={1}
+                                        >
+                                            {tokenizerPath ? getFilename(tokenizerPath) : 'Select tokenizer file (.json)'}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.pickButton, { backgroundColor: colors.tint }]}
+                                        onPress={() => handlePickFile('tokenizer')}
+                                    >
+                                        <Ionicons name="add" size={20} color="#FFFFFF" />
+                                    </TouchableOpacity>
                                 </View>
-                                <TouchableOpacity
-                                    style={[styles.pickButton, { backgroundColor: colors.tint }]}
-                                    onPress={() => handlePickFile('tokenizerConfig')}
-                                >
-                                    <Ionicons name="add" size={20} color="#FFFFFF" />
-                                </TouchableOpacity>
                             </View>
-                        </View>
+                        )}
+
+                        {/* Tokenizer Config File - Only for ExecuTorch, optional */}
+                        {isExecutorch && (
+                            <View style={styles.fieldGroup}>
+                                <Text style={[styles.label, { color: colors.text }]}>
+                                    Tokenizer Config (optional)
+                                </Text>
+                                <View style={styles.filePickerRow}>
+                                    <View
+                                        style={[
+                                            styles.filePathContainer,
+                                            { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.filePath,
+                                                { color: tokenizerConfigPath ? colors.text : colors.textMuted },
+                                            ]}
+                                            numberOfLines={1}
+                                        >
+                                            {tokenizerConfigPath
+                                                ? getFilename(tokenizerConfigPath)
+                                                : 'Select config file (.json)'}
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.pickButton, { backgroundColor: colors.tint }]}
+                                        onPress={() => handlePickFile('tokenizerConfig')}
+                                    >
+                                        <Ionicons name="add" size={20} color="#FFFFFF" />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Info note for llama-cpp */}
+                        {isLlamaCpp && (
+                            <View style={[styles.infoBox, { backgroundColor: colors.tint + '15' }]}>
+                                <Ionicons name="information-circle" size={20} color={colors.tint} />
+                                <Text style={[styles.infoText, { color: colors.text }]}>
+                                    GGUF models include the tokenizer, so no separate tokenizer file is needed.
+                                </Text>
+                            </View>
+                        )}
                     </ScrollView>
 
                     {/* Footer */}
@@ -456,6 +519,10 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         marginBottom: Spacing.xs,
     },
+    hint: {
+        fontSize: FontSizes.xs,
+        marginTop: Spacing.xs,
+    },
     chipRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -498,6 +565,18 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.md,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    infoBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        padding: Spacing.md,
+        borderRadius: BorderRadius.md,
+        marginTop: Spacing.xs,
+    },
+    infoText: {
+        flex: 1,
+        fontSize: FontSizes.sm,
     },
     footer: {
         flexDirection: 'row',
