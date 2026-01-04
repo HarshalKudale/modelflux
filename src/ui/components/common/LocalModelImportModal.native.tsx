@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { pick } from '@react-native-documents/picker';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
@@ -15,6 +14,7 @@ import {
 import RNFS from 'react-native-fs';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
 import { DownloadedModelType } from '../../../core/types';
+import { pickFile } from '../../../utils/filePicker';
 import { useAppColorScheme, useLocale } from '../../hooks';
 
 // Get the models directory path (same as ModelDownloadService)
@@ -106,40 +106,27 @@ export function LocalModelImportModal({
         { value: 'stt', label: 'Speech to Text' },
     ];
 
-    // Pick file using native documents picker
-    const pickFile = async (type: 'model' | 'tokenizer' | 'tokenizerConfig') => {
-        try {
-            const [result] = await pick({ mode: 'open', requestLongTermAccess: true });
-            console.log('[LocalModelImport] Picked file:', result);
+    // Handle file pick for a specific file type
+    const handlePickFile = async (type: 'model' | 'tokenizer' | 'tokenizerConfig') => {
+        const result = await pickFile(type);
+        if (!result) return;
 
-            if (result?.uri) {
-                // @react-native-documents/picker returns accessible file:// paths
-                const uri = result.uri;
-                const filename = result.name || uri.split('/').pop() || '';
+        const { uri, name } = result;
 
-                switch (type) {
-                    case 'model':
-                        setModelPath(uri);
-                        // Auto-fill name from filename if empty
-                        if (!modelName) {
-                            setModelName(filename.replace(/\.[^/.]+$/, '')); // Remove extension
-                        }
-                        break;
-                    case 'tokenizer':
-                        setTokenizerPath(uri);
-                        break;
-                    case 'tokenizerConfig':
-                        setTokenizerConfigPath(uri);
-                        break;
+        switch (type) {
+            case 'model':
+                setModelPath(uri);
+                // Auto-fill name from filename if empty
+                if (!modelName) {
+                    setModelName(name.replace(/\.[^/.]+$/, '')); // Remove extension
                 }
-            }
-        } catch (error) {
-            // User cancelled or error
-            if ((error as Error).message?.includes('cancel')) {
-                console.log('[LocalModelImport] User cancelled file picker');
-            } else {
-                console.error('[LocalModelImport] Error picking file:', error);
-            }
+                break;
+            case 'tokenizer':
+                setTokenizerPath(uri);
+                break;
+            case 'tokenizerConfig':
+                setTokenizerConfigPath(uri);
+                break;
         }
     };
 
@@ -331,7 +318,7 @@ export function LocalModelImportModal({
                                 </View>
                                 <TouchableOpacity
                                     style={[styles.pickButton, { backgroundColor: colors.tint }]}
-                                    onPress={() => pickFile('model')}
+                                    onPress={() => handlePickFile('model')}
                                 >
                                     <Ionicons name="add" size={20} color="#FFFFFF" />
                                 </TouchableOpacity>
@@ -359,7 +346,7 @@ export function LocalModelImportModal({
                                 </View>
                                 <TouchableOpacity
                                     style={[styles.pickButton, { backgroundColor: colors.tint }]}
-                                    onPress={() => pickFile('tokenizer')}
+                                    onPress={() => handlePickFile('tokenizer')}
                                 >
                                     <Ionicons name="add" size={20} color="#FFFFFF" />
                                 </TouchableOpacity>
@@ -392,7 +379,7 @@ export function LocalModelImportModal({
                                 </View>
                                 <TouchableOpacity
                                     style={[styles.pickButton, { backgroundColor: colors.tint }]}
-                                    onPress={() => pickFile('tokenizerConfig')}
+                                    onPress={() => handlePickFile('tokenizerConfig')}
                                 >
                                     <Ionicons name="add" size={20} color="#FFFFFF" />
                                 </TouchableOpacity>

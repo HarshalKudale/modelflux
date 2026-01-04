@@ -21,6 +21,8 @@ export function Sidebar({
     onToggleCollapse,
     onNavigate,
 }: SidebarProps) {
+    console.log('[Sidebar] Component rendering, isCollapsed:', isCollapsed);
+
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const { t } = useLocale();
@@ -103,7 +105,10 @@ export function Sidebar({
 
             {/* User Info / Settings */}
             <UserInfo
-                onSettingsPress={() => onNavigate('settings')}
+                onSettingsPress={() => {
+                    console.log('going to settings');
+                    onNavigate('settings')
+                }}
                 onSourcesPress={() => setSourcesModalVisible(true)}
             />
 

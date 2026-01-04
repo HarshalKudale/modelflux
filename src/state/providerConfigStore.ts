@@ -8,7 +8,6 @@
  */
 
 import { create } from 'zustand';
-import { subscribeWithSelector } from 'zustand/middleware';
 import { generateProviderFingerprint } from '../core/rag/types';
 import { ragConfigRepository } from '../core/storage';
 import { generateId, RAGConfig, RAGProviderType } from '../core/types';
@@ -73,154 +72,153 @@ interface ProviderConfigStoreActions {
 
 type ProviderConfigStore = ProviderConfigStoreState & ProviderConfigStoreActions;
 
-export const useProviderConfigStore = create<ProviderConfigStore>()(
-    subscribeWithSelector((set, get) => ({
-        // State
-        configs: [],
-        isLoading: false,
-        error: null,
+// STUBBED: All functions return empty/null values
+export const useProviderConfigStore = create<ProviderConfigStore>()((set, get) => ({
+    // State
+    configs: [],
+    isLoading: false,
+    error: null,
 
-        // Actions
-        loadConfigs: async () => {
-            set({ isLoading: true, error: null });
-            try {
-                const configs = await ragConfigRepository.findAll();
-                set({ configs, isLoading: false });
-            } catch (error) {
-                set({
-                    error: error instanceof Error ? error.message : 'Failed to load provider configs',
-                    isLoading: false,
-                });
-            }
-        },
+    // Actions
+    loadConfigs: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const configs = await ragConfigRepository.findAll();
+            set({ configs, isLoading: false });
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to load provider configs',
+                isLoading: false,
+            });
+        }
+    },
 
-        addProvider: async (configData) => {
-            const { provider } = configData;
+    addProvider: async (configData) => {
+        const { provider } = configData;
 
-            // Check if provider type already exists (enforce one-per-type)
-            if (provider !== 'none' && get().hasProviderType(provider as RAGProviderType)) {
-                throw new Error(`A config for provider type "${provider}" already exists. Edit the existing config instead.`);
-            }
+        // Check if provider type already exists (enforce one-per-type)
+        if (provider !== 'none' && get().hasProviderType(provider as RAGProviderType)) {
+            throw new Error(`A config for provider type "${provider}" already exists. Edit the existing config instead.`);
+        }
 
-            const now = Date.now();
-            const isFirstConfig = get().configs.length === 0;
+        const now = Date.now();
+        const isFirstConfig = get().configs.length === 0;
 
-            const config: RAGConfig = {
-                ...configData,
-                id: generateId(),
-                isDefault: configData.isDefault || isFirstConfig, // First config is default
-                createdAt: now,
-                updatedAt: now,
-            };
+        const config: RAGConfig = {
+            ...configData,
+            id: generateId(),
+            isDefault: configData.isDefault || isFirstConfig, // First config is default
+            createdAt: now,
+            updatedAt: now,
+        };
 
-            try {
-                await ragConfigRepository.create(config);
+        try {
+            await ragConfigRepository.create(config);
 
-                // If this is now default, unset others
-                if (config.isDefault) {
-                    set((state) => ({
-                        configs: [...state.configs.map(c => ({ ...c, isDefault: false })), config],
-                    }));
-                } else {
-                    set((state) => ({ configs: [...state.configs, config] }));
-                }
-
-                return config;
-            } catch (error) {
-                set({
-                    error: error instanceof Error ? error.message : 'Failed to add provider config',
-                });
-                throw error;
-            }
-        },
-
-        updateProvider: async (config) => {
-            try {
-                const updated = await ragConfigRepository.update({
-                    ...config,
-                    updatedAt: Date.now(),
-                });
-
-                // If this config is now default, update all others
-                if (updated.isDefault) {
-                    set((state) => ({
-                        configs: state.configs.map((c) => ({
-                            ...c,
-                            isDefault: c.id === updated.id,
-                        })),
-                    }));
-                } else {
-                    set((state) => ({
-                        configs: state.configs.map((c) => (c.id === updated.id ? updated : c)),
-                    }));
-                }
-            } catch (error) {
-                set({
-                    error: error instanceof Error ? error.message : 'Failed to update provider config',
-                });
-                throw error;
-            }
-        },
-
-        removeProvider: async (id) => {
-            try {
-                await ragConfigRepository.delete(id);
+            // If this is now default, unset others
+            if (config.isDefault) {
                 set((state) => ({
-                    configs: state.configs.filter((c) => c.id !== id),
+                    configs: [...state.configs.map(c => ({ ...c, isDefault: false })), config],
                 }));
-            } catch (error) {
-                set({
-                    error: error instanceof Error ? error.message : 'Failed to remove provider config',
-                });
-                throw error;
+            } else {
+                set((state) => ({ configs: [...state.configs, config] }));
             }
-        },
 
-        setDefaultProvider: async (id) => {
-            try {
-                await ragConfigRepository.setDefault(id);
+            return config;
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to add provider config',
+            });
+            throw error;
+        }
+    },
+
+    updateProvider: async (config) => {
+        try {
+            const updated = await ragConfigRepository.update({
+                ...config,
+                updatedAt: Date.now(),
+            });
+
+            // If this config is now default, update all others
+            if (updated.isDefault) {
                 set((state) => ({
                     configs: state.configs.map((c) => ({
                         ...c,
-                        isDefault: c.id === id,
+                        isDefault: c.id === updated.id,
                     })),
                 }));
-            } catch (error) {
-                set({
-                    error: error instanceof Error ? error.message : 'Failed to set default provider',
-                });
-                throw error;
+            } else {
+                set((state) => ({
+                    configs: state.configs.map((c) => (c.id === updated.id ? updated : c)),
+                }));
             }
-        },
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to update provider config',
+            });
+            throw error;
+        }
+    },
 
-        getDefaultProvider: () => {
-            return get().configs.find((c) => c.isDefault) || null;
-        },
+    removeProvider: async (id) => {
+        try {
+            await ragConfigRepository.delete(id);
+            set((state) => ({
+                configs: state.configs.filter((c) => c.id !== id),
+            }));
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to remove provider config',
+            });
+            throw error;
+        }
+    },
 
-        getConfigByProviderType: (providerType: RAGProviderType) => {
-            return get().configs.find((c) => c.provider === providerType);
-        },
+    setDefaultProvider: async (id) => {
+        try {
+            await ragConfigRepository.setDefault(id);
+            set((state) => ({
+                configs: state.configs.map((c) => ({
+                    ...c,
+                    isDefault: c.id === id,
+                })),
+            }));
+        } catch (error) {
+            set({
+                error: error instanceof Error ? error.message : 'Failed to set default provider',
+            });
+            throw error;
+        }
+    },
 
-        getProviderById: (id) => {
-            return get().configs.find((c) => c.id === id);
-        },
+    getDefaultProvider: () => {
+        return get().configs.find((c) => c.isDefault) || null;
+    },
 
-        getFingerprint: (config) => {
-            if (config.provider === 'none') {
-                return 'none:none';
-            }
-            return generateProviderFingerprint(config.provider as RAGProviderType, config.modelId);
-        },
+    getConfigByProviderType: (providerType: RAGProviderType) => {
+        return get().configs.find((c) => c.provider === providerType);
+    },
 
-        hasProviderType: (providerType: RAGProviderType) => {
-            return get().configs.some((c) => c.provider === providerType);
-        },
+    getProviderById: (id) => {
+        return get().configs.find((c) => c.id === id);
+    },
 
-        clearError: () => {
-            set({ error: null });
-        },
-    }))
-);
+    getFingerprint: (config) => {
+        if (config.provider === 'none') {
+            return 'none:none';
+        }
+        return generateProviderFingerprint(config.provider as RAGProviderType, config.modelId);
+    },
+
+    hasProviderType: (providerType: RAGProviderType) => {
+        return get().configs.some((c) => c.provider === providerType);
+    },
+
+    clearError: () => {
+        set({ error: null });
+    },
+}));
 
 // Export for backwards compatibility (will be removed after migration)
 export const useRagConfigStore = useProviderConfigStore;

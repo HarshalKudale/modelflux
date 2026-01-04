@@ -49,3 +49,15 @@ export async function reattachBackgroundDownloads(): Promise<void> {
 export async function deleteDownloadedModel(_modelId: string): Promise<void> {
     throw new Error('Model deletion is not supported on web. Please use the mobile app.');
 }
+
+export async function importLocalModel(
+    _name: string,
+    _description: string,
+    _provider: 'executorch' | 'llama-cpp',
+    _type: 'llm' | 'embedding' | 'image-gen' | 'tts' | 'stt',
+    _modelFilePath: string,
+    _tokenizerFilePath: string,
+    _tokenizerConfigFilePath?: string
+): Promise<DownloadedModel> {
+    throw new Error('Local model import is not supported on web. Please use the mobile app.');
+}
