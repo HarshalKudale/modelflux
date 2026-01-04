@@ -17,8 +17,7 @@ import { create } from 'zustand';
 import { embeddingFactory } from '../core/rag/embeddingFactory';
 import { isProcessingSupported, processSource } from '../core/rag/sourceProcessor';
 import { generateProviderFingerprint, RAGSearchResult } from '../core/rag/types';
-import { sourceRepository } from '../core/storage';
-import { storageAdapter } from '../core/storage/StorageAdapter';
+import { settingsRepository, sourceRepository } from '../core/storage';
 import { DownloadedModel, RAGConfig, RAGProviderType, RAGRuntimeStatus } from '../core/types';
 
 // Storage key for persisting fingerprint
@@ -213,8 +212,12 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
                 });
             } else {
                 console.log('[RAGRuntimeStore] Sources are up to date');
-                // Update persisted fingerprint
-                await storageAdapter.set(RAG_FINGERPRINT_STORAGE_KEY, newFingerprint);
+                // Update persisted fingerprint via settings
+                const currentSettings = await settingsRepository.get();
+                await settingsRepository.update({
+                    ...currentSettings,
+                    ragFingerprint: newFingerprint,
+                });
 
                 set({
                     currentConfig: config,
@@ -252,7 +255,8 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
 
     loadPersistedState: async () => {
         try {
-            const fingerprint = await storageAdapter.get<string>(RAG_FINGERPRINT_STORAGE_KEY);
+            const currentSettings = await settingsRepository.get();
+            const fingerprint = (currentSettings as any).ragFingerprint as string | undefined;
             if (fingerprint) {
                 console.log('[RAGRuntimeStore] Loaded persisted fingerprint:', fingerprint);
                 set({ lastUsedFingerprint: fingerprint });
@@ -310,7 +314,11 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
             // Step 4: Update fingerprint and status
             const fingerprint = state.currentFingerprint;
             if (fingerprint) {
-                await storageAdapter.set(RAG_FINGERPRINT_STORAGE_KEY, fingerprint);
+                const currentSettings = await settingsRepository.get();
+                await settingsRepository.update({
+                    ...currentSettings,
+                    ragFingerprint: fingerprint,
+                });
             }
 
             set({

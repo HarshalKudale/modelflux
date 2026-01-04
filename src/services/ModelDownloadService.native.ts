@@ -792,7 +792,7 @@ export async function importLocalModel(
         description,
         provider,
         type,
-        tags: [],
+        tags: ['custom'], // Mark as user-imported
         localPath,
         modelFilePath,
         tokenizerFilePath,

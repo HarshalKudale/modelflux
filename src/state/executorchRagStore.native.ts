@@ -10,7 +10,7 @@ import { ExecuTorchEmbeddings } from '@react-native-rag/executorch';
 import { OPSQLiteVectorStore } from '@react-native-rag/op-sqlite';
 import { Embeddings } from 'react-native-rag';
 import { create } from 'zustand';
-import { storageAdapter } from '../core/storage/StorageAdapter';
+import { settingsRepository } from '../core/storage';
 import { DownloadedModel, RAGProvider } from '../core/types';
 
 // Storage keys for persistence
@@ -210,9 +210,11 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
 
         // Persist to storage
         try {
-            await storageAdapter.set(RAG_TRACKING_STORAGE_KEY, {
-                currentProvider: provider,
-                currentModelId: modelId,
+            const currentSettings = await settingsRepository.get();
+            await settingsRepository.update({
+                ...currentSettings,
+                ragTrackingProvider: provider,
+                ragTrackingModelId: modelId,
             });
             console.log('[ExecutorchRagStore] Tracking state persisted');
         } catch (err) {
@@ -228,16 +230,15 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
 
     loadPersistedState: async () => {
         try {
-            const saved = await storageAdapter.get<{
-                currentProvider: RAGProvider;
-                currentModelId: string;
-            }>(RAG_TRACKING_STORAGE_KEY);
+            const currentSettings = await settingsRepository.get();
+            const ragProvider = currentSettings.ragTrackingProvider;
+            const ragModelId = currentSettings.ragTrackingModelId;
 
-            if (saved) {
-                console.log('[ExecutorchRagStore] Loaded persisted tracking state:', saved);
+            if (ragProvider && ragModelId) {
+                console.log('[ExecutorchRagStore] Loaded persisted tracking state:', ragProvider, ragModelId);
                 set({
-                    currentProvider: saved.currentProvider,
-                    currentModelId: saved.currentModelId,
+                    currentProvider: ragProvider,
+                    currentModelId: ragModelId,
                 });
             }
         } catch (err) {

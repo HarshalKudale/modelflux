@@ -1,6 +1,12 @@
-import { STORAGE_KEYS } from '../../config/constants';
-import { Message } from '../types';
-import { storageAdapter } from './StorageAdapter';
+/**
+ * Message Repository
+ *
+ * Manages persistence of messages using WatermelonDB.
+ */
+import { Q } from '@nozbe/watermelondb';
+import { database } from '../database';
+import { MessageModel } from '../database/models';
+import { Message, MessageContentType, MessageImage, TokenUsage } from '../types';
 
 export interface IMessageRepository {
     findById(id: string): Promise<Message | null>;
@@ -14,103 +20,146 @@ export interface IMessageRepository {
     createBatch(messages: Message[]): Promise<Message[]>;
 }
 
+/**
+ * Convert WatermelonDB model to Message type
+ */
+function modelToMessage(model: MessageModel): Message {
+    return {
+        id: model.id,
+        conversationId: model.conversationId,
+        role: model.role as Message['role'],
+        content: model.content,
+        contentType: model.contentType as MessageContentType,
+        images: model.images as MessageImage[],
+        modelId: model.modelId,
+        usage: model.usage as TokenUsage | undefined,
+        thinkingContent: model.thinkingContent,
+        context: model.context,
+        contextIds: model.contextIds,
+        interrupted: model.interrupted,
+        timestamp: model.timestamp,
+    };
+}
+
 class MessageRepository implements IMessageRepository {
-    private getKey(conversationId: string): string {
-        return `${STORAGE_KEYS.MESSAGES_PREFIX}${conversationId}`;
-    }
-
-    private async getMessages(conversationId: string): Promise<Message[]> {
-        const data = await storageAdapter.get<Message[]>(this.getKey(conversationId));
-        return data || [];
-    }
-
-    private async saveMessages(conversationId: string, messages: Message[]): Promise<void> {
-        await storageAdapter.set(this.getKey(conversationId), messages);
+    private get collection() {
+        return database.get<MessageModel>('messages');
     }
 
     async findById(id: string): Promise<Message | null> {
-        // Need to search all messages - not ideal but works for MVP
-        const keys = await storageAdapter.getKeys(STORAGE_KEYS.MESSAGES_PREFIX);
-        for (const key of keys) {
-            const messages = await storageAdapter.get<Message[]>(key);
-            if (messages) {
-                const message = messages.find((m) => m.id === id);
-                if (message) return message;
-            }
+        try {
+            const model = await this.collection.find(id);
+            return modelToMessage(model);
+        } catch {
+            return null;
         }
-        return null;
     }
 
     async findAll(): Promise<Message[]> {
-        const keys = await storageAdapter.getKeys(STORAGE_KEYS.MESSAGES_PREFIX);
-        const allMessages: Message[] = [];
-        for (const key of keys) {
-            const messages = await storageAdapter.get<Message[]>(key);
-            if (messages) {
-                allMessages.push(...messages);
-            }
-        }
-        return allMessages;
+        const models = await this.collection.query().fetch();
+        return models.map(modelToMessage);
     }
 
     async findByConversationId(conversationId: string): Promise<Message[]> {
-        return this.getMessages(conversationId);
+        const models = await this.collection
+            .query(Q.where('conversation_id', conversationId))
+            .fetch();
+        return models.map(modelToMessage);
     }
 
     async findByConversationIdSorted(conversationId: string): Promise<Message[]> {
-        const messages = await this.getMessages(conversationId);
-        return messages.sort((a, b) => a.timestamp - b.timestamp);
+        const models = await this.collection
+            .query(
+                Q.where('conversation_id', conversationId),
+                Q.sortBy('timestamp', Q.asc)
+            )
+            .fetch();
+        return models.map(modelToMessage);
     }
 
     async create(entity: Message): Promise<Message> {
-        const messages = await this.getMessages(entity.conversationId);
-        messages.push(entity);
-        await this.saveMessages(entity.conversationId, messages);
+        await database.write(async () => {
+            await this.collection.create((record) => {
+                (record._raw as any).id = entity.id;
+                record.conversationId = entity.conversationId;
+                record.role = entity.role;
+                record.content = entity.content;
+                record.contentType = entity.contentType;
+                (record as any)._setRaw('images', JSON.stringify(entity.images || []));
+                record.modelId = entity.modelId;
+                (record as any)._setRaw('usage', JSON.stringify(entity.usage || null));
+                record.thinkingContent = entity.thinkingContent;
+                record.context = entity.context;
+                (record as any)._setRaw('context_ids', JSON.stringify(entity.contextIds || []));
+                record.interrupted = entity.interrupted || false;
+                record.timestamp = entity.timestamp;
+            });
+        });
         return entity;
     }
 
     async update(entity: Message): Promise<Message> {
-        const messages = await this.getMessages(entity.conversationId);
-        const index = messages.findIndex((m) => m.id === entity.id);
-        if (index === -1) {
-            throw new Error(`Message not found: ${entity.id}`);
-        }
-        messages[index] = entity;
-        await this.saveMessages(entity.conversationId, messages);
+        await database.write(async () => {
+            const model = await this.collection.find(entity.id);
+            await model.update((record) => {
+                record.content = entity.content;
+                record.contentType = entity.contentType;
+                (record as any)._setRaw('images', JSON.stringify(entity.images || []));
+                record.modelId = entity.modelId;
+                (record as any)._setRaw('usage', JSON.stringify(entity.usage || null));
+                record.thinkingContent = entity.thinkingContent;
+                record.context = entity.context;
+                (record as any)._setRaw('context_ids', JSON.stringify(entity.contextIds || []));
+                record.interrupted = entity.interrupted || false;
+            });
+        });
         return entity;
     }
 
     async delete(id: string): Promise<void> {
-        const message = await this.findById(id);
-        if (!message) return;
-
-        const messages = await this.getMessages(message.conversationId);
-        const filtered = messages.filter((m) => m.id !== id);
-        await this.saveMessages(message.conversationId, filtered);
+        await database.write(async () => {
+            try {
+                const model = await this.collection.find(id);
+                await model.destroyPermanently();
+            } catch {
+                // Record doesn't exist, ignore
+            }
+        });
     }
 
     async deleteByConversationId(conversationId: string): Promise<void> {
-        await storageAdapter.remove(this.getKey(conversationId));
+        await database.write(async () => {
+            const models = await this.collection
+                .query(Q.where('conversation_id', conversationId))
+                .fetch();
+            for (const model of models) {
+                await model.destroyPermanently();
+            }
+        });
     }
 
     async createBatch(messages: Message[]): Promise<Message[]> {
         if (messages.length === 0) return [];
 
-        // Group by conversation
-        const grouped = messages.reduce((acc, msg) => {
-            if (!acc[msg.conversationId]) {
-                acc[msg.conversationId] = [];
+        await database.write(async () => {
+            for (const entity of messages) {
+                await this.collection.create((record) => {
+                    (record._raw as any).id = entity.id;
+                    record.conversationId = entity.conversationId;
+                    record.role = entity.role;
+                    record.content = entity.content;
+                    record.contentType = entity.contentType;
+                    (record as any)._setRaw('images', JSON.stringify(entity.images || []));
+                    record.modelId = entity.modelId;
+                    (record as any)._setRaw('usage', JSON.stringify(entity.usage || null));
+                    record.thinkingContent = entity.thinkingContent;
+                    record.context = entity.context;
+                    (record as any)._setRaw('context_ids', JSON.stringify(entity.contextIds || []));
+                    record.interrupted = entity.interrupted || false;
+                    record.timestamp = entity.timestamp;
+                });
             }
-            acc[msg.conversationId].push(msg);
-            return acc;
-        }, {} as Record<string, Message[]>);
-
-        // Save each group
-        for (const [conversationId, msgs] of Object.entries(grouped)) {
-            const existing = await this.getMessages(conversationId);
-            existing.push(...msgs);
-            await this.saveMessages(conversationId, existing);
-        }
+        });
 
         return messages;
     }

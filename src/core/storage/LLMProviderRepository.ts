@@ -14,15 +14,13 @@
  * - Remote providers can be added, edited, and removed by users
  */
 
-import { STORAGE_KEYS } from '../../config/constants';
+import { Q } from '@nozbe/watermelondb';
+import { database } from '../database';
+import { LLMConfigModel } from '../database/models';
 import { LLMConfig, LLMProvider, LLMProviderCategory, generateId } from '../types';
-import { storageAdapter } from './StorageAdapter';
 
 // Local provider types that are fixed and non-removable
 const LOCAL_PROVIDER_TYPES: LLMProvider[] = ['executorch', 'llama-cpp'];
-
-// Remote provider types that are user-managed
-const REMOTE_PROVIDER_TYPES: LLMProvider[] = ['openai', 'openai-spec', 'anthropic', 'ollama'];
 
 // Default configurations for local providers (auto-created if not present)
 const DEFAULT_LOCAL_CONFIGS: Record<string, Omit<LLMConfig, 'id' | 'createdAt' | 'updatedAt'>> = {
@@ -37,6 +35,30 @@ const DEFAULT_LOCAL_CONFIGS: Record<string, Omit<LLMConfig, 'id' | 'createdAt' |
     },
     // llama-cpp can be added here when implemented
 };
+
+/**
+ * Convert WatermelonDB model to LLMConfig type
+ */
+function modelToLLMConfig(model: LLMConfigModel): LLMConfig {
+    return {
+        id: model.id,
+        name: model.name,
+        provider: model.provider as LLMProvider,
+        baseUrl: model.baseUrl,
+        apiKey: model.apiKey,
+        defaultModel: model.defaultModel,
+        headers: model.headers,
+        localModels: model.localModels,
+        executorchConfig: model.executorchConfig,
+        llamaCppConfig: model.llamaCppConfig,
+        providerSettings: model.providerSettings,
+        supportsStreaming: model.supportsStreaming,
+        isLocal: model.isLocal,
+        isEnabled: model.isEnabled,
+        createdAt: model.createdAt,
+        updatedAt: model.updatedAt,
+    };
+}
 
 export interface ILLMProviderRepository {
     // Provider Management
@@ -58,36 +80,38 @@ export interface ILLMProviderRepository {
 }
 
 class LLMProviderRepository implements ILLMProviderRepository {
-    private async getAll(): Promise<LLMConfig[]> {
-        const data = await storageAdapter.get<LLMConfig[]>(STORAGE_KEYS.LLM_CONFIGS);
-        return data || [];
-    }
-
-    private async saveAll(configs: LLMConfig[]): Promise<void> {
-        await storageAdapter.set(STORAGE_KEYS.LLM_CONFIGS, configs);
+    private get collection() {
+        return database.get<LLMConfigModel>('llm_configs');
     }
 
     /**
      * List all provider configurations (both local and remote)
      */
     async listProviders(): Promise<LLMConfig[]> {
-        return this.getAll();
+        const models = await this.collection.query().fetch();
+        return models.map(modelToLLMConfig);
     }
 
     /**
      * Get a specific provider by ID
      */
     async getProvider(id: string): Promise<LLMConfig | null> {
-        const configs = await this.getAll();
-        return configs.find((c) => c.id === id) || null;
+        try {
+            const model = await this.collection.find(id);
+            return modelToLLMConfig(model);
+        } catch {
+            return null;
+        }
     }
 
     /**
      * Get a provider by its type (useful for local providers which have one instance each)
      */
     async getProviderByType(providerType: LLMProvider): Promise<LLMConfig | null> {
-        const configs = await this.getAll();
-        return configs.find((c) => c.provider === providerType) || null;
+        const models = await this.collection
+            .query(Q.where('provider', providerType))
+            .fetch();
+        return models.length > 0 ? modelToLLMConfig(models[0]) : null;
     }
 
     /**
@@ -107,9 +131,27 @@ class LLMProviderRepository implements ILLMProviderRepository {
             updatedAt: now,
         };
 
-        const configs = await this.getAll();
-        configs.push(config);
-        await this.saveAll(configs);
+        await database.write(async () => {
+            await this.collection.create((record) => {
+                (record._raw as any).id = config.id;
+                record.name = config.name;
+                record.provider = config.provider;
+                record.baseUrl = config.baseUrl;
+                record.apiKey = config.apiKey;
+                record.defaultModel = config.defaultModel;
+                (record as any)._setRaw('headers', JSON.stringify(config.headers || {}));
+                (record as any)._setRaw('local_models', JSON.stringify(config.localModels || []));
+                (record as any)._setRaw('executorch_config', JSON.stringify(config.executorchConfig || null));
+                (record as any)._setRaw('llama_cpp_config', JSON.stringify(config.llamaCppConfig || null));
+                (record as any)._setRaw('provider_settings', JSON.stringify(config.providerSettings || null));
+                record.supportsStreaming = config.supportsStreaming;
+                record.isLocal = config.isLocal;
+                record.isEnabled = config.isEnabled;
+                record.createdAt = config.createdAt;
+                record.updatedAt = config.updatedAt;
+            });
+        });
+
         return config;
     }
 
@@ -117,16 +159,27 @@ class LLMProviderRepository implements ILLMProviderRepository {
      * Update an existing provider configuration
      */
     async updateProvider(config: LLMConfig): Promise<LLMConfig> {
-        const configs = await this.getAll();
-        const index = configs.findIndex((c) => c.id === config.id);
-        if (index === -1) {
-            throw new Error(`Provider not found: ${config.id}`);
-        }
-
-        const updated = { ...config, updatedAt: Date.now() };
-        configs[index] = updated;
-        await this.saveAll(configs);
-        return updated;
+        const now = Date.now();
+        await database.write(async () => {
+            const model = await this.collection.find(config.id);
+            await model.update((record) => {
+                record.name = config.name;
+                record.provider = config.provider;
+                record.baseUrl = config.baseUrl;
+                record.apiKey = config.apiKey;
+                record.defaultModel = config.defaultModel;
+                (record as any)._setRaw('headers', JSON.stringify(config.headers || {}));
+                (record as any)._setRaw('local_models', JSON.stringify(config.localModels || []));
+                (record as any)._setRaw('executorch_config', JSON.stringify(config.executorchConfig || null));
+                (record as any)._setRaw('llama_cpp_config', JSON.stringify(config.llamaCppConfig || null));
+                (record as any)._setRaw('provider_settings', JSON.stringify(config.providerSettings || null));
+                record.supportsStreaming = config.supportsStreaming;
+                record.isLocal = config.isLocal;
+                record.isEnabled = config.isEnabled;
+                record.updatedAt = now;
+            });
+        });
+        return { ...config, updatedAt: now };
     }
 
     /**
@@ -134,31 +187,40 @@ class LLMProviderRepository implements ILLMProviderRepository {
      * @throws Error if trying to remove a local provider
      */
     async removeProvider(id: string): Promise<void> {
-        const configs = await this.getAll();
-        const config = configs.find((c) => c.id === id);
+        const config = await this.getProvider(id);
 
         if (config && this.isLocalProvider(config.provider)) {
             throw new Error(`Cannot remove local provider '${config.provider}' - local providers are fixed`);
         }
 
-        const filtered = configs.filter((c) => c.id !== id);
-        await this.saveAll(filtered);
+        await database.write(async () => {
+            try {
+                const model = await this.collection.find(id);
+                await model.destroyPermanently();
+            } catch {
+                // Record doesn't exist, ignore
+            }
+        });
     }
 
     /**
      * Get all local provider configurations
      */
     async getLocalProviders(): Promise<LLMConfig[]> {
-        const configs = await this.getAll();
-        return configs.filter((c) => this.isLocalProvider(c.provider));
+        const models = await this.collection
+            .query(Q.where('is_local', true))
+            .fetch();
+        return models.map(modelToLLMConfig);
     }
 
     /**
      * Get all remote provider configurations
      */
     async getRemoteProviders(): Promise<LLMConfig[]> {
-        const configs = await this.getAll();
-        return configs.filter((c) => !this.isLocalProvider(c.provider));
+        const models = await this.collection
+            .query(Q.where('is_local', false))
+            .fetch();
+        return models.map(modelToLLMConfig);
     }
 
     /**
@@ -180,12 +242,9 @@ class LLMProviderRepository implements ILLMProviderRepository {
      * Called during app initialization to auto-create local provider configs
      */
     async ensureLocalProviders(): Promise<void> {
-        const configs = await this.getAll();
-        let updated = false;
-
         for (const providerType of LOCAL_PROVIDER_TYPES) {
-            const exists = configs.some((c) => c.provider === providerType);
-            if (!exists && DEFAULT_LOCAL_CONFIGS[providerType]) {
+            const existing = await this.getProviderByType(providerType);
+            if (!existing && DEFAULT_LOCAL_CONFIGS[providerType]) {
                 const now = Date.now();
                 const config: LLMConfig = {
                     ...DEFAULT_LOCAL_CONFIGS[providerType],
@@ -193,14 +252,29 @@ class LLMProviderRepository implements ILLMProviderRepository {
                     createdAt: now,
                     updatedAt: now,
                 };
-                configs.push(config);
-                updated = true;
+
+                await database.write(async () => {
+                    await this.collection.create((record) => {
+                        (record._raw as any).id = config.id;
+                        record.name = config.name;
+                        record.provider = config.provider;
+                        record.baseUrl = config.baseUrl;
+                        record.apiKey = config.apiKey;
+                        record.defaultModel = config.defaultModel;
+                        (record as any)._setRaw('headers', JSON.stringify(config.headers || {}));
+                        (record as any)._setRaw('local_models', JSON.stringify(config.localModels || []));
+                        (record as any)._setRaw('executorch_config', JSON.stringify(config.executorchConfig || null));
+                        (record as any)._setRaw('llama_cpp_config', JSON.stringify(config.llamaCppConfig || null));
+                        (record as any)._setRaw('provider_settings', JSON.stringify(config.providerSettings || null));
+                        record.supportsStreaming = config.supportsStreaming;
+                        record.isLocal = config.isLocal;
+                        record.isEnabled = config.isEnabled;
+                        record.createdAt = config.createdAt;
+                        record.updatedAt = config.updatedAt;
+                    });
+                });
                 console.log(`[LLMProviderRepository] Auto-created local provider: ${providerType}`);
             }
-        }
-
-        if (updated) {
-            await this.saveAll(configs);
         }
     }
 }

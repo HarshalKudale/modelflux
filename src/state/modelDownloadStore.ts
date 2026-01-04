@@ -82,8 +82,10 @@ export const useModelDownloadStore = create<ModelDownloadState>((set, get) => {
 
                 // Load completed downloads from repository
                 const models = await downloadedModelRepository.getAll();
+                logger.log('ModelDownloadStore', 'Loaded models from DB:', models.length, JSON.stringify(models.map(m => ({ id: m.id, modelId: m.modelId, name: m.name, status: m.status, provider: m.provider }))));
                 // Filter to only completed downloads
                 const completedModels = models.filter((m) => m.status === 'completed');
+                logger.log('ModelDownloadStore', 'Completed models:', completedModels.length);
                 set({ downloadedModels: completedModels, isLoading: false });
             } catch (error) {
                 logger.error('ModelDownloadStore', 'Failed to load downloaded models:', error);

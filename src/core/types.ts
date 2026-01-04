@@ -370,6 +370,11 @@ export interface AppSettings {
     lastAppVersion: string;
     language: string;
     ragSettings: RAGSettings;
+    // RAG fingerprint for stale detection
+    ragFingerprint?: string;
+    // RAG tracking for source processing
+    ragTrackingProvider?: RAGProvider;
+    ragTrackingModelId?: string;
 }
 
 /**

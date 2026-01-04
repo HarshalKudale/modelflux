@@ -1,6 +1,11 @@
-import { STORAGE_KEYS } from '../../config/constants';
+/**
+ * Persona Repository
+ *
+ * Manages persistence of personas using WatermelonDB.
+ */
+import { database } from '../database';
+import { PersonaModel } from '../database/models';
 import { Persona } from '../types';
-import { storageAdapter } from './StorageAdapter';
 
 export interface IPersonaRepository {
     findById(id: string): Promise<Persona | null>;
@@ -10,47 +15,91 @@ export interface IPersonaRepository {
     delete(id: string): Promise<void>;
 }
 
-class PersonaRepository implements IPersonaRepository {
-    private async getAll(): Promise<Persona[]> {
-        const data = await storageAdapter.get<Persona[]>(STORAGE_KEYS.PERSONAS);
-        return data || [];
-    }
+/**
+ * Convert WatermelonDB model to Persona type
+ */
+function modelToPersona(model: PersonaModel): Persona {
+    return {
+        id: model.id,
+        name: model.name,
+        description: model.description,
+        personality: model.personality,
+        scenario: model.scenario,
+        system_prompt: model.systemPrompt,
+        post_history_instructions: model.postHistoryInstructions,
+        creator_notes: model.creatorNotes,
+        compiledSystemPrompt: model.compiledSystemPrompt,
+        createdAt: model.createdAt,
+        updatedAt: model.updatedAt,
+    };
+}
 
-    private async saveAll(personas: Persona[]): Promise<void> {
-        await storageAdapter.set(STORAGE_KEYS.PERSONAS, personas);
+class PersonaRepository implements IPersonaRepository {
+    private get collection() {
+        return database.get<PersonaModel>('personas');
     }
 
     async findById(id: string): Promise<Persona | null> {
-        const personas = await this.getAll();
-        return personas.find((p) => p.id === id) || null;
+        try {
+            const model = await this.collection.find(id);
+            return modelToPersona(model);
+        } catch {
+            return null;
+        }
     }
 
     async findAll(): Promise<Persona[]> {
-        return this.getAll();
+        const models = await this.collection.query().fetch();
+        return models.map(modelToPersona);
     }
 
     async create(entity: Persona): Promise<Persona> {
-        const personas = await this.getAll();
-        personas.push(entity);
-        await this.saveAll(personas);
+        await database.write(async () => {
+            await this.collection.create((record) => {
+                (record._raw as any).id = entity.id;
+                record.name = entity.name;
+                record.description = entity.description;
+                record.personality = entity.personality;
+                record.scenario = entity.scenario;
+                record.systemPrompt = entity.system_prompt;
+                record.postHistoryInstructions = entity.post_history_instructions;
+                record.creatorNotes = entity.creator_notes;
+                record.compiledSystemPrompt = entity.compiledSystemPrompt;
+                record.createdAt = entity.createdAt;
+                record.updatedAt = entity.updatedAt;
+            });
+        });
         return entity;
     }
 
     async update(entity: Persona): Promise<Persona> {
-        const personas = await this.getAll();
-        const index = personas.findIndex((p) => p.id === entity.id);
-        if (index === -1) {
-            throw new Error(`Persona not found: ${entity.id}`);
-        }
-        personas[index] = { ...entity, updatedAt: Date.now() };
-        await this.saveAll(personas);
-        return personas[index];
+        const now = Date.now();
+        await database.write(async () => {
+            const model = await this.collection.find(entity.id);
+            await model.update((record) => {
+                record.name = entity.name;
+                record.description = entity.description;
+                record.personality = entity.personality;
+                record.scenario = entity.scenario;
+                record.systemPrompt = entity.system_prompt;
+                record.postHistoryInstructions = entity.post_history_instructions;
+                record.creatorNotes = entity.creator_notes;
+                record.compiledSystemPrompt = entity.compiledSystemPrompt;
+                record.updatedAt = now;
+            });
+        });
+        return { ...entity, updatedAt: now };
     }
 
     async delete(id: string): Promise<void> {
-        const personas = await this.getAll();
-        const filtered = personas.filter((p) => p.id !== id);
-        await this.saveAll(filtered);
+        await database.write(async () => {
+            try {
+                const model = await this.collection.find(id);
+                await model.destroyPermanently();
+            } catch {
+                // Record doesn't exist, ignore
+            }
+        });
     }
 }
 

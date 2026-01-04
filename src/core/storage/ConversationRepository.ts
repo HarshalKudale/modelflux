@@ -1,6 +1,12 @@
-import { STORAGE_KEYS } from '../../config/constants';
+/**
+ * Conversation Repository
+ *
+ * Manages persistence of conversations using WatermelonDB.
+ */
+import { Q } from '@nozbe/watermelondb';
+import { database } from '../database';
+import { ConversationModel } from '../database/models';
 import { Conversation } from '../types';
-import { storageAdapter } from './StorageAdapter';
 
 export interface IConversationRepository {
     findById(id: string): Promise<Conversation | null>;
@@ -13,67 +19,123 @@ export interface IConversationRepository {
     touch(id: string): Promise<void>;
 }
 
-class ConversationRepository implements IConversationRepository {
-    private async getAll(): Promise<Conversation[]> {
-        const data = await storageAdapter.get<Conversation[]>(STORAGE_KEYS.CONVERSATIONS);
-        return data || [];
-    }
+/**
+ * Convert WatermelonDB model to Conversation type
+ */
+function modelToConversation(model: ConversationModel): Conversation {
+    return {
+        id: model.id,
+        title: model.title,
+        providerId: model.providerId,
+        modelId: model.modelId,
+        providerType: model.providerType as Conversation['providerType'],
+        personaId: model.personaId,
+        personaPrompt: model.personaPrompt,
+        contextPrompt: model.contextPrompt,
+        attachedSourceIds: model.attachedSourceIds,
+        thinkingEnabled: model.thinkingEnabled,
+        createdAt: model.createdAt,
+        updatedAt: model.updatedAt,
+    };
+}
 
-    private async saveAll(conversations: Conversation[]): Promise<void> {
-        await storageAdapter.set(STORAGE_KEYS.CONVERSATIONS, conversations);
+class ConversationRepository implements IConversationRepository {
+    private get collection() {
+        return database.get<ConversationModel>('conversations');
     }
 
     async findById(id: string): Promise<Conversation | null> {
-        const conversations = await this.getAll();
-        return conversations.find((c) => c.id === id) || null;
+        try {
+            const model = await this.collection.find(id);
+            return modelToConversation(model);
+        } catch {
+            return null;
+        }
     }
 
     async findAll(): Promise<Conversation[]> {
-        return this.getAll();
+        const models = await this.collection.query().fetch();
+        return models.map(modelToConversation);
     }
 
     async findAllSorted(): Promise<Conversation[]> {
-        const conversations = await this.getAll();
-        return conversations.sort((a, b) => b.updatedAt - a.updatedAt);
+        const models = await this.collection
+            .query(Q.sortBy('updated_at', Q.desc))
+            .fetch();
+        return models.map(modelToConversation);
     }
 
     async create(entity: Conversation): Promise<Conversation> {
-        const conversations = await this.getAll();
-        conversations.push(entity);
-        await this.saveAll(conversations);
+        let created: ConversationModel | null = null;
+        await database.write(async () => {
+            created = await this.collection.create((record) => {
+                // Use prepareCreate with custom ID
+                (record._raw as any).id = entity.id;
+                record.title = entity.title;
+                record.providerId = entity.providerId;
+                record.modelId = entity.modelId;
+                record.providerType = entity.providerType;
+                record.personaId = entity.personaId;
+                record.personaPrompt = entity.personaPrompt;
+                record.contextPrompt = entity.contextPrompt;
+                (record as any)._setRaw('attached_source_ids', JSON.stringify(entity.attachedSourceIds || []));
+                record.thinkingEnabled = entity.thinkingEnabled || false;
+                record.createdAt = entity.createdAt;
+                record.updatedAt = entity.updatedAt;
+            });
+        });
         return entity;
     }
 
     async update(entity: Conversation): Promise<Conversation> {
-        const conversations = await this.getAll();
-        const index = conversations.findIndex((c) => c.id === entity.id);
-        if (index === -1) {
-            throw new Error(`Conversation not found: ${entity.id}`);
-        }
-        conversations[index] = { ...entity, updatedAt: Date.now() };
-        await this.saveAll(conversations);
-        return conversations[index];
+        await database.write(async () => {
+            const model = await this.collection.find(entity.id);
+            await model.update((record) => {
+                record.title = entity.title;
+                record.providerId = entity.providerId;
+                record.modelId = entity.modelId;
+                record.providerType = entity.providerType;
+                record.personaId = entity.personaId;
+                record.personaPrompt = entity.personaPrompt;
+                record.contextPrompt = entity.contextPrompt;
+                (record as any)._setRaw('attached_source_ids', JSON.stringify(entity.attachedSourceIds || []));
+                record.thinkingEnabled = entity.thinkingEnabled || false;
+                record.updatedAt = Date.now();
+            });
+        });
+        return { ...entity, updatedAt: Date.now() };
     }
 
     async delete(id: string): Promise<void> {
-        const conversations = await this.getAll();
-        const filtered = conversations.filter((c) => c.id !== id);
-        await this.saveAll(filtered);
+        await database.write(async () => {
+            try {
+                const model = await this.collection.find(id);
+                await model.destroyPermanently();
+            } catch {
+                // Record doesn't exist, ignore
+            }
+        });
     }
 
     async search(query: string): Promise<Conversation[]> {
-        const conversations = await this.getAll();
         const lowerQuery = query.toLowerCase();
-        return conversations.filter((c) =>
-            c.title.toLowerCase().includes(lowerQuery)
-        );
+        const models = await this.collection
+            .query(Q.where('title', Q.like(`%${Q.sanitizeLikeString(lowerQuery)}%`)))
+            .fetch();
+        return models.map(modelToConversation);
     }
 
     async touch(id: string): Promise<void> {
-        const conversation = await this.findById(id);
-        if (conversation) {
-            await this.update({ ...conversation, updatedAt: Date.now() });
-        }
+        await database.write(async () => {
+            try {
+                const model = await this.collection.find(id);
+                await model.update((record) => {
+                    record.updatedAt = Date.now();
+                });
+            } catch {
+                // Record doesn't exist, ignore
+            }
+        });
     }
 }
 

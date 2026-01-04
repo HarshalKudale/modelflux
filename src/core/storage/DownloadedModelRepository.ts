@@ -1,11 +1,39 @@
-import { DownloadedModel, generateId } from '../types';
-import { storageAdapter } from './StorageAdapter';
+/**
+ * Downloaded Model Repository
+ *
+ * Repository for managing downloaded model metadata using WatermelonDB.
+ */
 
-const STORAGE_KEY_PREFIX = 'downloaded-models';
+import { Q } from '@nozbe/watermelondb';
+import { database } from '../database';
+import { DownloadedModelModel } from '../database/models';
+import { DownloadedModel, DownloadedModelProvider, DownloadedModelType, generateId, ModelDownloadStatus, ModelTag } from '../types';
 
 /**
- * Repository for managing downloaded model metadata
+ * Convert WatermelonDB model to DownloadedModel type
  */
+function modelToDownloadedModel(model: DownloadedModelModel): DownloadedModel {
+    return {
+        id: model.id,
+        modelId: model.modelId,
+        name: model.name,
+        description: model.description,
+        provider: model.provider as DownloadedModelProvider,
+        type: model.type as DownloadedModelType,
+        tags: model.tags as ModelTag[],
+        localPath: model.localPath,
+        modelFilePath: model.modelFilePath,
+        tokenizerFilePath: model.tokenizerFilePath,
+        tokenizerConfigFilePath: model.tokenizerConfigFilePath,
+        sizeEstimate: model.sizeEstimate,
+        downloadedSize: model.downloadedSize,
+        status: model.status as ModelDownloadStatus,
+        progress: model.progress,
+        downloadedAt: model.downloadedAt,
+        errorMessage: model.errorMessage,
+    };
+}
+
 export interface IDownloadedModelRepository {
     getAll(): Promise<DownloadedModel[]>;
     getById(id: string): Promise<DownloadedModel | null>;
@@ -17,72 +45,103 @@ export interface IDownloadedModelRepository {
 }
 
 class DownloadedModelRepository implements IDownloadedModelRepository {
-    private readonly listKey = `${STORAGE_KEY_PREFIX}:list`;
-
-    private getItemKey(id: string): string {
-        return `${STORAGE_KEY_PREFIX}:${id}`;
+    private get collection() {
+        return database.get<DownloadedModelModel>('downloaded_models');
     }
 
     async getAll(): Promise<DownloadedModel[]> {
-        const ids = await storageAdapter.get<string[]>(this.listKey);
-        if (!ids || ids.length === 0) return [];
-
-        const models: DownloadedModel[] = [];
-        for (const id of ids) {
-            const model = await storageAdapter.get<DownloadedModel>(this.getItemKey(id));
-            if (model) {
-                models.push(model);
-            }
-        }
-        return models;
+        const models = await this.collection.query().fetch();
+        return models.map(modelToDownloadedModel);
     }
 
     async getById(id: string): Promise<DownloadedModel | null> {
-        return await storageAdapter.get<DownloadedModel>(this.getItemKey(id));
+        try {
+            const model = await this.collection.find(id);
+            return modelToDownloadedModel(model);
+        } catch {
+            return null;
+        }
     }
 
     async getByModelId(modelId: string): Promise<DownloadedModel | null> {
-        const all = await this.getAll();
-        return all.find(m => m.modelId === modelId) || null;
+        const models = await this.collection
+            .query(Q.where('model_id', modelId))
+            .fetch();
+        return models.length > 0 ? modelToDownloadedModel(models[0]) : null;
     }
 
     async create(model: Omit<DownloadedModel, 'id'>): Promise<DownloadedModel> {
         const id = generateId();
         const newModel: DownloadedModel = { ...model, id };
 
-        // Save the model
-        await storageAdapter.set(this.getItemKey(id), newModel);
-
-        // Update the list
-        const ids = await storageAdapter.get<string[]>(this.listKey) || [];
-        ids.push(id);
-        await storageAdapter.set(this.listKey, ids);
+        await database.write(async () => {
+            await this.collection.create((record) => {
+                (record._raw as any).id = id;
+                record.modelId = model.modelId;
+                record.name = model.name;
+                record.description = model.description;
+                record.provider = model.provider;
+                record.type = model.type;
+                (record as any)._setRaw('tags', JSON.stringify(model.tags || []));
+                record.localPath = model.localPath;
+                record.modelFilePath = model.modelFilePath;
+                record.tokenizerFilePath = model.tokenizerFilePath;
+                record.tokenizerConfigFilePath = model.tokenizerConfigFilePath;
+                record.sizeEstimate = model.sizeEstimate;
+                record.downloadedSize = model.downloadedSize;
+                record.status = model.status;
+                record.progress = model.progress;
+                record.downloadedAt = model.downloadedAt;
+                record.errorMessage = model.errorMessage;
+            });
+        });
 
         return newModel;
     }
 
     async update(id: string, updates: Partial<DownloadedModel>): Promise<DownloadedModel | null> {
-        const existing = await this.getById(id);
-        if (!existing) return null;
+        try {
+            const existing = await this.getById(id);
+            if (!existing) return null;
 
-        const updated: DownloadedModel = { ...existing, ...updates };
-        await storageAdapter.set(this.getItemKey(id), updated);
-        return updated;
+            await database.write(async () => {
+                const model = await this.collection.find(id);
+                await model.update((record) => {
+                    if (updates.modelId !== undefined) record.modelId = updates.modelId;
+                    if (updates.name !== undefined) record.name = updates.name;
+                    if (updates.description !== undefined) record.description = updates.description;
+                    if (updates.provider !== undefined) record.provider = updates.provider;
+                    if (updates.type !== undefined) record.type = updates.type;
+                    if (updates.tags !== undefined) (record as any)._setRaw('tags', JSON.stringify(updates.tags));
+                    if (updates.localPath !== undefined) record.localPath = updates.localPath;
+                    if (updates.modelFilePath !== undefined) record.modelFilePath = updates.modelFilePath;
+                    if (updates.tokenizerFilePath !== undefined) record.tokenizerFilePath = updates.tokenizerFilePath;
+                    if (updates.tokenizerConfigFilePath !== undefined) record.tokenizerConfigFilePath = updates.tokenizerConfigFilePath;
+                    if (updates.sizeEstimate !== undefined) record.sizeEstimate = updates.sizeEstimate;
+                    if (updates.downloadedSize !== undefined) record.downloadedSize = updates.downloadedSize;
+                    if (updates.status !== undefined) record.status = updates.status;
+                    if (updates.progress !== undefined) record.progress = updates.progress;
+                    if (updates.downloadedAt !== undefined) record.downloadedAt = updates.downloadedAt;
+                    if (updates.errorMessage !== undefined) record.errorMessage = updates.errorMessage;
+                });
+            });
+
+            return { ...existing, ...updates };
+        } catch {
+            return null;
+        }
     }
 
     async delete(id: string): Promise<boolean> {
-        const existing = await this.getById(id);
-        if (!existing) return false;
-
-        // Remove from storage
-        await storageAdapter.remove(this.getItemKey(id));
-
-        // Update the list
-        const ids = await storageAdapter.get<string[]>(this.listKey) || [];
-        const updatedIds = ids.filter((i: string) => i !== id);
-        await storageAdapter.set(this.listKey, updatedIds);
-
-        return true;
+        try {
+            await database.write(async () => {
+                const model = await this.collection.find(id);
+                await model.destroyPermanently();
+            });
+            return true;
+        } catch {
+            return false;
+        }
     }
 
     async deleteByModelId(modelId: string): Promise<boolean> {

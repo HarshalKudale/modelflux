@@ -72,9 +72,11 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
         // Start with catalog models
         let models: DownloadableModel[] = [...DOWNLOADABLE_MODELS];
 
-        // Merge with imported models from downloaded models
+        // Merge with imported/local models from downloaded models
+        // These are models not in the catalog (imported by user or have 'custom' tag)
+        const catalogIds = new Set(DOWNLOADABLE_MODELS.map(m => m.id));
         const importedModels = downloadedModels
-            .filter((dm) => dm.tags?.includes('custom'))
+            .filter((dm) => !catalogIds.has(dm.modelId) || dm.tags?.includes('custom'))
             .map((dm): DownloadableModel => ({
                 id: dm.modelId,
                 name: dm.name,
