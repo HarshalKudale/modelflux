@@ -4,7 +4,7 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { BorderRadius, Colors, Spacing } from '../../../config/theme';
 
 import { useAppColorScheme } from '../../hooks';
@@ -26,7 +26,6 @@ export function UserInfo({ onSettingsPress }: UserInfoProps) {
                 Alert.alert("Hello")
                 console.log("button Pressed");
             }}>
-                <Text>Press me</Text>
             </Pressable>
             <Pressable
                 onPress={onSettingsPress}
