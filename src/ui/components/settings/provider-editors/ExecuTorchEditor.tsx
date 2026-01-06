@@ -91,7 +91,7 @@ export function ExecuTorchEditor({ configId, onBack }: ExecuTorchEditorProps) {
                 }
             }
 
-            showInfo(t('common.success'), t('llm.editor.saved') || 'Settings saved');
+            showInfo(t('common.success'), t('llm.editor.saved'));
             onBack();
         } catch (error) {
             showError(t('common.error'), t('llm.editor.error.save'));
@@ -105,57 +105,57 @@ export function ExecuTorchEditor({ configId, onBack }: ExecuTorchEditorProps) {
             {/* Provider Description */}
             <View style={[styles.infoCard, { backgroundColor: colors.backgroundSecondary }]}>
                 <Text style={[styles.description, { color: colors.textSecondary }]}>
-                    {t(`provider.${provider}.description`) || 'On-device inference using Meta ExecuTorch with PTE models.'}
+                    {t(`provider.${provider}.description`)}
                 </Text>
             </View>
 
             <Text style={[styles.hint, { color: colors.textMuted }]}>
-                {t('llm.editor.executorch.hint') || 'Models are selected in chat. Configure generation settings below.'}
+                {t('llm.editor.executorch.hint')}
             </Text>
 
             {/* Generation Settings */}
             <View style={[styles.section, { borderTopColor: colors.border }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                    {t('llm.editor.generationConfig.title') || 'Generation Config'}
+                    {t('llm.editor.generationConfig.title')}
                 </Text>
                 <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                    {t('llm.editor.generationSettings.hint') || 'Optional. Leave empty for defaults.'}
+                    {t('llm.editor.generationSettings.hint')}
                 </Text>
 
                 <Input
-                    label={t('llm.editor.generationConfig.temperature') || 'Temperature'}
+                    label={t('llm.editor.generationConfig.temperature')}
                     value={temperature}
                     onChangeText={setTemperature}
                     placeholder="0.7"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.generationConfig.temperatureHint') || 'Controls randomness (0.0-2.0)'}
+                    hint={t('llm.editor.generationConfig.temperatureHint')}
                 />
 
                 <Input
-                    label={t('llm.editor.generationConfig.topp') || 'Top-P'}
+                    label={t('llm.editor.generationConfig.topp')}
                     value={topp}
                     onChangeText={setTopp}
                     placeholder="0.9"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.generationConfig.toppHint') || 'Nucleus sampling threshold (0.0-1.0)'}
+                    hint={t('llm.editor.generationConfig.toppHint')}
                 />
 
                 <Input
-                    label={t('llm.editor.generationConfig.batchSize') || 'Token Batch Size'}
+                    label={t('llm.editor.generationConfig.batchSize')}
                     value={batchSize}
                     onChangeText={setBatchSize}
                     placeholder="10"
                     keyboardType="number-pad"
-                    hint={t('llm.editor.generationConfig.batchSizeHint') || 'Tokens per batch'}
+                    hint={t('llm.editor.generationConfig.batchSizeHint')}
                 />
 
                 <Input
-                    label={t('llm.editor.generationConfig.batchInterval') || 'Batch Interval (ms)'}
+                    label={t('llm.editor.generationConfig.batchInterval')}
                     value={batchInterval}
                     onChangeText={setBatchInterval}
                     placeholder="100"
                     keyboardType="number-pad"
-                    hint={t('llm.editor.generationConfig.batchIntervalHint') || 'Time between batches in milliseconds'}
+                    hint={t('llm.editor.generationConfig.batchIntervalHint')}
                 />
             </View>
 

@@ -79,7 +79,7 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
 
                     const ready = await ensureReady();
                     if (!ready) {
-                        setInitError('No RAG provider configured. Please configure one in Settings.');
+                        setInitError(t('rag.notConfigured'));
                     }
                 } else {
                     // Clear any previous error if we're now ready/stale
@@ -102,7 +102,7 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
         if (!isReady) {
             Alert.alert(
                 t('common.error'),
-                initError || 'RAG not ready. Please wait or configure RAG in Settings.'
+                initError || t('rag.notReady')
             );
             return;
         }
@@ -223,8 +223,8 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
 
         if (isProcessing) {
             const progressText = processingProgress
-                ? `Processing ${processingProgress.current}/${processingProgress.total}...`
-                : 'Processing...';
+                ? t('sources.processing.progress', { current: processingProgress.current, total: processingProgress.total })
+                : t('sources.processing');
             return (
                 <View style={[styles.statusBar, { backgroundColor: colors.tint + '20' }]}>
                     <ActivityIndicator size="small" color={colors.tint} />
@@ -240,14 +240,14 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                 <View style={[styles.statusBar, { backgroundColor: colors.warning + '20' }]}>
                     <Ionicons name="warning-outline" size={18} color={colors.warning || '#F59E0B'} />
                     <Text style={[styles.statusText, { color: colors.warning || '#F59E0B', flex: 1 }]}>
-                        {t('rag.stale') || 'Sources need reprocessing with new model'}
+                        {t('rag.stale')}
                     </Text>
                     <TouchableOpacity
                         onPress={handleReprocess}
                         style={[styles.reprocessButton, { backgroundColor: colors.tint }]}
                     >
                         <Text style={styles.reprocessButtonText}>
-                            {t('rag.reprocess') || 'Reprocess'}
+                            {t('rag.reprocess')}
                         </Text>
                     </TouchableOpacity>
                 </View>

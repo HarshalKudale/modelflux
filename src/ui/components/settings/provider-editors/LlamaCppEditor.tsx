@@ -95,7 +95,7 @@ export function LlamaCppEditor({ configId, onBack }: LlamaCppEditorProps) {
                 }
             }
 
-            showInfo(t('common.success'), t('llm.editor.saved') || 'Settings saved');
+            showInfo(t('common.success'), t('llm.editor.saved'));
             onBack();
         } catch (error) {
             showError(t('common.error'), t('llm.editor.error.save'));
@@ -109,66 +109,66 @@ export function LlamaCppEditor({ configId, onBack }: LlamaCppEditorProps) {
             {/* Provider Description */}
             <View style={[styles.infoCard, { backgroundColor: colors.backgroundSecondary }]}>
                 <Text style={[styles.description, { color: colors.textSecondary }]}>
-                    {t(`provider.${provider}.description`) || 'On-device inference using llama.cpp with GGUF models.'}
+                    {t(`provider.${provider}.description`)}
                 </Text>
             </View>
 
             <Text style={[styles.hint, { color: colors.textMuted }]}>
-                {t('llm.editor.llama-cpp.hint') || 'Models are imported and selected in chat. Configure generation settings below.'}
+                {t('llm.editor.llama-cpp.hint')}
             </Text>
 
             {/* Generation Settings */}
             <View style={[styles.section, { borderTopColor: colors.border }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                    {t('llm.editor.generationSettings') || 'Generation Settings'}
+                    {t('llm.editor.generationSettings')}
                 </Text>
                 <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                    {t('llm.editor.generationSettings.hint') || 'Optional. Leave empty for defaults.'}
+                    {t('llm.editor.generationSettings.hint')}
                 </Text>
 
                 <Input
-                    label={t('llm.editor.temperature') || 'Temperature'}
+                    label={t('llm.editor.temperature')}
                     value={temperature}
                     onChangeText={setTemperature}
                     placeholder="0.8"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.temperature.hint') || 'Controls randomness (0.0-2.0)'}
+                    hint={t('llm.editor.temperature.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.topP') || 'Top-P'}
+                    label={t('llm.editor.topP')}
                     value={topP}
                     onChangeText={setTopP}
                     placeholder="0.95"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.topP.hint') || 'Nucleus sampling (0.0-1.0)'}
+                    hint={t('llm.editor.topP.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.nCtx') || 'Context Window'}
+                    label={t('llm.editor.nCtx')}
                     value={nCtx}
                     onChangeText={setNCtx}
                     placeholder="2048"
                     keyboardType="number-pad"
-                    hint={t('llm.editor.nCtx.hint') || 'Context window size in tokens'}
+                    hint={t('llm.editor.nCtx.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.repeatPenalty') || 'Repeat Penalty'}
+                    label={t('llm.editor.repeatPenalty')}
                     value={repeatPenalty}
                     onChangeText={setRepeatPenalty}
                     placeholder="1.1"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.repeatPenalty.hint') || 'Penalize repetition (1.0 = no penalty)'}
+                    hint={t('llm.editor.repeatPenalty.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.nPredict') || 'Max Tokens'}
+                    label={t('llm.editor.nPredict')}
                     value={nPredict}
                     onChangeText={setNPredict}
                     placeholder="2048"
                     keyboardType="number-pad"
-                    hint={t('llm.editor.nPredict.hint') || 'Maximum tokens to generate'}
+                    hint={t('llm.editor.nPredict.hint')}
                 />
             </View>
 

@@ -209,55 +209,55 @@ export function OpenAIEditor({ configId, provider, onBack }: OpenAIEditorProps) 
             {/* Generation Settings */}
             <View style={[styles.section, { borderTopColor: colors.border }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                    {t('llm.editor.generationSettings') || 'Generation Settings'}
+                    {t('llm.editor.generationSettings')}
                 </Text>
                 <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                    {t('llm.editor.generationSettings.hint') || 'Optional. Leave empty for defaults.'}
+                    {t('llm.editor.generationSettings.hint')}
                 </Text>
 
                 <Input
-                    label={t('llm.editor.temperature') || 'Temperature'}
+                    label={t('llm.editor.temperature')}
                     value={temperature}
                     onChangeText={setTemperature}
                     placeholder="1.0"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.temperature.hint') || 'Controls randomness (0.0-2.0)'}
+                    hint={t('llm.editor.temperature.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.topP') || 'Top-P'}
+                    label={t('llm.editor.topP')}
                     value={topP}
                     onChangeText={setTopP}
                     placeholder="1.0"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.topP.hint') || 'Nucleus sampling (0.0-1.0)'}
+                    hint={t('llm.editor.topP.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.maxTokens') || 'Max Tokens'}
+                    label={t('llm.editor.maxTokens')}
                     value={maxTokens}
                     onChangeText={setMaxTokens}
                     placeholder="4096"
                     keyboardType="number-pad"
-                    hint={t('llm.editor.maxTokens.hint') || 'Maximum output tokens'}
+                    hint={t('llm.editor.maxTokens.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.presencePenalty') || 'Presence Penalty'}
+                    label={t('llm.editor.presencePenalty')}
                     value={presencePenalty}
                     onChangeText={setPresencePenalty}
                     placeholder="0"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.presencePenalty.hint') || 'Penalize new topics (-2.0 to 2.0)'}
+                    hint={t('llm.editor.presencePenalty.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.frequencyPenalty') || 'Frequency Penalty'}
+                    label={t('llm.editor.frequencyPenalty')}
                     value={frequencyPenalty}
                     onChangeText={setFrequencyPenalty}
                     placeholder="0"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.frequencyPenalty.hint') || 'Penalize repetition (-2.0 to 2.0)'}
+                    hint={t('llm.editor.frequencyPenalty.hint')}
                 />
             </View>
 

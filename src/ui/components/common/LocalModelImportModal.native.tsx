@@ -152,9 +152,9 @@ export function LocalModelImportModal({
     // Get file extension hint based on provider
     const getModelFileHint = (): string => {
         if (supportedFormats.length > 0) {
-            return `Select model file (.${supportedFormats.join(', .')})`;
+            return t('localModel.import.selectModelFile', { formats: supportedFormats.join(', .') });
         }
-        return 'Select model file';
+        return t('localModel.import.selectModelFileGeneric');
     };
 
     // Reset form when provider changes
@@ -209,7 +209,7 @@ export function LocalModelImportModal({
             const modelTypeLabel = modelTypes.find(t => t.value === modelType)?.label || modelType;
             await onImport(
                 modelName.trim(),
-                `Imported ${modelTypeLabel} model`,
+                t('localModel.import.importedDescription', { type: modelTypeLabel }),
                 provider,
                 modelType,
                 copiedModelPath,
@@ -252,7 +252,7 @@ export function LocalModelImportModal({
                     {/* Header */}
                     <View style={[styles.header, { borderBottomColor: colors.border }]}>
                         <Text style={[styles.title, { color: colors.text }]}>
-                            Import Local Model
+                            {t('localModel.import.title')}
                         </Text>
                         <TouchableOpacity onPress={onClose}>
                             <Ionicons name="close" size={24} color={colors.textMuted} />
@@ -262,7 +262,7 @@ export function LocalModelImportModal({
                     <ScrollView style={styles.content}>
                         {/* Provider Selection */}
                         <View style={styles.fieldGroup}>
-                            <Text style={[styles.label, { color: colors.text }]}>Provider</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('localModel.import.provider')}</Text>
                             <View style={styles.chipRow}>
                                 {localProviders.map((p) => (
                                     <TouchableOpacity
@@ -291,14 +291,14 @@ export function LocalModelImportModal({
                             </View>
                             {supportedFormats.length > 0 && (
                                 <Text style={[styles.hint, { color: colors.textMuted }]}>
-                                    Supported format: .{supportedFormats.join(', .')}
+                                    {t('localModel.import.supportedFormat', { formats: supportedFormats.join(', .') })}
                                 </Text>
                             )}
                         </View>
 
                         {/* Model Type Selection */}
                         <View style={styles.fieldGroup}>
-                            <Text style={[styles.label, { color: colors.text }]}>Model Type</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('localModel.import.modelType')}</Text>
                             <View style={styles.chipRow}>
                                 {modelTypes.map((mt) => (
                                     <TouchableOpacity
@@ -329,7 +329,7 @@ export function LocalModelImportModal({
 
                         {/* Model Name */}
                         <View style={styles.fieldGroup}>
-                            <Text style={[styles.label, { color: colors.text }]}>Model Name</Text>
+                            <Text style={[styles.label, { color: colors.text }]}>{t('localModel.import.modelName')}</Text>
                             <TextInput
                                 style={[
                                     styles.textInput,
@@ -341,7 +341,7 @@ export function LocalModelImportModal({
                                 ]}
                                 value={modelName}
                                 onChangeText={setModelName}
-                                placeholder="Enter model name"
+                                placeholder={t('localModel.import.modelNamePlaceholder')}
                                 placeholderTextColor={colors.textMuted}
                             />
                         </View>
@@ -349,7 +349,7 @@ export function LocalModelImportModal({
                         {/* Model File */}
                         <View style={styles.fieldGroup}>
                             <Text style={[styles.label, { color: colors.text }]}>
-                                Model File <Text style={{ color: colors.error }}>*</Text>
+                                {t('localModel.import.modelFileRequired')}
                             </Text>
                             <View style={styles.filePickerRow}>
                                 <View
@@ -378,7 +378,7 @@ export function LocalModelImportModal({
                         {isExecutorch && (
                             <View style={styles.fieldGroup}>
                                 <Text style={[styles.label, { color: colors.text }]}>
-                                    Tokenizer File <Text style={{ color: colors.error }}>*</Text>
+                                    {t('localModel.import.tokenizerFileRequired')}
                                 </Text>
                                 <View style={styles.filePickerRow}>
                                     <View
@@ -391,7 +391,7 @@ export function LocalModelImportModal({
                                             style={[styles.filePath, { color: tokenizerPath ? colors.text : colors.textMuted }]}
                                             numberOfLines={1}
                                         >
-                                            {tokenizerPath ? getFilename(tokenizerPath) : 'Select tokenizer file (.json)'}
+                                            {tokenizerPath ? getFilename(tokenizerPath) : t('localModel.import.selectTokenizerFile')}
                                         </Text>
                                     </View>
                                     <TouchableOpacity
@@ -408,7 +408,7 @@ export function LocalModelImportModal({
                         {isExecutorch && (
                             <View style={styles.fieldGroup}>
                                 <Text style={[styles.label, { color: colors.text }]}>
-                                    Tokenizer Config (optional)
+                                    {t('localModel.import.tokenizerConfig')}
                                 </Text>
                                 <View style={styles.filePickerRow}>
                                     <View
@@ -426,7 +426,7 @@ export function LocalModelImportModal({
                                         >
                                             {tokenizerConfigPath
                                                 ? getFilename(tokenizerConfigPath)
-                                                : 'Select config file (.json)'}
+                                                : t('localModel.import.selectConfigFile')}
                                         </Text>
                                     </View>
                                     <TouchableOpacity
@@ -444,7 +444,7 @@ export function LocalModelImportModal({
                             <View style={[styles.infoBox, { backgroundColor: colors.tint + '15' }]}>
                                 <Ionicons name="information-circle" size={20} color={colors.tint} />
                                 <Text style={[styles.infoText, { color: colors.text }]}>
-                                    GGUF models include the tokenizer, so no separate tokenizer file is needed.
+                                    {t('localModel.import.ggufInfo')}
                                 </Text>
                             </View>
                         )}
@@ -456,7 +456,7 @@ export function LocalModelImportModal({
                             style={[styles.cancelButton, { borderColor: colors.border }]}
                             onPress={onClose}
                         >
-                            <Text style={[styles.cancelButtonText, { color: colors.text }]}>Cancel</Text>
+                            <Text style={[styles.cancelButtonText, { color: colors.text }]}>{t('common.cancel')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[
@@ -472,7 +472,7 @@ export function LocalModelImportModal({
                             {isImporting ? (
                                 <ActivityIndicator size="small" color="#FFFFFF" />
                             ) : (
-                                <Text style={styles.importButtonText}>Import Model</Text>
+                                <Text style={styles.importButtonText}>{t('localModel.import.importButton')}</Text>
                             )}
                         </TouchableOpacity>
                     </View>

@@ -328,4 +328,73 @@ export const en: Record<string, string> = {
     "logs.empty": "No logs yet",
     "logs.cleared": "Logs cleared",
     "logs.count": "{count} log entries",
+
+    // Conversation Runtime Alerts
+    "conversation.stopGeneration.title": "Stop Generation?",
+    "conversation.stopGeneration.message": "The current conversation will stop generating if you switch. Do you want to continue?",
+    "conversation.stopGeneration.switch": "Switch",
+
+    // LLM Editor - Generation Settings (shared across providers)
+    "llm.editor.generationSettings": "Generation Settings",
+    "llm.editor.generationSettings.hint": "Optional. Leave empty for defaults.",
+    "llm.editor.temperature": "Temperature",
+    "llm.editor.temperature.hint": "Controls randomness (0.0-2.0)",
+    "llm.editor.temperature.anthropic.hint": "Controls randomness (0.0-1.0)",
+    "llm.editor.topP": "Top-P",
+    "llm.editor.topP.hint": "Nucleus sampling (0.0-1.0)",
+    "llm.editor.maxTokens": "Max Tokens",
+    "llm.editor.maxTokens.hint": "Maximum output tokens",
+    "llm.editor.presencePenalty": "Presence Penalty",
+    "llm.editor.presencePenalty.hint": "Penalize new topics (-2.0 to 2.0)",
+    "llm.editor.frequencyPenalty": "Frequency Penalty",
+    "llm.editor.frequencyPenalty.hint": "Penalize repetition (-2.0 to 2.0)",
+    "llm.editor.saved": "Settings saved",
+
+    // Ollama Editor
+    "llm.editor.baseUrl.ollama.hint": "URL of your Ollama server",
+    "llm.editor.numPredict": "Num Predict",
+    "llm.editor.numPredict.hint": "Maximum tokens to generate",
+    "llm.editor.numCtx": "Context Window",
+    "llm.editor.numCtx.hint": "Context window size in tokens",
+
+    // Llama.cpp Editor
+    "llm.editor.llama-cpp.hint": "Models are imported and selected in chat. Configure generation settings below.",
+    "llm.editor.nCtx": "Context Window",
+    "llm.editor.nCtx.hint": "Context window size in tokens",
+    "llm.editor.repeatPenalty": "Repeat Penalty",
+    "llm.editor.repeatPenalty.hint": "Penalize repetition (1.0 = no penalty)",
+    "llm.editor.nPredict": "Max Tokens",
+    "llm.editor.nPredict.hint": "Maximum tokens to generate",
+
+    // Local Model Import Modal
+    "localModel.import.title": "Import Local Model",
+    "localModel.import.provider": "Provider",
+    "localModel.import.supportedFormat": "Supported format: .{formats}",
+    "localModel.import.modelType": "Model Type",
+    "localModel.import.modelName": "Model Name",
+    "localModel.import.modelNamePlaceholder": "Enter model name",
+    "localModel.import.modelFile": "Model File",
+    "localModel.import.modelFileRequired": "Model File *",
+    "localModel.import.selectModelFile": "Select model file (.{formats})",
+    "localModel.import.selectModelFileGeneric": "Select model file",
+    "localModel.import.tokenizerFile": "Tokenizer File",
+    "localModel.import.tokenizerFileRequired": "Tokenizer File *",
+    "localModel.import.selectTokenizerFile": "Select tokenizer file (.json)",
+    "localModel.import.tokenizerConfig": "Tokenizer Config (optional)",
+    "localModel.import.selectConfigFile": "Select config file (.json)",
+    "localModel.import.ggufInfo": "GGUF models include the tokenizer, so no separate tokenizer file is needed.",
+    "localModel.import.importButton": "Import Model",
+    "localModel.import.importedDescription": "Imported {type} model",
+
+    // Sources Modal - RAG Status
+    "rag.stale": "Sources need reprocessing with new model",
+    "rag.reprocess": "Reprocess",
+    "rag.notConfigured": "No RAG provider configured. Please configure one in Settings.",
+    "rag.notReady": "RAG not ready. Please wait or configure RAG in Settings.",
+    "sources.processing.progress": "Processing {current}/{total}...",
+
+    // Misc UI
+    "common.selectLLM": "Select LLM",
+    "common.defaultError": "Error",
+    "common.code": "code",
 };

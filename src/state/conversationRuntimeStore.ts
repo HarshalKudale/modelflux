@@ -19,6 +19,7 @@
 
 import { Alert } from 'react-native';
 import { create } from 'zustand';
+import { t } from '../services/LocaleService';
 
 interface ConversationRuntimeState {
     // Current conversation context
@@ -132,16 +133,16 @@ export const useConversationRuntimeStore = create<ConversationRuntimeStore>((set
         // Show confirmation dialog
         return new Promise((resolve) => {
             Alert.alert(
-                'Stop Generation?',
-                'The current conversation will stop generating if you switch. Do you want to continue?',
+                t('conversation.stopGeneration.title'),
+                t('conversation.stopGeneration.message'),
                 [
                     {
-                        text: 'Cancel',
+                        text: t('common.cancel'),
                         style: 'cancel',
                         onPress: () => resolve(false),
                     },
                     {
-                        text: 'Switch',
+                        text: t('conversation.stopGeneration.switch'),
                         style: 'destructive',
                         onPress: () => {
                             // Interrupt and switch

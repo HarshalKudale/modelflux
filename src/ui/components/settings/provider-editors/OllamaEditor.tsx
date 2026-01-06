@@ -177,52 +177,52 @@ export function OllamaEditor({ configId, onBack }: OllamaEditorProps) {
                 value={baseUrl}
                 onChangeText={setBaseUrl}
                 placeholder="http://localhost:11434"
-                hint={t('llm.editor.baseUrl.ollama.hint') || 'URL of your Ollama server'}
+                hint={t('llm.editor.baseUrl.ollama.hint')}
             />
 
             {/* Generation Settings */}
             <View style={[styles.section, { borderTopColor: colors.border }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                    {t('llm.editor.generationSettings') || 'Generation Settings'}
+                    {t('llm.editor.generationSettings')}
                 </Text>
                 <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                    {t('llm.editor.generationSettings.hint') || 'Optional. Leave empty for defaults.'}
+                    {t('llm.editor.generationSettings.hint')}
                 </Text>
 
                 <Input
-                    label={t('llm.editor.temperature') || 'Temperature'}
+                    label={t('llm.editor.temperature')}
                     value={temperature}
                     onChangeText={setTemperature}
                     placeholder="0.8"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.temperature.hint') || 'Controls randomness (0.0-2.0)'}
+                    hint={t('llm.editor.temperature.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.topP') || 'Top-P'}
+                    label={t('llm.editor.topP')}
                     value={topP}
                     onChangeText={setTopP}
                     placeholder="0.9"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.topP.hint') || 'Nucleus sampling (0.0-1.0)'}
+                    hint={t('llm.editor.topP.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.numPredict') || 'Num Predict'}
+                    label={t('llm.editor.numPredict')}
                     value={numPredict}
                     onChangeText={setNumPredict}
                     placeholder="128"
                     keyboardType="number-pad"
-                    hint={t('llm.editor.numPredict.hint') || 'Maximum tokens to generate'}
+                    hint={t('llm.editor.numPredict.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.numCtx') || 'Context Window'}
+                    label={t('llm.editor.numCtx')}
                     value={numCtx}
                     onChangeText={setNumCtx}
                     placeholder="2048"
                     keyboardType="number-pad"
-                    hint={t('llm.editor.numCtx.hint') || 'Context window size in tokens'}
+                    hint={t('llm.editor.numCtx.hint')}
                 />
             </View>
 

@@ -181,37 +181,37 @@ export function AnthropicEditor({ configId, onBack }: AnthropicEditorProps) {
             {/* Generation Settings */}
             <View style={[styles.section, { borderTopColor: colors.border }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                    {t('llm.editor.generationSettings') || 'Generation Settings'}
+                    {t('llm.editor.generationSettings')}
                 </Text>
                 <Text style={[styles.sectionHint, { color: colors.textMuted }]}>
-                    {t('llm.editor.generationSettings.hint') || 'Optional. Leave empty for defaults.'}
+                    {t('llm.editor.generationSettings.hint')}
                 </Text>
 
                 <Input
-                    label={t('llm.editor.temperature') || 'Temperature'}
+                    label={t('llm.editor.temperature')}
                     value={temperature}
                     onChangeText={setTemperature}
                     placeholder="1.0"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.temperature.anthropic.hint') || 'Controls randomness (0.0-1.0)'}
+                    hint={t('llm.editor.temperature.anthropic.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.topP') || 'Top-P'}
+                    label={t('llm.editor.topP')}
                     value={topP}
                     onChangeText={setTopP}
                     placeholder="1.0"
                     keyboardType="decimal-pad"
-                    hint={t('llm.editor.topP.hint') || 'Nucleus sampling (0.0-1.0)'}
+                    hint={t('llm.editor.topP.hint')}
                 />
 
                 <Input
-                    label={t('llm.editor.maxTokens') || 'Max Tokens'}
+                    label={t('llm.editor.maxTokens')}
                     value={maxTokens}
                     onChangeText={setMaxTokens}
                     placeholder="4096"
                     keyboardType="number-pad"
-                    hint={t('llm.editor.maxTokens.hint') || 'Maximum output tokens'}
+                    hint={t('llm.editor.maxTokens.hint')}
                 />
             </View>
 
