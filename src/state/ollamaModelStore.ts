@@ -10,7 +10,7 @@
 
 import { fetch } from 'expo/fetch';
 import { create } from 'zustand';
-import { logger } from '../services/LoggerService.native';
+import { logger } from '../services/LoggerService';
 
 interface OllamaModelInfo {
     name: string;

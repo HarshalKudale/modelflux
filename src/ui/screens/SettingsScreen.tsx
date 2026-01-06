@@ -264,7 +264,7 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={styles.settingItem}
+                        style={[styles.settingItem, { borderBottomColor: colors.border }]}
                         onPress={handleImport}
                         disabled={isImporting}
                     >
@@ -283,6 +283,7 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                         )}
                     </TouchableOpacity>
                 </SettingsSection>
+
 
                 {/* ===== DEVELOPER SECTION ===== */}
                 <SettingsSection title={t('settings.developer.title')}>

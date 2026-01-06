@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { DownloadableModel } from '../config/downloadableModels';
 import { downloadedModelRepository } from '../core/storage';
 import { DownloadedModel } from '../core/types';
-import { logger } from '../services/LoggerService.native';
+import { logger } from '../services/LoggerService';
 import {
     cancelDownload as cancelDownloadService,
     deleteDownloadedModel as deleteDownloadedModelService,

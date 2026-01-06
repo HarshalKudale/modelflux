@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { LLMError, llmClientFactory } from '../core/llm';
 import { conversationRepository, messageRepository } from '../core/storage';
 import { Conversation, Message, generateId } from '../core/types';
-import { logger } from '../services/LoggerService.native';
+import { logger } from '../services/LoggerService';
 import { isLocalProvider, useExecutorchLLMStore } from './executorchLLMStore';
 import { useLLMStore } from './llmStore';
 import {

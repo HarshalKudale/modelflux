@@ -20,6 +20,7 @@
     "@ai-sdk/provider": "^3.0.1",
     "@ai-sdk/provider-utils": "^4.0.2",
     "@ai-sdk/react": "^3.0.6",
+    "@babel/plugin-proposal-decorators": "^7.28.0",
     "@expo/vector-icons": "^15.0.3",
     "@kesha-antonov/react-native-background-downloader": "^4.3.8",
     "@nozbe/watermelondb": "^0.28.0",

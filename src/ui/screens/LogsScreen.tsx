@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import type { LogEntry, LogLevel } from '../../services/LoggerService';
-import { logger } from '../../services/LoggerService.native';
+import { logger } from '../../services/LoggerService';
 import { showError, showInfo } from '../../utils/alert';
 import { useAppColorScheme, useLocale } from '../hooks';
 

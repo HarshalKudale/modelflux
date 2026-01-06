@@ -18,7 +18,7 @@ import { DOWNLOADABLE_MODELS, DownloadableModel } from '../config/downloadableMo
 import { ModelType } from '../config/modelTypePresets';
 import { downloadedModelRepository } from '../core/storage';
 import { DownloadedModel, DownloadedModelProvider } from '../core/types';
-import { logger } from './LoggerService.native';
+import { logger } from './LoggerService';
 
 // Notification channel for Android
 const DOWNLOAD_CHANNEL_ID = 'model-downloads';

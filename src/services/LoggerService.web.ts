@@ -1,20 +1,79 @@
 // Logger Service - Web implementation
 // Uses localStorage for storage and file download for export
 
-import {
-    formatLogMessage,
-    getLogDateString,
-    getTimestamp,
-    ILoggerService,
-    LogEntry,
-    LogLevel,
-} from './LoggerService';
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
+export interface LogEntry {
+    timestamp: string;
+    level: LogLevel;
+    tag: string;
+    message: string;
+}
+
+export interface ILoggerService {
+    log(tag: string, ...args: unknown[]): void;
+    warn(tag: string, ...args: unknown[]): void;
+    error(tag: string, ...args: unknown[]): void;
+    debug(tag: string, ...args: unknown[]): void;
+    getLogs(): Promise<LogEntry[]>;
+    getLogDates(): Promise<string[]>;
+    exportLogs(): Promise<void>;
+    clearLogs(): Promise<void>;
+}
+
+// Inline utility functions to avoid circular import with LoggerService.ts
+function formatLogMessage(...args: unknown[]): string {
+    return args
+        .map((arg) => {
+            if (arg === null) return 'null';
+            if (arg === undefined) return 'undefined';
+            if (typeof arg === 'object') {
+                try {
+                    return JSON.stringify(arg, null, 0);
+                } catch {
+                    return String(arg);
+                }
+            }
+            return String(arg);
+        })
+        .join(' ');
+}
+
+function getLogDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getTimestamp(): string {
+    return new Date().toISOString();
+}
 const STORAGE_KEY_PREFIX = 'llmhub_logs_';
 const MAX_ENTRIES_PER_DAY = 10000;
 const MAX_DAYS_TO_KEEP = 7;
 
+/**
+ * Check if localStorage is available
+ */
+function isLocalStorageAvailable(): boolean {
+    try {
+        const testKey = '__test__';
+        if (typeof window === 'undefined' || !window.localStorage) {
+            return false;
+        }
+        window.localStorage.setItem(testKey, testKey);
+        window.localStorage.removeItem(testKey);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 class WebLoggerService implements ILoggerService {
+    private storageAvailable = isLocalStorageAvailable();
+
     private getStorageKey(date?: string): string {
         const dateStr = date || getLogDateString();
         return `${STORAGE_KEY_PREFIX}${dateStr}`;
@@ -44,6 +103,11 @@ class WebLoggerService implements ILoggerService {
                 default:
                     console.log(prefix, ...args);
             }
+        }
+
+        // Skip storage if not available
+        if (!this.storageAvailable) {
+            return;
         }
 
         try {
@@ -76,6 +140,7 @@ class WebLoggerService implements ILoggerService {
     }
 
     private cleanupOldLogs(): void {
+        if (!this.storageAvailable) return;
         try {
             const dates = this.getLogDatesSync();
             if (dates.length > MAX_DAYS_TO_KEEP) {
@@ -90,6 +155,7 @@ class WebLoggerService implements ILoggerService {
     }
 
     private getLogDatesSync(): string[] {
+        if (!this.storageAvailable) return [];
         const dates: string[] = [];
         try {
             for (let i = 0; i < localStorage.length; i++) {
