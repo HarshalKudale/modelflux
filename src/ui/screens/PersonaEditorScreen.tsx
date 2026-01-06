@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontSizes, Spacing } from '../../config/theme';
 import { usePersonaStore, useSettingsStore } from '../../state';
 import { showError } from '../../utils/alert';
-import { Button, Input } from '../components/common';
+import { Button, Input, ResponsiveContainer } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 interface PersonaEditorScreenProps {
@@ -116,104 +116,106 @@ export function PersonaEditorScreen({ personaId, onBack }: PersonaEditorScreenPr
                 style={styles.keyboardView}
             >
                 <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-                    {/* Identity Section */}
-                    <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
-                        {t('settings.personas.identity')}
-                    </Text>
+                    <ResponsiveContainer>
+                        {/* Identity Section */}
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                            {t('settings.personas.identity')}
+                        </Text>
 
-                    {/* Name - Required */}
-                    <Input
-                        label={`${t('settings.personas.name')} *`}
-                        value={name}
-                        onChangeText={setName}
-                        placeholder={t('settings.personas.namePlaceholder')}
-                    />
-
-                    {/* Description */}
-                    <Input
-                        label={t('settings.personas.description')}
-                        value={description}
-                        onChangeText={setDescription}
-                        placeholder={t('settings.personas.descriptionPlaceholder')}
-                        multiline
-                        numberOfLines={3}
-                    />
-
-                    {/* Personality */}
-                    <Input
-                        label={t('settings.personas.personality')}
-                        value={personality}
-                        onChangeText={setPersonality}
-                        placeholder={t('settings.personas.personalityPlaceholder')}
-                        multiline
-                        numberOfLines={2}
-                    />
-
-                    {/* Scenario Section */}
-                    <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
-                        {t('settings.personas.scenarioSection')}
-                    </Text>
-
-                    <Input
-                        label={t('settings.personas.scenario')}
-                        value={scenario}
-                        onChangeText={setScenario}
-                        placeholder={t('settings.personas.scenarioPlaceholder')}
-                        multiline
-                        numberOfLines={3}
-                    />
-
-                    {/* Prompts Section */}
-                    <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
-                        {t('settings.personas.promptsSection')}
-                    </Text>
-
-                    {/* System Prompt */}
-                    <View style={styles.promptSection}>
-                        <View style={styles.promptHeader}>
-                            <Text style={[styles.label, { color: colors.text }]}>
-                                {t('settings.personas.systemPrompt')}
-                            </Text>
-                            <Text style={[styles.charCount, { color: colors.textMuted }]}>
-                                {systemPrompt.length} {t('settings.personas.characters')}
-                            </Text>
-                        </View>
+                        {/* Name - Required */}
                         <Input
-                            value={systemPrompt}
-                            onChangeText={setSystemPrompt}
-                            placeholder={t('settings.personas.systemPromptPlaceholder')}
-                            multiline
-                            numberOfLines={6}
+                            label={`${t('settings.personas.name')} *`}
+                            value={name}
+                            onChangeText={setName}
+                            placeholder={t('settings.personas.namePlaceholder')}
                         />
-                    </View>
 
-                    {/* Post History Instructions (jailbreak/UJB) */}
-                    <Input
-                        label={t('settings.personas.postHistoryInstructions')}
-                        value={postHistoryInstructions}
-                        onChangeText={setPostHistoryInstructions}
-                        placeholder={t('settings.personas.postHistoryInstructionsPlaceholder')}
-                        multiline
-                        numberOfLines={3}
-                    />
+                        {/* Description */}
+                        <Input
+                            label={t('settings.personas.description')}
+                            value={description}
+                            onChangeText={setDescription}
+                            placeholder={t('settings.personas.descriptionPlaceholder')}
+                            multiline
+                            numberOfLines={3}
+                        />
 
-                    {/* Metadata Section */}
-                    <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
-                        {t('settings.personas.metadataSection')}
-                    </Text>
+                        {/* Personality */}
+                        <Input
+                            label={t('settings.personas.personality')}
+                            value={personality}
+                            onChangeText={setPersonality}
+                            placeholder={t('settings.personas.personalityPlaceholder')}
+                            multiline
+                            numberOfLines={2}
+                        />
 
-                    {/* Creator Notes */}
-                    <Input
-                        label={t('settings.personas.creatorNotes')}
-                        value={creatorNotes}
-                        onChangeText={setCreatorNotes}
-                        placeholder={t('settings.personas.creatorNotesPlaceholder')}
-                        multiline
-                        numberOfLines={3}
-                    />
-                    <Text style={[styles.hint, { color: colors.textMuted }]}>
-                        {t('settings.personas.creatorNotesHint')}
-                    </Text>
+                        {/* Scenario Section */}
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                            {t('settings.personas.scenarioSection')}
+                        </Text>
+
+                        <Input
+                            label={t('settings.personas.scenario')}
+                            value={scenario}
+                            onChangeText={setScenario}
+                            placeholder={t('settings.personas.scenarioPlaceholder')}
+                            multiline
+                            numberOfLines={3}
+                        />
+
+                        {/* Prompts Section */}
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                            {t('settings.personas.promptsSection')}
+                        </Text>
+
+                        {/* System Prompt */}
+                        <View style={styles.promptSection}>
+                            <View style={styles.promptHeader}>
+                                <Text style={[styles.label, { color: colors.text }]}>
+                                    {t('settings.personas.systemPrompt')}
+                                </Text>
+                                <Text style={[styles.charCount, { color: colors.textMuted }]}>
+                                    {systemPrompt.length} {t('settings.personas.characters')}
+                                </Text>
+                            </View>
+                            <Input
+                                value={systemPrompt}
+                                onChangeText={setSystemPrompt}
+                                placeholder={t('settings.personas.systemPromptPlaceholder')}
+                                multiline
+                                numberOfLines={6}
+                            />
+                        </View>
+
+                        {/* Post History Instructions (jailbreak/UJB) */}
+                        <Input
+                            label={t('settings.personas.postHistoryInstructions')}
+                            value={postHistoryInstructions}
+                            onChangeText={setPostHistoryInstructions}
+                            placeholder={t('settings.personas.postHistoryInstructionsPlaceholder')}
+                            multiline
+                            numberOfLines={3}
+                        />
+
+                        {/* Metadata Section */}
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>
+                            {t('settings.personas.metadataSection')}
+                        </Text>
+
+                        {/* Creator Notes */}
+                        <Input
+                            label={t('settings.personas.creatorNotes')}
+                            value={creatorNotes}
+                            onChangeText={setCreatorNotes}
+                            placeholder={t('settings.personas.creatorNotesPlaceholder')}
+                            multiline
+                            numberOfLines={3}
+                        />
+                        <Text style={[styles.hint, { color: colors.textMuted }]}>
+                            {t('settings.personas.creatorNotesHint')}
+                        </Text>
+                    </ResponsiveContainer>
                 </ScrollView>
 
                 {/* Sticky Bottom Action Bar */}

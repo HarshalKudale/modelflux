@@ -16,6 +16,7 @@ import { SUPPORTED_LANGUAGES } from '../../locales';
 import { dataExportService } from '../../services';
 import { useLLMStore, usePersonaStore, useSettingsStore } from '../../state';
 import { showError, showInfo } from '../../utils/alert';
+import { ResponsiveContainer } from '../components/common';
 import { SettingsSection } from '../components/settings';
 import { useAppColorScheme, useLocale } from '../hooks';
 
@@ -121,201 +122,203 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
             </View>
 
             <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-                {/* ===== GENERAL SECTION ===== */}
-                <SettingsSection title={t('settings.general')}>
-                    {/* Theme Selection */}
-                    <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: colors.text }]}>{t('settings.theme')}</Text>
+                <ResponsiveContainer>
+                    {/* ===== GENERAL SECTION ===== */}
+                    <SettingsSection title={t('settings.general')}>
+                        {/* Theme Selection */}
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>{t('settings.theme')}</Text>
+                            </View>
+                            <View style={styles.themeOptions}>
+                                {themeOptions.map((option) => (
+                                    <TouchableOpacity
+                                        key={option.value}
+                                        style={[
+                                            styles.themeOption,
+                                            {
+                                                backgroundColor:
+                                                    settings.theme === option.value
+                                                        ? colors.tint
+                                                        : colors.backgroundSecondary,
+                                            },
+                                        ]}
+                                        onPress={() => setTheme(option.value)}
+                                    >
+                                        <Ionicons
+                                            name={option.icon}
+                                            size={16}
+                                            color={settings.theme === option.value ? '#FFFFFF' : colors.text}
+                                        />
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                         </View>
-                        <View style={styles.themeOptions}>
-                            {themeOptions.map((option) => (
-                                <TouchableOpacity
-                                    key={option.value}
-                                    style={[
-                                        styles.themeOption,
-                                        {
-                                            backgroundColor:
-                                                settings.theme === option.value
-                                                    ? colors.tint
-                                                    : colors.backgroundSecondary,
-                                        },
-                                    ]}
-                                    onPress={() => setTheme(option.value)}
-                                >
-                                    <Ionicons
-                                        name={option.icon}
-                                        size={16}
-                                        color={settings.theme === option.value ? '#FFFFFF' : colors.text}
-                                    />
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
 
-                    {/* Language Selection - Navigate to full screen */}
-                    <TouchableOpacity
-                        style={[styles.settingItem, { borderBottomColor: colors.border }]}
-                        onPress={() => onNavigate('language-select')}
-                    >
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: colors.text }]}>{t('settings.language')}</Text>
-                        </View>
-                        <View style={styles.languageDropdown}>
-                            <Text style={[styles.languageDropdownText, { color: colors.text }]}>
-                                {currentLanguage.nativeName}
-                            </Text>
-                            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-                        </View>
-                    </TouchableOpacity>
-                </SettingsSection>
+                        {/* Language Selection - Navigate to full screen */}
+                        <TouchableOpacity
+                            style={[styles.settingItem, { borderBottomColor: colors.border }]}
+                            onPress={() => onNavigate('language-select')}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>{t('settings.language')}</Text>
+                            </View>
+                            <View style={styles.languageDropdown}>
+                                <Text style={[styles.languageDropdownText, { color: colors.text }]}>
+                                    {currentLanguage.nativeName}
+                                </Text>
+                                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                            </View>
+                        </TouchableOpacity>
+                    </SettingsSection>
 
-                {/* ===== LLM SECTION ===== */}
-                <SettingsSection title={t('settings.llm.title')}>
-                    {/* Manage LLM Providers → Navigate to list */}
-                    <TouchableOpacity
-                        style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
-                        onPress={() => onNavigate('llm-management')}
-                    >
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: colors.text }]}>
-                                {t('settings.providers.manage')}
-                            </Text>
-                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                {t('settings.providers.count', { count: configs.length })}
-                            </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
-
-                    {/* RAG Providers → Navigate to list (conditionally shown on native) */}
-                    {Platform.OS !== 'web' && (
+                    {/* ===== LLM SECTION ===== */}
+                    <SettingsSection title={t('settings.llm.title')}>
+                        {/* Manage LLM Providers → Navigate to list */}
                         <TouchableOpacity
                             style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
-                            onPress={() => onNavigate('rag-provider-list')}
+                            onPress={() => onNavigate('llm-management')}
                         >
                             <View style={styles.settingInfo}>
                                 <Text style={[styles.settingLabel, { color: colors.text }]}>
-                                    {t('settings.rag.configure')}
+                                    {t('settings.providers.manage')}
                                 </Text>
                                 <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                    {t('settings.rag.description')}
+                                    {t('settings.providers.count', { count: configs.length })}
                                 </Text>
                             </View>
                             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                         </TouchableOpacity>
-                    )}
 
-                    {/* Models → Navigate to list */}
-                    <TouchableOpacity
-                        style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
-                        onPress={() => onNavigate('model-list')}
-                    >
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: colors.text }]}>
-                                {t('settings.models.title')}
-                            </Text>
-                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                {t('settings.models.description')}
-                            </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
-
-                    {/* Personas → Navigate to list */}
-                    <TouchableOpacity
-                        style={[styles.settingItem, styles.linkItem]}
-                        onPress={() => onNavigate('persona-list')}
-                    >
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: colors.text }]}>
-                                {t('settings.personas.title')}
-                            </Text>
-                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                {personas.length === 0
-                                    ? t('settings.personas.empty')
-                                    : t('settings.personas.count', { count: personas.length })}
-                            </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
-                </SettingsSection>
-
-                {/* ===== DATA MANAGEMENT SECTION ===== */}
-                <SettingsSection title={t('settings.data.title')}>
-                    <TouchableOpacity
-                        style={[styles.settingItem, { borderBottomColor: colors.border }]}
-                        onPress={handleExport}
-                        disabled={isExporting}
-                    >
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: isExporting ? colors.textMuted : colors.text }]}>
-                                {t('settings.export.title')}
-                            </Text>
-                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                {t('settings.export.description')}
-                            </Text>
-                        </View>
-                        {isExporting ? (
-                            <ActivityIndicator size="small" color={colors.tint} />
-                        ) : (
-                            <Ionicons name="download-outline" size={20} color={colors.textMuted} />
+                        {/* RAG Providers → Navigate to list (conditionally shown on native) */}
+                        {Platform.OS !== 'web' && (
+                            <TouchableOpacity
+                                style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
+                                onPress={() => onNavigate('rag-provider-list')}
+                            >
+                                <View style={styles.settingInfo}>
+                                    <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                        {t('settings.rag.configure')}
+                                    </Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                        {t('settings.rag.description')}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                            </TouchableOpacity>
                         )}
-                    </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={[styles.settingItem, { borderBottomColor: colors.border }]}
-                        onPress={handleImport}
-                        disabled={isImporting}
-                    >
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: isImporting ? colors.textMuted : colors.text }]}>
-                                {t('settings.import.title')}
-                            </Text>
-                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                {t('settings.import.description')}
+                        {/* Models → Navigate to list */}
+                        <TouchableOpacity
+                            style={[styles.settingItem, styles.linkItem, { borderBottomColor: colors.border }]}
+                            onPress={() => onNavigate('model-list')}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                    {t('settings.models.title')}
+                                </Text>
+                                <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                    {t('settings.models.description')}
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
+
+                        {/* Personas → Navigate to list */}
+                        <TouchableOpacity
+                            style={[styles.settingItem, styles.linkItem]}
+                            onPress={() => onNavigate('persona-list')}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                    {t('settings.personas.title')}
+                                </Text>
+                                <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                    {personas.length === 0
+                                        ? t('settings.personas.empty')
+                                        : t('settings.personas.count', { count: personas.length })}
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
+                    </SettingsSection>
+
+                    {/* ===== DATA MANAGEMENT SECTION ===== */}
+                    <SettingsSection title={t('settings.data.title')}>
+                        <TouchableOpacity
+                            style={[styles.settingItem, { borderBottomColor: colors.border }]}
+                            onPress={handleExport}
+                            disabled={isExporting}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: isExporting ? colors.textMuted : colors.text }]}>
+                                    {t('settings.export.title')}
+                                </Text>
+                                <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                    {t('settings.export.description')}
+                                </Text>
+                            </View>
+                            {isExporting ? (
+                                <ActivityIndicator size="small" color={colors.tint} />
+                            ) : (
+                                <Ionicons name="download-outline" size={20} color={colors.textMuted} />
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.settingItem, { borderBottomColor: colors.border }]}
+                            onPress={handleImport}
+                            disabled={isImporting}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: isImporting ? colors.textMuted : colors.text }]}>
+                                    {t('settings.import.title')}
+                                </Text>
+                                <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                    {t('settings.import.description')}
+                                </Text>
+                            </View>
+                            {isImporting ? (
+                                <ActivityIndicator size="small" color={colors.tint} />
+                            ) : (
+                                <Ionicons name="cloud-upload-outline" size={20} color={colors.textMuted} />
+                            )}
+                        </TouchableOpacity>
+                    </SettingsSection>
+
+
+                    {/* ===== DEVELOPER SECTION ===== */}
+                    <SettingsSection title={t('settings.developer.title')}>
+                        <TouchableOpacity
+                            style={[styles.settingItem, styles.linkItem]}
+                            onPress={() => onNavigate('logs')}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                    {t('settings.developer.logs')}
+                                </Text>
+                                <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                    {t('settings.developer.logsDesc')}
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
+                    </SettingsSection>
+
+                    {/* ===== ABOUT SECTION ===== */}
+                    <SettingsSection title={t('settings.about.title')}>
+                        <View style={styles.settingItem}>
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                    {t('common.version')}
+                                </Text>
+                            </View>
+                            <Text style={[styles.settingValue, { color: colors.textMuted }]}>
+                                1.0.0
                             </Text>
                         </View>
-                        {isImporting ? (
-                            <ActivityIndicator size="small" color={colors.tint} />
-                        ) : (
-                            <Ionicons name="cloud-upload-outline" size={20} color={colors.textMuted} />
-                        )}
-                    </TouchableOpacity>
-                </SettingsSection>
-
-
-                {/* ===== DEVELOPER SECTION ===== */}
-                <SettingsSection title={t('settings.developer.title')}>
-                    <TouchableOpacity
-                        style={[styles.settingItem, styles.linkItem]}
-                        onPress={() => onNavigate('logs')}
-                    >
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: colors.text }]}>
-                                {t('settings.developer.logs')}
-                            </Text>
-                            <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
-                                {t('settings.developer.logsDesc')}
-                            </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
-                </SettingsSection>
-
-                {/* ===== ABOUT SECTION ===== */}
-                <SettingsSection title={t('settings.about.title')}>
-                    <View style={styles.settingItem}>
-                        <View style={styles.settingInfo}>
-                            <Text style={[styles.settingLabel, { color: colors.text }]}>
-                                {t('common.version')}
-                            </Text>
-                        </View>
-                        <Text style={[styles.settingValue, { color: colors.textMuted }]}>
-                            1.0.0
-                        </Text>
-                    </View>
-                </SettingsSection>
+                    </SettingsSection>
+                </ResponsiveContainer>
             </ScrollView>
         </SafeAreaView>
     );

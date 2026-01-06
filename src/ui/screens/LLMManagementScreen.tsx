@@ -13,7 +13,7 @@ import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { LLMConfig, LLMProvider } from '../../core/types';
 import { useLLMStore, useSettingsStore } from '../../state';
 import { showConfirm, showError, showInfo } from '../../utils/alert';
-import { ResourceCard } from '../components/common';
+import { ResourceCard, ResponsiveContainer } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 interface LLMManagementScreenProps {
@@ -104,78 +104,80 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
             </View>
 
             <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-                {/* Quick Add Section */}
-                <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                        {t('llm.management.add')}
-                    </Text>
-                    <View style={styles.quickAddGrid}>
-                        {providerOptions.map((provider) => {
-                            const info = PROVIDER_INFO[provider];
-                            return (
-                                <TouchableOpacity
-                                    key={provider}
-                                    style={[
-                                        styles.quickAddButton,
-                                        { backgroundColor: colors.cardBackground, borderColor: colors.border },
-                                    ]}
-                                    onPress={() => handleAddProvider(provider)}
-                                >
-                                    <View
-                                        style={[styles.quickAddIcon, { backgroundColor: info.color }]}
-                                    >
-                                        <Text style={styles.quickAddIconText}>
-                                            {provider.charAt(0).toUpperCase()}
-                                        </Text>
-                                    </View>
-                                    <Text style={[styles.quickAddLabel, { color: colors.text }]}>
-                                        {t(`provider.${provider}`)}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                </View>
-
-                {/* Existing Configs */}
-                {configs.length > 0 && (
+                <ResponsiveContainer>
+                    {/* Quick Add Section */}
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                            {t('llm.management.yourProviders', { count: configs.length })}
+                            {t('llm.management.add')}
                         </Text>
-                        {configs.map((config) => {
-                            const info = PROVIDER_INFO[config.provider];
-                            return (
-                                <ResourceCard
-                                    key={config.id}
-                                    title={config.name}
-                                    subtitle={t(`provider.${config.provider}`)}
-                                    description={config.isLocal ? t(`provider.${config.provider}.description`) : config.baseUrl}
-                                    icon={getProviderIcon(config)}
-                                    iconColor={info.color}
-                                    isDefault={settings.defaultLLMId === config.id}
-                                    onPress={() => handleEdit(config)}
-                                    onTest={() => handleTestConnection(config)}
-                                    onSetDefault={() => handleSetDefault(config)}
-                                    onDelete={config.id === 'executorch-default' ? undefined : () => handleDelete(config)}
-                                />
-                            );
-                        })}
+                        <View style={styles.quickAddGrid}>
+                            {providerOptions.map((provider) => {
+                                const info = PROVIDER_INFO[provider];
+                                return (
+                                    <TouchableOpacity
+                                        key={provider}
+                                        style={[
+                                            styles.quickAddButton,
+                                            { backgroundColor: colors.cardBackground, borderColor: colors.border },
+                                        ]}
+                                        onPress={() => handleAddProvider(provider)}
+                                    >
+                                        <View
+                                            style={[styles.quickAddIcon, { backgroundColor: info.color }]}
+                                        >
+                                            <Text style={styles.quickAddIconText}>
+                                                {provider.charAt(0).toUpperCase()}
+                                            </Text>
+                                        </View>
+                                        <Text style={[styles.quickAddLabel, { color: colors.text }]}>
+                                            {t(`provider.${provider}`)}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
                     </View>
-                )}
 
-                {/* Empty State */}
-                {configs.length === 0 && (
-                    <View style={styles.emptyState}>
-                        <Ionicons name="cloud-outline" size={64} color={colors.textMuted} />
-                        <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                            {t('llm.management.empty.title')}
-                        </Text>
-                        <Text style={[styles.emptyDescription, { color: colors.textMuted }]}>
-                            {t('llm.management.empty.description')}
-                        </Text>
-                    </View>
-                )}
+                    {/* Existing Configs */}
+                    {configs.length > 0 && (
+                        <View style={styles.section}>
+                            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                                {t('llm.management.yourProviders', { count: configs.length })}
+                            </Text>
+                            {configs.map((config) => {
+                                const info = PROVIDER_INFO[config.provider];
+                                return (
+                                    <ResourceCard
+                                        key={config.id}
+                                        title={config.name}
+                                        subtitle={t(`provider.${config.provider}`)}
+                                        description={config.isLocal ? t(`provider.${config.provider}.description`) : config.baseUrl}
+                                        icon={getProviderIcon(config)}
+                                        iconColor={info.color}
+                                        isDefault={settings.defaultLLMId === config.id}
+                                        onPress={() => handleEdit(config)}
+                                        onTest={() => handleTestConnection(config)}
+                                        onSetDefault={() => handleSetDefault(config)}
+                                        onDelete={config.id === 'executorch-default' ? undefined : () => handleDelete(config)}
+                                    />
+                                );
+                            })}
+                        </View>
+                    )}
+
+                    {/* Empty State */}
+                    {configs.length === 0 && (
+                        <View style={styles.emptyState}>
+                            <Ionicons name="cloud-outline" size={64} color={colors.textMuted} />
+                            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                                {t('llm.management.empty.title')}
+                            </Text>
+                            <Text style={[styles.emptyDescription, { color: colors.textMuted }]}>
+                                {t('llm.management.empty.description')}
+                            </Text>
+                        </View>
+                    )}
+                </ResponsiveContainer>
             </ScrollView>
         </SafeAreaView>
     );

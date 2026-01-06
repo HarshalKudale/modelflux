@@ -130,5 +130,10 @@ export const Shadows = {
     },
 };
 
+export const Layout = {
+    contentMaxWidth: 720,
+    wideContentMaxWidth: 960,
+};
+
 export type ThemeColors = typeof Colors.light;
 export type ThemeType = 'light' | 'dark';

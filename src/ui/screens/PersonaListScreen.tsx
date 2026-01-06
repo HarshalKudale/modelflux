@@ -12,7 +12,7 @@ import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { Persona } from '../../core/types';
 import { usePersonaStore, useSettingsStore } from '../../state';
 import { showConfirm, showError, showInfo } from '../../utils/alert';
-import { ResourceCard } from '../components/common';
+import { ResourceCard, ResponsiveContainer } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 interface PersonaListScreenProps {
@@ -97,40 +97,44 @@ export function PersonaListScreen({ onNavigate, onBack }: PersonaListScreenProps
 
             {personas.length === 0 ? (
                 /* Empty State */
-                <View style={styles.emptyState}>
-                    <Ionicons name="person-outline" size={64} color={colors.textMuted} />
-                    <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                        {t('settings.personas.emptyState.title')}
-                    </Text>
-                    <Text style={[styles.emptyDescription, { color: colors.textMuted }]}>
-                        {t('settings.personas.emptyState.description')}
-                    </Text>
-                    <TouchableOpacity
-                        style={[styles.emptyButton, { backgroundColor: colors.tint }]}
-                        onPress={handleCreate}
-                    >
-                        <Ionicons name="add" size={20} color="#FFFFFF" />
-                        <Text style={styles.emptyButtonText}>
-                            {t('settings.personas.emptyState.cta')}
+                <ResponsiveContainer>
+                    <View style={styles.emptyState}>
+                        <Ionicons name="person-outline" size={64} color={colors.textMuted} />
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                            {t('settings.personas.emptyState.title')}
                         </Text>
-                    </TouchableOpacity>
-                </View>
+                        <Text style={[styles.emptyDescription, { color: colors.textMuted }]}>
+                            {t('settings.personas.emptyState.description')}
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.emptyButton, { backgroundColor: colors.tint }]}
+                            onPress={handleCreate}
+                        >
+                            <Ionicons name="add" size={20} color="#FFFFFF" />
+                            <Text style={styles.emptyButtonText}>
+                                {t('settings.personas.emptyState.cta')}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </ResponsiveContainer>
             ) : (
                 <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-                    {personas.map((persona) => (
-                        <ResourceCard
-                            key={persona.id}
-                            title={persona.name}
-                            subtitle={persona.description}
-                            description={persona.systemPrompt}
-                            icon={getPersonaIcon(persona)}
-                            iconColor={colors.backgroundSecondary}
-                            isDefault={settings.defaultPersonaId === persona.id}
-                            onPress={() => handleEdit(persona)}
-                            onSetDefault={() => handleSetDefault(persona)}
-                            onDelete={() => handleDelete(persona)}
-                        />
-                    ))}
+                    <ResponsiveContainer>
+                        {personas.map((persona) => (
+                            <ResourceCard
+                                key={persona.id}
+                                title={persona.name}
+                                subtitle={persona.description}
+                                description={persona.systemPrompt}
+                                icon={getPersonaIcon(persona)}
+                                iconColor={colors.backgroundSecondary}
+                                isDefault={settings.defaultPersonaId === persona.id}
+                                onPress={() => handleEdit(persona)}
+                                onSetDefault={() => handleSetDefault(persona)}
+                                onDelete={() => handleDelete(persona)}
+                            />
+                        ))}
+                    </ResponsiveContainer>
                 </ScrollView>
             )}
         </SafeAreaView>

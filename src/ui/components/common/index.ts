@@ -6,6 +6,7 @@ export { LocalModelPicker } from './LocalModelPicker';
 export { ModelPicker } from './ModelPicker';
 export type { ModelPickerProps } from './ModelPicker';
 export { ResourceCard } from './ResourceCard';
+export { ResponsiveContainer } from './ResponsiveContainer';
 export { SelectionModal } from './SelectionModal';
 export type { SelectionOption } from './SelectionModal';
 
