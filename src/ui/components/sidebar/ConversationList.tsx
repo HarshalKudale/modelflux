@@ -1,8 +1,9 @@
 import React from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
 import { Conversation } from '../../../core/types';
 import { useAppColorScheme } from '../../hooks';
+import { VirtualizedList } from '../common';
 import { ConversationItem } from './ConversationItem';
 
 interface ConversationListProps {
@@ -32,7 +33,7 @@ export function ConversationList({
     }
 
     return (
-        <FlatList
+        <VirtualizedList<Conversation>
             data={conversations}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
@@ -43,9 +44,7 @@ export function ConversationList({
                     onDelete={() => onDelete(item.id)}
                 />
             )}
-            style={styles.list}
             contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
         />
     );
 }

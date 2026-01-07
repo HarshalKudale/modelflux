@@ -8,7 +8,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-    FlatList,
     Modal,
     StyleSheet,
     Text,
@@ -19,6 +18,7 @@ import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme'
 import { Source } from '../../../core/types';
 import { useSourceStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
+import { VirtualizedList } from '../common';
 
 interface SourceSelectorProps {
     visible: boolean;
@@ -112,7 +112,7 @@ export function SourceSelector({
                     )}
 
                     {/* Sources list */}
-                    <FlatList
+                    <VirtualizedList<Source>
                         data={sources.filter(s => !s.isProcessing)}
                         renderItem={renderSource}
                         keyExtractor={(item) => item.id.toString()}

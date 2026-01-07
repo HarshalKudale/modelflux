@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
-    FlatList,
     Platform,
     StyleSheet,
     Text,
@@ -23,6 +22,7 @@ import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { DownloadedModelType, LLMProvider } from '../../core/types';
 import { importLocalModel } from '../../services/ModelDownloadService';
 import { useModelDownloadStore } from '../../state';
+import { VirtualizedList } from '../components/common';
 import { LocalModelImportModal } from '../components/common/LocalModelImportModal';
 import { useAppColorScheme, useLocale } from '../hooks';
 
@@ -446,9 +446,8 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 </View>
             </View>
 
-            {/* Provider Filter Chips (Row 1) - Local providers from presets */}
             <View style={styles.filterContainer}>
-                <FlatList
+                <VirtualizedList
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     data={[
@@ -470,9 +469,8 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 />
             </View>
 
-            {/* Model Type Filter Chips (Row 2) - Model types from presets */}
             <View style={styles.filterContainer}>
-                <FlatList
+                <VirtualizedList
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     data={[
@@ -516,7 +514,7 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
                 </View>
             ) : (
                 /* Models List */
-                <FlatList
+                <VirtualizedList<DownloadableModel>
                     data={filteredModels}
                     keyExtractor={(item) => item.id}
                     renderItem={renderModelItem}

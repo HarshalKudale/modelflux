@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashListRef } from '@shopify/flash-list';
 import React, { useCallback, useEffect, useRef } from 'react';
-import { ActivityIndicator, FlatList, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
 import { DownloadedModel, Message } from '../../../core/types';
 import { useLLMStore } from '../../../state';
 import { useAppColorScheme } from '../../hooks';
-import { ModelPicker } from '../common';
+import { ModelPicker, VirtualizedList } from '../common';
 import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
@@ -52,7 +53,7 @@ export function MessageList({
 }: MessageListProps) {
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
-    const flatListRef = useRef<FlatList>(null);
+    const flashListRef = useRef<FlashListRef<Message>>(null);
     // Track if user is at the bottom of the list
     const isAtBottomRef = useRef(true);
     // Track content height and layout height for scroll calculations
@@ -72,17 +73,17 @@ export function MessageList({
 
     // Scroll to bottom only if user is already near the bottom
     const scrollToBottomIfNeeded = useCallback(() => {
-        if (isAtBottomRef.current && flatListRef.current) {
-            flatListRef.current.scrollToEnd({ animated: false });
+        if (isAtBottomRef.current && flashListRef.current) {
+            flashListRef.current.scrollToEnd({ animated: false });
         }
     }, []);
 
     // Auto-scroll when new messages arrive (not during streaming updates)
     useEffect(() => {
-        if (flatListRef.current && messages.length > 0) {
+        if (flashListRef.current && messages.length > 0) {
             // When a new message is added, scroll to bottom
             setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
+                flashListRef.current?.scrollToEnd({ animated: true });
                 isAtBottomRef.current = true;
             }, 100);
         }
@@ -90,10 +91,10 @@ export function MessageList({
 
     // When streaming starts, reset to bottom
     useEffect(() => {
-        if (streamingContent !== undefined && flatListRef.current) {
+        if (streamingContent !== undefined && flashListRef.current) {
             // When streaming starts (first content), ensure we're at bottom
             isAtBottomRef.current = true;
-            flatListRef.current.scrollToEnd({ animated: false });
+            flashListRef.current.scrollToEnd({ animated: false });
         }
     }, [streamingContent !== undefined]);
 
@@ -254,15 +255,12 @@ export function MessageList({
     };
 
     return (
-        <FlatList
-            ref={flatListRef}
+        <VirtualizedList<Message>
+            ref={flashListRef}
             data={messages}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
-            style={styles.list}
             contentContainerStyle={styles.listContent}
-            inverted={false}
-            showsVerticalScrollIndicator={false}
             ListFooterComponent={renderFooter}
             onScroll={handleScroll}
             scrollEventThrottle={16}
@@ -274,7 +272,6 @@ export function MessageList({
                 layoutHeightRef.current = event.nativeEvent.layout.height;
             }}
             maintainVisibleContentPosition={{
-                minIndexForVisible: 0,
                 autoscrollToTopThreshold: 10,
             }}
         />

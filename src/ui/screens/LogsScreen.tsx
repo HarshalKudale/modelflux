@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    FlatList,
     RefreshControl,
     StyleSheet,
     Text,
@@ -14,6 +13,7 @@ import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import type { LogEntry, LogLevel } from '../../services/LoggerService';
 import { logger } from '../../services/LoggerService';
 import { showError, showInfo } from '../../utils/alert';
+import { VirtualizedList } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 interface LogsScreenProps {
@@ -239,7 +239,7 @@ export function LogsScreen({ onBack }: LogsScreenProps) {
                         </Text>
                     </View>
                 ) : (
-                    <FlatList
+                    <VirtualizedList<LogEntry>
                         data={logs}
                         keyExtractor={(item, index) => `${item.timestamp}-${index}`}
                         renderItem={renderLogEntry}
@@ -267,7 +267,7 @@ export function LogsScreen({ onBack }: LogsScreenProps) {
                         </Text>
                     </View>
                 ) : (
-                    <FlatList
+                    <VirtualizedList<string>
                         data={logDates}
                         keyExtractor={(item) => item}
                         renderItem={renderDateItem}

@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    FlatList,
     Modal,
     StyleSheet,
     Text,
@@ -21,6 +20,7 @@ import {
     useSourceStore
 } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
+import { VirtualizedList } from '../common';
 
 interface SourcesModalProps {
     visible: boolean;
@@ -316,7 +316,7 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
                         <ActivityIndicator size="large" color={colors.tint} />
                     </View>
                 ) : (
-                    <FlatList
+                    <VirtualizedList<Source>
                         data={sources}
                         renderItem={renderSource}
                         keyExtractor={(item) => item.id.toString()}

@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-    FlatList,
     Modal,
     Pressable,
     StyleSheet,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
 import { useAppColorScheme } from '../../hooks';
+import { VirtualizedList } from './VirtualizedList';
 
 interface DropdownOption<T> {
     label: string;
@@ -102,7 +102,7 @@ export function Dropdown<T>({
                             shadows.lg,
                         ]}
                     >
-                        <FlatList
+                        <VirtualizedList<DropdownOption<T>>
                             data={options}
                             keyExtractor={(item, index) => String(index)}
                             renderItem={({ item }) => (

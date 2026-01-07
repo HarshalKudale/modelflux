@@ -9,4 +9,6 @@ export { ResourceCard } from './ResourceCard';
 export { ResponsiveContainer } from './ResponsiveContainer';
 export { SelectionModal } from './SelectionModal';
 export type { SelectionOption } from './SelectionModal';
+export { VirtualizedList } from './VirtualizedList';
+export type { VirtualizedListProps } from './VirtualizedList';
 
