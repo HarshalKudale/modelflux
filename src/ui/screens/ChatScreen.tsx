@@ -83,12 +83,15 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         loadSources();
     }, [loadSources]);
 
-    // Set initial provider if configs exist
+    // Set initial provider only for NEW conversations (no selected conversation)
     useEffect(() => {
+        // Skip if a conversation is selected - we'll sync from it instead
+        if (currentConversationId) return;
+
         if (!pendingProviderId && enabledConfigs.length > 0) {
             setPendingProviderId(enabledConfigs[0].id);
         }
-    }, [enabledConfigs, pendingProviderId]);
+    }, [enabledConfigs, pendingProviderId, currentConversationId]);
 
     // Test provider connections on mount
     useEffect(() => {
@@ -107,7 +110,13 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
         }
     }, [enabledConfigs, testConnection]);
 
-    const conversation = getCurrentConversation();
+    // Subscribe to conversations array for reactive updates
+    const conversations = useConversationStore((state) => state.conversations);
+
+    // Derive current conversation from subscribed state (reactive)
+    const conversation = currentConversationId
+        ? conversations.find((c) => c.id === currentConversationId) || null
+        : null;
     const currentMessages = getCurrentMessages();
 
     // Get selected provider
@@ -116,25 +125,37 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     // Determine if this is a new conversation (no messages yet)
     const isNewConversation = currentMessages.length === 0;
 
-    // Sync pendingModel and pendingProviderId when switching to conversation with local provider
+    // Sync pendingModel and pendingProviderId when switching to conversation
     useEffect(() => {
         if (!conversation) return;
 
-        const conversationProvider = conversation.activeLLMId
-            ? getConfigById(conversation.activeLLMId)
+        // Use new fields with fallback to deprecated fields
+        const conversationProviderId = conversation.providerId || conversation.activeLLMId;
+        const conversationModelId = conversation.modelId || conversation.activeModel;
+
+        const conversationProvider = conversationProviderId
+            ? getConfigById(conversationProviderId)
             : null;
 
-        if (conversationProvider && isLocalProvider(conversationProvider.provider)) {
-            if (localModelState.selectedModelName && localModelState.isReady) {
-                if (pendingProviderId !== conversationProvider.id) {
-                    setPendingProviderId(conversationProvider.id);
-                }
-                if (pendingModel !== localModelState.selectedModelName) {
+        if (conversationProvider) {
+            // Always sync provider first
+            setPendingProviderId(conversationProvider.id);
+
+            // Handle model syncing based on provider type
+            if (isLocalProvider(conversationProvider.provider)) {
+                // For local provider: ONLY sync model if it matches loaded model and ready
+                if (localModelState.isReady && localModelState.selectedModelName && localModelState.selectedModelName === conversationModelId) {
                     setPendingModel(localModelState.selectedModelName);
+                } else {
+                    // If not loaded/ready, do NOT auto-select the model (forces manual selection/loading)
+                    setPendingModel(undefined);
                 }
+            } else {
+                // For remote provider: ALWAYS sync model from conversation
+                setPendingModel(conversationModelId);
             }
         }
-    }, [conversation?.id, conversation?.activeLLMId, localModelState.selectedModelName, localModelState.isReady, getConfigById, pendingProviderId, pendingModel]);
+    }, [conversation, enabledConfigs, localModelState.selectedModelName, localModelState.isReady, getConfigById]);
 
     const handleSend = async () => {
         if (!inputValue.trim()) return;
@@ -197,19 +218,26 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     };
 
     // Check if existing conversation uses a local provider
-    const existingConversationProvider = conversation?.activeLLMId
-        ? getConfigById(conversation.activeLLMId)
+    const existingConversationProviderId = conversation?.providerId || conversation?.activeLLMId;
+    const existingConversationModelId = conversation?.modelId || conversation?.activeModel;
+    const existingConversationProvider = existingConversationProviderId
+        ? getConfigById(existingConversationProviderId)
         : undefined;
     const existingUsesLocalProvider = existingConversationProvider
         ? isLocalProvider(existingConversationProvider.provider)
         : false;
 
-    // For existing conversations with local provider, require explicit model selection
-    const localProviderNeedsSelection = !isNewConversation && existingUsesLocalProvider && !localModelState.isReady;
+    // Determine if we should show alert in header
+    // 1. Local provider + model not loaded/ready
+    // 2. Remote provider + no model selected
+    const shouldShowAlert = !isNewConversation && (
+        (existingUsesLocalProvider && !localModelState.isReady) ||
+        (!existingUsesLocalProvider && !existingConversationModelId)
+    );
 
     // Input disabled states
     const isLocalModelLoading_needsLoad = selectedProvider && isLocalProvider(selectedProvider.provider) && !localModelState.isReady && localModelState.isLoading;
-    const isInputDisabled = hasNoLLM || !!isLocalModelLoading_needsLoad || localProviderNeedsSelection;
+    const isInputDisabled = hasNoLLM || !!isLocalModelLoading_needsLoad || shouldShowAlert;
 
     // Loading banner states
     const isNewConversationLocalLoading = selectedProvider && isLocalProvider(selectedProvider.provider) && localModelState.isLoading;
@@ -229,7 +257,7 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                 onEditTitle={handleEditTitle}
                 onMenuPress={onMenuPress}
                 onSettingsPress={!isNewConversation ? () => setShowSettingsModal(true) : undefined}
-                showAlert={localProviderNeedsSelection}
+                showAlert={shouldShowAlert}
             />
 
             {/* Local Model Loading Banner */}
@@ -299,14 +327,16 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                             <Text style={[styles.modalTitle, { color: colors.text }]}>Conversation Settings</Text>
                             <TouchableOpacity
                                 onPress={() => {
-                                    if (conversation?.activeLLMId && conversation?.activeModel) {
+                                    const hasProvider = pendingProviderId || conversation?.providerId || conversation?.activeLLMId;
+                                    const hasModel = pendingModel || conversation?.modelId || conversation?.activeModel;
+                                    if (hasProvider && hasModel) {
                                         setShowSettingsModal(false);
                                     }
                                 }}
-                                disabled={!conversation?.activeLLMId || !conversation?.activeModel}
+                                disabled={shouldShowAlert}
                                 style={[
                                     styles.modalCloseButton,
-                                    (!conversation?.activeLLMId || !conversation?.activeModel) && { opacity: 0.3 }
+                                    shouldShowAlert && { opacity: 0.3 }
                                 ]}
                             >
                                 <Ionicons name="close" size={24} color={colors.text} />
@@ -314,8 +344,8 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         </View>
                         <ModelPicker
                             mode="panel"
-                            selectedProviderId={conversation?.activeLLMId}
-                            selectedModel={(!conversation?.activeModel || localProviderNeedsSelection) ? undefined : conversation?.activeModel}
+                            selectedProviderId={pendingProviderId || conversation?.providerId || conversation?.activeLLMId}
+                            selectedModel={shouldShowAlert ? undefined : (pendingModel || conversation?.modelId || conversation?.activeModel)}
                             selectedPersonaId={conversation?.personaId}
                             onProviderChange={handleSettingsProviderChange}
                             onModelChange={handleSettingsModelChange}
