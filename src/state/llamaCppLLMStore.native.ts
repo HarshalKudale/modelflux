@@ -8,7 +8,6 @@
 
 import { create } from 'zustand';
 import { DownloadedModel } from '../core/types';
-import { useConversationStore } from './conversationStore';
 
 // Type definitions for llama.rn (package provides these at runtime)
 interface LlamaContext {
@@ -318,67 +317,6 @@ export const useLlamaCppLLMStore = create<LlamaCppLLMStore>((set, get) => ({
         });
     },
 }));
-
-/**
- * Process token and parse thinking tags
- * Called from LlamaCppProvider during generation
- */
-export function processTokenWithThinking(
-    token: string,
-    store: LlamaCppLLMStore,
-    onToken?: (content: string) => void,
-    onThinking?: (thinking: string) => void
-): void {
-    // Accumulate raw buffer
-    rawBuffer += token;
-    const newResponse = store.currentResponse + token;
-
-    // Check for <think> tag at the start
-    if (!isInThinkingMode && rawBuffer.startsWith('<think>')) {
-        isInThinkingMode = true;
-        const afterThinkTag = rawBuffer.slice(7);
-        thinkingBuffer = afterThinkTag;
-    } else if (isInThinkingMode) {
-        const closeTagIndex = rawBuffer.indexOf('</think>');
-        if (closeTagIndex !== -1) {
-            thinkingBuffer = rawBuffer.slice(7, closeTagIndex);
-            messageBuffer = rawBuffer.slice(closeTagIndex + 8);
-            isInThinkingMode = false;
-        } else {
-            thinkingBuffer = rawBuffer.slice(7);
-        }
-    } else {
-        messageBuffer = rawBuffer;
-    }
-
-    // Update store
-    store.updateParsedContent(thinkingBuffer, messageBuffer);
-
-    // Call callbacks
-    if (onToken && messageBuffer) {
-        onToken(messageBuffer);
-    }
-    if (onThinking && thinkingBuffer) {
-        onThinking(thinkingBuffer);
-    }
-
-    // Update conversation store
-    const conversationId = store.currentConversationId;
-    if (conversationId) {
-        if (thinkingBuffer) {
-            useConversationStore.getState().updateCurrentThinkingMessage(
-                conversationId,
-                thinkingBuffer
-            );
-        }
-        if (messageBuffer) {
-            useConversationStore.getState().updateCurrentMessage(
-                conversationId,
-                messageBuffer
-            );
-        }
-    }
-}
 
 /**
  * Helper function to check if a provider is a local on-device provider
