@@ -3,8 +3,9 @@ export default function PersonasPage() {
         <div className="prose prose-slate dark:prose-invert max-w-none">
             <h1 className="text-4xl font-bold mb-6 text-foreground">Personas</h1>
             <p className="text-xl text-foreground-secondary mb-8">
-                Create custom AI personalities with system prompts for different use cases.
+                Create custom AI personalities using the <a href="https://github.com/malfoyslastname/character-card-spec-v2" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Character Card V2 specification</a>.
             </p>
+
 
             <section className="mb-12">
                 <h2 className="text-2xl font-bold mb-4 text-foreground">What are Personas?</h2>

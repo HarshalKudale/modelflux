@@ -88,7 +88,7 @@ export default function ProvidersPage() {
                     </div>
                     <div className="mt-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
                         <p className="text-sm text-foreground-secondary">
-                            <strong className="text-yellow-600 dark:text-yellow-400">Note:</strong> Ollama connection is not available in the web version due to browser CORS restrictions. Use the Android or iOS app.
+                            <strong className="text-yellow-600 dark:text-yellow-400">Note:</strong> Ollama connection is not available in the web version due to browser CORS restrictions. Use the Android app for local Ollama support.
                         </p>
                     </div>
                 </div>

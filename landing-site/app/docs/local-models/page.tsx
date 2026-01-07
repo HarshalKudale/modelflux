@@ -8,7 +8,7 @@ export default function LocalModelsPage() {
 
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6 mb-12">
                 <p className="text-foreground-secondary">
-                    <strong className="text-blue-600 dark:text-blue-400">Platform Note:</strong> Local models are only available on Android and iOS apps. The web version does not support on-device inference.
+                    <strong className="text-blue-600 dark:text-blue-400">Platform Note:</strong> Local models are only available on the Android app. The web version does not support on-device inference.
                 </p>
             </div>
 
