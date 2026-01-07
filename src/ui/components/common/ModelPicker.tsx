@@ -25,7 +25,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { PROVIDER_INFO } from '../../../config/providerPresets';
+import { PROVIDER_LIST } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../../config/theme';
 import { DownloadedModel, LLMConfig } from '../../../core/types';
 import { isLocalProvider } from '../../../state';
@@ -169,7 +169,7 @@ export function ModelPicker({
                             <View
                                 style={[
                                     styles.providerBadge,
-                                    { backgroundColor: PROVIDER_INFO[selectedConfig.provider]?.color || colors.tint },
+                                    { backgroundColor: PROVIDER_LIST[selectedConfig.provider]?.color || colors.tint },
                                 ]}
                             >
                                 <Text style={styles.providerBadgeText}>
@@ -231,7 +231,7 @@ export function ModelPicker({
                                                 <View
                                                     style={[
                                                         styles.providerIcon,
-                                                        { backgroundColor: PROVIDER_INFO[config.provider]?.color || colors.tint },
+                                                        { backgroundColor: PROVIDER_LIST[config.provider]?.color || colors.tint },
                                                     ]}
                                                 >
                                                     <Text style={styles.providerIconText}>
@@ -334,7 +334,7 @@ export function ModelPicker({
                 {provider.provider.charAt(0).toUpperCase()}
             </Text>
         ),
-        iconColor: PROVIDER_INFO[provider.provider]?.color || colors.tint,
+        iconColor: PROVIDER_LIST[provider.provider]?.color || colors.tint,
         status: (providerConnectionStatus[provider.id] === true
             ? 'online'
             : providerConnectionStatus[provider.id] === false
@@ -352,7 +352,7 @@ export function ModelPicker({
     const personaOptions: SelectionOption[] = personas.map(persona => ({
         id: persona.id,
         label: persona.name,
-        subtitle: persona.systemPrompt,
+        subtitle: persona.system_prompt,
     }));
 
     // Get display names
@@ -373,7 +373,7 @@ export function ModelPicker({
                     onPress={() => setShowProviderModal(true)}
                 >
                     {selectedConfig && (
-                        <View style={[styles.panelProviderBadge, { backgroundColor: PROVIDER_INFO[selectedConfig.provider]?.color || colors.tint }]}>
+                        <View style={[styles.panelProviderBadge, { backgroundColor: PROVIDER_LIST[selectedConfig.provider]?.color || colors.tint }]}>
                             <Text style={styles.panelProviderBadgeText}>
                                 {selectedConfig.provider.charAt(0).toUpperCase()}
                             </Text>

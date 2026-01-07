@@ -49,8 +49,8 @@ export function PersonaEditorScreen({ personaId, onBack }: PersonaEditorScreenPr
             setDescription(existingPersona.description || '');
             setPersonality(existingPersona.personality || '');
             setScenario(existingPersona.scenario || '');
-            // Support both V2 and legacy field
-            setSystemPrompt(existingPersona.system_prompt || existingPersona.systemPrompt || '');
+            // V2 field
+            setSystemPrompt(existingPersona.system_prompt || '');
             setPostHistoryInstructions(existingPersona.post_history_instructions || '');
             setCreatorNotes(existingPersona.creator_notes || '');
         }

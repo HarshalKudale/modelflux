@@ -8,7 +8,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { PROVIDER_INFO } from '../../../config/providerPresets';
+import { PROVIDER_LIST } from '../../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../../config/theme';
 import { LLMConfig } from '../../../core/types';
 import { useAppColorScheme, useLocale } from '../../hooks';
@@ -35,7 +35,7 @@ export function LLMConfigCard({
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const providerInfo = PROVIDER_INFO[config.provider] || PROVIDER_INFO.openai;
+    const providerInfo = PROVIDER_LIST[config.provider] || PROVIDER_LIST.openai;
 
     const handleTestConnection = async () => {
         setIsTesting(true);

@@ -106,7 +106,7 @@ export const MessageBubble = memo(function MessageBubble({
     const isUser = message.role === 'user';
     const isSystem = message.role === 'system';
 
-    const llmConfig = message.llmIdUsed ? getConfigById(message.llmIdUsed) : null;
+    const llmConfig = message.modelId ? getConfigById(message.modelId) : null;
 
     // State for thinking content expansion
     const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
@@ -315,7 +315,7 @@ export const MessageBubble = memo(function MessageBubble({
                 {showLLMBadge && !isUser && !isSystem && llmConfig && (
                     <View style={[styles.llmBadge, { backgroundColor: colors.backgroundTertiary }]}>
                         <Text style={[styles.llmBadgeText, { color: colors.textSecondary }]}>
-                            {llmConfig.name} • {message.modelUsed}
+                            {llmConfig.name} • {message.modelId}
                         </Text>
                     </View>
                 )}

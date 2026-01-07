@@ -46,7 +46,7 @@ export function PersonaEditorModal({
             setDescription(persona.description || '');
             setPersonality(persona.personality || '');
             setScenario(persona.scenario || '');
-            setSystemPrompt(persona.system_prompt || persona.systemPrompt || '');
+            setSystemPrompt(persona.system_prompt || '');
             setPostHistoryInstructions(persona.post_history_instructions || '');
             setCreatorNotes(persona.creator_notes || '');
         } else {

@@ -162,16 +162,8 @@ export interface Conversation {
     // RAG sources (accumulates with each message)
     attachedSourceIds?: number[];    // Source IDs used in this conversation
 
-    // @deprecated Use personaPrompt instead - kept for migration compatibility
-    systemPrompt?: string;
-
     // Features
     thinkingEnabled?: boolean;
-
-    // @deprecated Use providerId instead - kept for migration compatibility
-    activeLLMId?: string;
-    // @deprecated Use modelId instead - kept for migration compatibility  
-    activeModel?: string;
 }
 
 /**
@@ -232,15 +224,6 @@ export interface Message {
 
     // Generation state
     interrupted?: boolean;           // Was generation interrupted?
-
-    // @deprecated Use modelId instead - kept for migration compatibility
-    llmIdUsed?: string;
-    // @deprecated Use modelId instead - kept for migration compatibility
-    modelUsed?: string;
-    // @deprecated Use contextIds instead - kept for migration compatibility
-    sourceIds?: number[];
-    // @deprecated Use context instead - kept for migration compatibility
-    contextMap?: Record<number, string>;
 }
 
 /**
@@ -271,12 +254,6 @@ export interface Persona {
     // Timestamps
     createdAt: number;
     updatedAt: number;
-
-    // @deprecated Legacy fields - kept for migration
-    systemPrompt?: string;            // Use system_prompt instead
-    age?: string;
-    location?: string;
-    job?: string;
 }
 
 

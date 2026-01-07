@@ -173,8 +173,8 @@ export function compileSystemPrompt(persona: Persona | null, includeRagContext: 
         parts.push(`Scenario: ${persona.scenario}`);
     }
 
-    // Main system prompt (V2 field or legacy field)
-    const mainPrompt = persona.system_prompt || persona.systemPrompt || '';
+    // Main system prompt (V2 field)
+    const mainPrompt = persona.system_prompt || '';
     if (mainPrompt) {
         parts.push(mainPrompt);
     }
@@ -229,11 +229,6 @@ export function prepareChatMessages(
     // Add context prompt (set when sources first attached)
     if (conversation.contextPrompt) {
         promptParts.push(conversation.contextPrompt);
-    }
-
-    // Fallback: check for legacy systemPrompt field (migration compatibility)
-    if (promptParts.length === 0 && conversation.systemPrompt) {
-        promptParts.push(conversation.systemPrompt);
     }
 
     const systemPromptContent = promptParts.join('\n\n');

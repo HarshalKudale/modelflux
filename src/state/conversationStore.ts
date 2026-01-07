@@ -110,9 +110,6 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             personaId,
             personaPrompt: personaPrompt || undefined,  // Persona prompt (empty if no persona)
             contextPrompt: undefined,                    // RAG context (set when sources first attached)
-            // Deprecated fields for migration compatibility
-            activeLLMId: providerId,
-            activeModel: modelId,
         };
 
         try {
@@ -141,9 +138,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         if (id) {
             const conversation = get().conversations.find((c) => c.id === id);
             if (conversation) {
-                // Use new fields with fallback to deprecated fields for migration
-                const configId = conversation.providerId || conversation.activeLLMId || '';
-                const currentModelId = conversation.modelId || conversation.activeModel || '';
+                // Use new fields
+                const configId = conversation.providerId || '';
+                const currentModelId = conversation.modelId || '';
 
                 const llmConfig = useLLMStore.getState().getConfigById(configId);
                 if (llmConfig && isLocalProvider(llmConfig.provider)) {
@@ -156,7 +153,6 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                             const updated = await conversationRepository.update({
                                 ...conversation,
                                 modelId: selectedModelId,
-                                activeModel: selectedModelId, // Keep deprecated field in sync
                             });
                             set((state) => ({
                                 conversations: state.conversations.map((c) =>
@@ -261,8 +257,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         const conversation = conversations.find((c) => c.id === currentConversationId);
         if (!conversation) return;
 
-        // Use new field with fallback to deprecated field for migration
-        const configId = conversation.providerId || conversation.activeLLMId || '';
+        // Use new field
+        const configId = conversation.providerId || '';
         const llmConfig = useLLMStore.getState().getConfigById(configId);
         if (!llmConfig) {
             set({ error: 'No LLM configured. Please add an LLM in settings.' });
@@ -298,7 +294,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         }
 
         // Create user message - context stored in message.context field
-        const conversationModelId = conversation.modelId || conversation.activeModel || '';
+        const conversationModelId = conversation.modelId || '';
 
         const userMessage: Message = {
             id: generateId(),
@@ -311,11 +307,6 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             // Store context in dedicated field (NOT in content)
             context: contextResult.contextString || undefined,
             contextIds: selectedSourceIds && selectedSourceIds.length > 0 ? selectedSourceIds : undefined,
-            // Deprecated fields for migration
-            llmIdUsed: conversation.providerId || conversation.activeLLMId,
-            modelUsed: conversationModelId,
-            sourceIds: selectedSourceIds && selectedSourceIds.length > 0 ? selectedSourceIds : undefined,
-            contextMap: Object.keys(contextResult.contextMap).length > 0 ? contextResult.contextMap : undefined,
         };
 
         // Save user message and update UI
@@ -351,8 +342,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             // Set isStreaming=true - use new callbacks for streaming updates
             set({ isStreaming: true });
 
-            // Use new modelId field with fallback
-            const currentModelId = conversation.modelId || conversation.activeModel || '';
+            // Use new modelId field
+            const currentModelId = conversation.modelId || '';
 
             const stream = client.sendMessageStream({
                 llmConfig,
@@ -391,12 +382,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                 content: fullContent,
                 contentType: 'text',
                 timestamp: Date.now(),
-                // New field
                 modelId: currentModelId,
                 thinkingContent: thinkingContent || undefined,
-                // Deprecated fields for migration compatibility
-                llmIdUsed: conversation.providerId || conversation.activeLLMId,
-                modelUsed: currentModelId,
             };
 
             await messageRepository.create(assistantMessage);
@@ -472,7 +459,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             if ((partialContent && partialContent.trim()) || (partialThinking && partialThinking.trim())) {
                 const conversation = conversations.find((c) => c.id === currentConversationId);
                 if (conversation) {
-                    const currentModelId = conversation.modelId || conversation.activeModel || '';
+                    const currentModelId = conversation.modelId || '';
 
                     const interruptedMessage: Message = {
                         id: generateId(),
@@ -481,14 +468,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
                         content: partialContent || '', // May be empty if interrupted during thinking
                         contentType: 'text',
                         timestamp: Date.now(),
-                        // New field
                         modelId: currentModelId,
                         thinkingContent: partialThinking || undefined,
                         // Mark as interrupted
                         interrupted: true,
-                        // Deprecated fields for compatibility
-                        llmIdUsed: conversation.providerId || conversation.activeLLMId,
-                        modelUsed: currentModelId,
                     };
 
                     try {
@@ -532,13 +515,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         try {
             const updated = await conversationRepository.update({
                 ...conversation,
-                // New fields
                 providerId: llmId,
                 modelId: model,
                 providerType: providerType,
-                // Keep deprecated fields in sync for migration
-                activeLLMId: llmId,
-                activeModel: model,
             });
             set((state) => ({
                 conversations: state.conversations.map((c) =>
@@ -602,8 +581,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
             logger.log('ConversationStore', 'Deleted last assistant message, re-sending...');
 
             // Re-send the last user message (with its original context if any)
-            // Note: We use the original sourceIds/contextIds from the user message
-            const sourceIds = lastUserMessage.contextIds || lastUserMessage.sourceIds;
+            const sourceIds = lastUserMessage.contextIds;
             await get().sendMessage(lastUserMessage.content, sourceIds);
 
         } catch (error) {

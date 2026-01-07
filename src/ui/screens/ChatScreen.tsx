@@ -129,9 +129,9 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     useEffect(() => {
         if (!conversation) return;
 
-        // Use new fields with fallback to deprecated fields
-        const conversationProviderId = conversation.providerId || conversation.activeLLMId;
-        const conversationModelId = conversation.modelId || conversation.activeModel;
+        // Use new fields
+        const conversationProviderId = conversation.providerId;
+        const conversationModelId = conversation.modelId;
 
         const conversationProvider = conversationProviderId
             ? getConfigById(conversationProviderId)
@@ -205,8 +205,8 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
 
     // Handler for settings modal model changes (for existing conversations)
     const handleSettingsModelChange = async (model: string, downloadedModel?: DownloadedModel) => {
-        if (conversation?.activeLLMId) {
-            await setActiveLLM(conversation.activeLLMId, model);
+        if (conversation?.providerId) {
+            await setActiveLLM(conversation.providerId, model);
             // ModelPicker handles local model loading internally
         }
     };
@@ -218,8 +218,8 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     };
 
     // Check if existing conversation uses a local provider
-    const existingConversationProviderId = conversation?.providerId || conversation?.activeLLMId;
-    const existingConversationModelId = conversation?.modelId || conversation?.activeModel;
+    const existingConversationProviderId = conversation?.providerId;
+    const existingConversationModelId = conversation?.modelId;
     const existingConversationProvider = existingConversationProviderId
         ? getConfigById(existingConversationProviderId)
         : undefined;
@@ -327,8 +327,8 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                             <Text style={[styles.modalTitle, { color: colors.text }]}>Conversation Settings</Text>
                             <TouchableOpacity
                                 onPress={() => {
-                                    const hasProvider = pendingProviderId || conversation?.providerId || conversation?.activeLLMId;
-                                    const hasModel = pendingModel || conversation?.modelId || conversation?.activeModel;
+                                    const hasProvider = pendingProviderId || conversation?.providerId;
+                                    const hasModel = pendingModel || conversation?.modelId;
                                     if (hasProvider && hasModel) {
                                         setShowSettingsModal(false);
                                     }
@@ -344,8 +344,8 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         </View>
                         <ModelPicker
                             mode="panel"
-                            selectedProviderId={pendingProviderId || conversation?.providerId || conversation?.activeLLMId}
-                            selectedModel={shouldShowAlert ? undefined : (pendingModel || conversation?.modelId || conversation?.activeModel)}
+                            selectedProviderId={pendingProviderId || conversation?.providerId}
+                            selectedModel={shouldShowAlert ? undefined : (pendingModel || conversation?.modelId)}
                             selectedPersonaId={conversation?.personaId}
                             onProviderChange={handleSettingsProviderChange}
                             onModelChange={handleSettingsModelChange}

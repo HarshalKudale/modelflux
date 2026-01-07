@@ -187,26 +187,3 @@ export const isLocalProvider = (provider: LLMProvider): boolean => {
 export const getProviderConfig = (provider: LLMProvider): ProviderConfig => {
     return PROVIDER_LIST[provider];
 };
-
-// ============================================================================
-// DEPRECATED - These are kept for backward compatibility during migration
-// Remove after all usages are updated
-// ============================================================================
-
-/** @deprecated Use PROVIDER_LIST instead */
-export const PROVIDER_INFO = PROVIDER_LIST;
-
-/** @deprecated Use PROVIDER_LIST[provider].name instead */
-export const PROVIDER_PRESETS: Record<LLMProvider, { name: string; provider: LLMProvider; baseUrl: string; isLocal: boolean; isEnabled: boolean }> =
-    Object.fromEntries(
-        Object.values(PROVIDER_LIST).map((config) => [
-            config.id,
-            {
-                name: config.name,
-                provider: config.id,
-                baseUrl: config.defaultBaseUrl,
-                isLocal: config.isLocal,
-                isEnabled: true,
-            },
-        ])
-    ) as any;

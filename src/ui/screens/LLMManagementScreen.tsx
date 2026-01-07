@@ -8,7 +8,7 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PROVIDER_INFO } from '../../config/providerPresets';
+import { PROVIDER_LIST } from '../../config/providerPresets';
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { LLMConfig, LLMProvider } from '../../core/types';
 import { useLLMStore, useSettingsStore } from '../../state';
@@ -80,7 +80,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
     };
 
     const getProviderIcon = (config: LLMConfig) => {
-        const info = PROVIDER_INFO[config.provider];
+        const info = PROVIDER_LIST[config.provider];
         return (
             <Text style={{ color: '#FFFFFF', fontSize: FontSizes.lg, fontWeight: '700' }}>
                 {config.provider.charAt(0).toUpperCase()}
@@ -112,7 +112,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                         </Text>
                         <View style={styles.quickAddGrid}>
                             {providerOptions.map((provider) => {
-                                const info = PROVIDER_INFO[provider];
+                                const info = PROVIDER_LIST[provider];
                                 return (
                                     <TouchableOpacity
                                         key={provider}
@@ -145,7 +145,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                                 {t('llm.management.yourProviders', { count: configs.length })}
                             </Text>
                             {configs.map((config) => {
-                                const info = PROVIDER_INFO[config.provider];
+                                const info = PROVIDER_LIST[config.provider];
                                 return (
                                     <ResourceCard
                                         key={config.id}

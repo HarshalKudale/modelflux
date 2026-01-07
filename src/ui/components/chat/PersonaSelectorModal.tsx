@@ -127,7 +127,7 @@ export function PersonaSelectorModal({
                                         {persona.name}
                                     </Text>
                                     <Text style={[styles.personaDesc, { color: colors.textMuted }]} numberOfLines={2}>
-                                        {persona.systemPrompt}
+                                        {persona.system_prompt}
                                     </Text>
                                 </View>
                                 {selectedPersonaId === persona.id && (

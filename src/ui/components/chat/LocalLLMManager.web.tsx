@@ -17,7 +17,7 @@ export function LocalLLMManager({ children }: LocalLLMManagerProps) {
     const { getCurrentConversation } = useConversationStore();
 
     const conversation = getCurrentConversation();
-    const conversationConfig = conversation?.activeLLMId ? getConfigById(conversation.activeLLMId) : null;
+    const conversationConfig = conversation?.providerId ? getConfigById(conversation.providerId) : null;
     const needsLocalModel = conversationConfig && isLocalProvider(conversationConfig.provider);
 
     if (needsLocalModel) {

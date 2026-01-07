@@ -161,8 +161,6 @@ export function MessageList({
                                 contentType: 'text',
                                 timestamp: Date.now(),
                                 modelId: '',
-                                llmIdUsed: '',
-                                modelUsed: '',
                             }}
                             showLLMBadge={false}
                         />
@@ -215,8 +213,6 @@ export function MessageList({
                             contentType: 'text',
                             timestamp: Date.now(),
                             modelId: '',
-                            llmIdUsed: '',
-                            modelUsed: '',
                         }}
                         showLLMBadge={false}
                     />

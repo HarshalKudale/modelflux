@@ -125,7 +125,7 @@ export function PersonaListScreen({ onNavigate, onBack }: PersonaListScreenProps
                                 key={persona.id}
                                 title={persona.name}
                                 subtitle={persona.description}
-                                description={persona.systemPrompt}
+                                description={persona.system_prompt}
                                 icon={getPersonaIcon(persona)}
                                 iconColor={colors.backgroundSecondary}
                                 isDefault={settings.defaultPersonaId === persona.id}
