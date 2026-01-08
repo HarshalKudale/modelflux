@@ -1,4 +1,4 @@
-// Theme configuration for LLM Hub
+// Theme configuration for ModelFlux
 
 export const Colors = {
     light: {

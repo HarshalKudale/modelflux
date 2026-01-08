@@ -1,0 +1,13 @@
+{
+    "name": "modelflux-cors-helper",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "build:chrome": "node build.js chrome",
+        "build:firefox": "node build.js firefox",
+        "build:all": "node build.js all"
+    },
+    "devDependencies": {
+        "archiver": "^7.0.1"
+    }
+}

@@ -64,7 +64,7 @@ class DataExportService {
         };
 
         const jsonString = JSON.stringify(exportData, null, 2);
-        const fileName = `llmhub-backup-${this.getDateString()}.json`;
+        const fileName = `modelflux-backup-${this.getDateString()}.json`;
 
         try {
             const file = new File(Paths.cache, fileName);
@@ -79,7 +79,7 @@ class DataExportService {
 
             await Sharing.shareAsync(file.uri, {
                 mimeType: 'application/json',
-                dialogTitle: 'Export LLM Hub Backup',
+                dialogTitle: 'Export ModelFlux Backup',
                 UTI: 'public.json',
             });
 

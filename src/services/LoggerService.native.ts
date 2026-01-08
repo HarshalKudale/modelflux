@@ -191,13 +191,13 @@ class NativeLoggerService implements ILoggerService {
             }
 
             // Create a combined log file for export
-            const exportFile = new File(Paths.cache, `llmhub-logs-${getLogDateString()}.txt`);
+            const exportFile = new File(Paths.cache, `modelflux-logs-${getLogDateString()}.txt`);
             if (exportFile.exists) {
                 exportFile.delete();
             }
             exportFile.create();
 
-            let combinedContent = `LLMHub Logs Export\nExported: ${new Date().toISOString()}\n${'='.repeat(50)}\n\n`;
+            let combinedContent = `ModelFlux Logs Export\nExported: ${new Date().toISOString()}\n${'='.repeat(50)}\n\n`;
 
             for (const date of dates) {
                 try {
@@ -227,7 +227,7 @@ class NativeLoggerService implements ILoggerService {
             if (canShare) {
                 await Sharing.shareAsync(exportFile.uri, {
                     mimeType: 'text/plain',
-                    dialogTitle: 'Export LLMHub Logs',
+                    dialogTitle: 'Export ModelFlux Logs',
                 });
             }
         } catch (err) {

@@ -8,7 +8,7 @@ export const es: Record<string, string> = {
     ...en,
     // Override with Spanish translations here
     // Example:
-    // "app.name": "LLM Hub",
+    // "app.name": "ModelFlux",
     //"common.ok": "Aceptar",
     // "common.cancel": "Cancelar",
 };

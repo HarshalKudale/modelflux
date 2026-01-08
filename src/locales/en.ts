@@ -3,7 +3,7 @@
 
 export const en: Record<string, string> = {
     // App
-    "app.name": "LLM Hub",
+    "app.name": "ModelFlux",
 
     // Common
     "common.ok": "OK",

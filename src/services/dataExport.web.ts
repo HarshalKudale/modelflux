@@ -58,7 +58,7 @@ class DataExportService {
         };
 
         const jsonString = JSON.stringify(exportData, null, 2);
-        const fileName = `llmhub-backup-${this.getDateString()}.json`;
+        const fileName = `modelflux-backup-${this.getDateString()}.json`;
 
         this.downloadJsonWeb(jsonString, fileName);
         return 'File downloaded';

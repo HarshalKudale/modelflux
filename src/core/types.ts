@@ -1,4 +1,4 @@
-// Data Models for LLM Hub
+// Data Models for ModelFlux
 
 /**
  * UUID v4 generator for cross-platform compatibility
@@ -248,7 +248,7 @@ export interface Persona {
     // Metadata
     creator_notes: string;            // Notes for users (NOT used in prompts)
 
-    // Pre-compiled prompt (LLMHub extension - generated at save time)
+    // Pre-compiled prompt (ModelFlux extension - generated at save time)
     compiledSystemPrompt: string;
 
     // Timestamps

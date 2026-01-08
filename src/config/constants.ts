@@ -1,6 +1,6 @@
 // App-wide constants
 
-export const APP_NAME = 'LLM Hub';
+export const APP_NAME = 'ModelFlux';
 export const APP_VERSION = '1.0.0';
 
 // Storage keys

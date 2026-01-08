@@ -1,0 +1,48 @@
+{
+    "manifest_version": 3,
+    "name": "ModelFlux CORS Helper",
+    "description": "Enables ModelFlux web app to communicate with local LLM services",
+    "version": "1.0.0",
+    "icons": {
+        "16": "icons/icon-16.png",
+        "32": "icons/icon-32.png",
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png"
+    },
+    "permissions": [
+        "declarativeNetRequest",
+        "declarativeNetRequestWithHostAccess"
+    ],
+    "host_permissions": [
+        "*://localhost/*",
+        "*://127.0.0.1/*"
+    ],
+    "declarative_net_request": {
+        "rule_resources": [
+            {
+                "id": "cors_bypass",
+                "enabled": true,
+                "path": "rules.json"
+            }
+        ]
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://modelflux.io/*",
+                "*://*.modelflux.io/*",
+                "*://localhost/*",
+                "*://localhost:*/*",
+                "*://127.0.0.1/*",
+                "*://127.0.0.1:*/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_start"
+        }
+    ]
+}

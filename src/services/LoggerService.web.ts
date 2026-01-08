@@ -219,7 +219,7 @@ class WebLoggerService implements ILoggerService {
             throw new Error('No logs to export');
         }
 
-        let content = `LLMHub Logs Export\nExported: ${new Date().toISOString()}\n${'='.repeat(50)}\n\n`;
+        let content = `ModelFlux Logs Export\nExported: ${new Date().toISOString()}\n${'='.repeat(50)}\n\n`;
 
         for (const date of dates) {
             try {
@@ -241,7 +241,7 @@ class WebLoggerService implements ILoggerService {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `llmhub-logs-${getLogDateString()}.txt`;
+        a.download = `modelflux-logs-${getLogDateString()}.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
