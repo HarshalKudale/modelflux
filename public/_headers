@@ -1,0 +1,33 @@
+# Cloudflare Pages Headers Configuration
+# See: https://developers.cloudflare.com/pages/configuration/headers/
+
+# Font files - ensure proper MIME types
+/*.ttf
+  Content-Type: font/ttf
+  Access-Control-Allow-Origin: *
+
+/*.otf
+  Content-Type: font/otf
+  Access-Control-Allow-Origin: *
+
+/*.woff
+  Content-Type: font/woff
+  Access-Control-Allow-Origin: *
+
+/*.woff2
+  Content-Type: font/woff2
+  Access-Control-Allow-Origin: *
+
+# Font files in assets directory
+/assets/*.ttf
+  Content-Type: font/ttf
+  Access-Control-Allow-Origin: *
+
+/assets/**/*.ttf
+  Content-Type: font/ttf
+  Access-Control-Allow-Origin: *
+
+# Node modules fonts (expo vector icons)
+/assets/node_modules/**/Fonts/*.ttf
+  Content-Type: font/ttf
+  Access-Control-Allow-Origin: *
