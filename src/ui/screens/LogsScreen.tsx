@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Platform,
     RefreshControl,
     StyleSheet,
     Text,
@@ -9,7 +10,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
+import { BorderRadius, Colors, FontSizes, Layout, Spacing } from '../../config/theme';
 import type { LogEntry, LogLevel } from '../../services/LoggerService';
 import { logger } from '../../services/LoggerService';
 import { showError, showInfo } from '../../utils/alert';
@@ -335,6 +336,11 @@ const styles = StyleSheet.create({
     listContent: {
         padding: Spacing.md,
         gap: Spacing.sm,
+        ...(Platform.OS === 'web' ? {
+            maxWidth: Layout.wideContentMaxWidth,
+            alignSelf: 'center',
+            width: '100%',
+        } : {}),
     },
     dateItem: {
         flexDirection: 'row',

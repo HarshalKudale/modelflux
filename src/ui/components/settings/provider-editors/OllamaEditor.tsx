@@ -4,7 +4,7 @@
  * Handles configuration for Ollama local server providers.
  * Supports: name, baseUrl, temperature, topP, numPredict (maxTokens), numCtx (context window)
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PROVIDER_LIST } from '../../../../config/providerPresets';

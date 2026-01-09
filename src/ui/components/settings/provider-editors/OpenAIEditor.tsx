@@ -4,7 +4,7 @@
  * Handles configuration for both OpenAI and OpenAI-compatible (openai-spec) providers.
  * Supports: name, baseUrl (for openai-spec), apiKey, temperature, topP, maxTokens, presencePenalty, frequencyPenalty
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PROVIDER_LIST } from '../../../../config/providerPresets';

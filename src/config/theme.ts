@@ -133,6 +133,8 @@ export const Shadows = {
 export const Layout = {
     contentMaxWidth: 720,
     wideContentMaxWidth: 960,
+    sidebarWidth: 260,
+    sidebarCollapsedWidth: 60,
 };
 
 export type ThemeColors = typeof Colors.light;

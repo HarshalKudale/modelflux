@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors, FontSizes, Spacing } from '../../../config/theme';
+import { BorderRadius, Colors, FontSizes, Layout, Spacing } from '../../../config/theme';
 import { useConversationRuntimeStore, useConversationStore } from '../../../state';
 import { useAppColorScheme, useLocale } from '../../hooks';
 import { ConversationList } from './ConversationList';
@@ -21,8 +21,6 @@ export function Sidebar({
     onToggleCollapse,
     onNavigate,
 }: SidebarProps) {
-    console.log('[Sidebar] Component rendering, isCollapsed:', isCollapsed);
-
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
     const { t } = useLocale();
@@ -72,27 +70,70 @@ export function Sidebar({
         await selectConversation(id);
     };
 
+    const isWeb = Platform.OS === 'web';
+
+    // Collapsed state - show thin bar with icons
     if (isCollapsed) {
         return (
-            <SafeAreaView style={[styles.collapsedContainer, { backgroundColor: colors.sidebar }]} edges={['top', 'bottom']}>
-                <TouchableOpacity onPress={onToggleCollapse} style={styles.expandButton}>
-                    <Ionicons name="menu" size={24} color={colors.text} />
+            <SafeAreaView
+                style={[
+                    styles.collapsedContainer,
+                    { backgroundColor: colors.sidebar, borderRightColor: colors.border }
+                ]}
+                edges={['top', 'bottom']}
+            >
+                {/* Toggle button */}
+                <TouchableOpacity
+                    onPress={onToggleCollapse}
+                    style={[styles.collapsedButton, styles.toggleButton]}
+                >
+                    <Ionicons name="menu" size={22} color={colors.text} />
+                </TouchableOpacity>
+
+                {/* New Chat button */}
+                <TouchableOpacity
+                    onPress={handleNewChat}
+                    style={[
+                        styles.collapsedButton,
+                        { backgroundColor: colors.tint },
+                        isOnNewConversation && { opacity: 0.5 }
+                    ]}
+                    disabled={isOnNewConversation}
+                >
+                    <Ionicons name="add" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                {/* Spacer */}
+                <View style={styles.collapsedSpacer} />
+
+                {/* Settings button */}
+                <TouchableOpacity
+                    onPress={() => onNavigate('settings')}
+                    style={[styles.collapsedButton, { backgroundColor: colors.backgroundSecondary }]}
+                >
+                    <Ionicons name="settings-outline" size={20} color={colors.text} />
                 </TouchableOpacity>
             </SafeAreaView>
         );
     }
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.sidebar }]} edges={['top', 'bottom']}>
-            {/* Header */}
+        <SafeAreaView
+            style={[
+                styles.container,
+                { backgroundColor: colors.sidebar, borderRightColor: colors.border }
+            ]}
+            edges={['top', 'bottom']}
+        >
+            {/* Header - ModelFlux left, sidebar toggle right */}
             <View style={styles.header}>
                 <Text style={[styles.title, { color: colors.text }]}>{t('app.name')}</Text>
-                <TouchableOpacity onPress={onToggleCollapse} style={styles.collapseButton}>
-                    <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
+                <TouchableOpacity onPress={onToggleCollapse} style={styles.toggleButton}>
+                    <Ionicons name="chevron-back-outline" size={20} color={colors.textMuted} />
                 </TouchableOpacity>
             </View>
 
-            {/* New Chat Button */}
+            {/* New Chat Button - below header */}
             <NewChatButton onPress={handleNewChat} disabled={isOnNewConversation} />
 
             {/* Conversation List */}
@@ -106,7 +147,6 @@ export function Sidebar({
             {/* User Info / Settings */}
             <UserInfo
                 onSettingsPress={() => {
-                    console.log('going to settings');
                     onNavigate('settings')
                 }}
                 onSourcesPress={() => setSourcesModalVisible(true)}
@@ -123,30 +163,43 @@ export function Sidebar({
 
 const styles = StyleSheet.create({
     container: {
-        width: 280,
+        width: Layout.sidebarWidth,
         height: '100%',
         flexDirection: 'column',
+        borderRightWidth: 1,
     },
     collapsedContainer: {
-        width: 60,
+        width: Layout.sidebarCollapsedWidth,
         height: '100%',
         alignItems: 'center',
+        paddingVertical: Spacing.sm,
+        borderRightWidth: 1,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.md,
+        paddingVertical: Spacing.sm,
+    },
+    toggleButton: {
+        padding: Spacing.sm,
+        borderRadius: BorderRadius.md,
     },
     title: {
-        fontSize: FontSizes.xl,
-        fontWeight: '700',
+        fontSize: FontSizes.lg,
+        fontWeight: '600',
     },
-    collapseButton: {
-        padding: Spacing.xs,
+    collapsedButton: {
+        width: 40,
+        height: 40,
+        borderRadius: BorderRadius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: Spacing.sm,
     },
-    expandButton: {
-        padding: Spacing.sm,
+    collapsedSpacer: {
+        flex: 1,
     },
 });
+

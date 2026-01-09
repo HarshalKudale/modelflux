@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Platform,
@@ -18,11 +18,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DOWNLOADABLE_MODELS, DownloadableModel } from '../../config/downloadableModels';
 import { MODEL_TYPE_PRESETS, ModelType } from '../../config/modelTypePresets';
 import { getLocalProviders, PROVIDER_LIST } from '../../config/providerPresets';
-import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
+import { BorderRadius, Colors, FontSizes, Layout, Spacing } from '../../config/theme';
 import { DownloadedModelType, LLMProvider } from '../../core/types';
 import { importLocalModel } from '../../services/ModelDownloadService';
 import { useModelDownloadStore } from '../../state';
-import { VirtualizedList } from '../components/common';
+import { ResponsiveContainer, VirtualizedList } from '../components/common';
 import { LocalModelImportModal } from '../components/common/LocalModelImportModal';
 import { useAppColorScheme, useLocale } from '../hooks';
 
@@ -411,100 +411,108 @@ export function ModelsScreen({ onBack }: ModelsScreenProps) {
             </View>
 
             {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <View
-                    style={[
-                        styles.searchInputContainer,
-                        {
-                            backgroundColor: colors.backgroundSecondary,
-                            borderColor: colors.border,
-                        },
-                    ]}
-                >
-                    <Ionicons
-                        name="search"
-                        size={20}
-                        color={colors.textMuted}
-                        style={styles.searchIcon}
-                    />
-                    <TextInput
-                        style={[styles.searchInput, { color: colors.text }]}
-                        placeholder={t('models.search.placeholder')}
-                        placeholderTextColor={colors.textMuted}
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                    />
-                    {searchQuery.length > 0 && (
-                        <TouchableOpacity onPress={() => setSearchQuery('')}>
-                            <Ionicons
-                                name="close-circle"
-                                size={20}
-                                color={colors.textMuted}
-                            />
-                        </TouchableOpacity>
-                    )}
+            <ResponsiveContainer>
+                <View style={styles.searchContainer}>
+                    <View
+                        style={[
+                            styles.searchInputContainer,
+                            {
+                                backgroundColor: colors.backgroundSecondary,
+                                borderColor: colors.border,
+                            },
+                        ]}
+                    >
+                        <Ionicons
+                            name="search"
+                            size={20}
+                            color={colors.textMuted}
+                            style={styles.searchIcon}
+                        />
+                        <TextInput
+                            style={[styles.searchInput, { color: colors.text }]}
+                            placeholder={t('models.search.placeholder')}
+                            placeholderTextColor={colors.textMuted}
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                        />
+                        {searchQuery.length > 0 && (
+                            <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                <Ionicons
+                                    name="close-circle"
+                                    size={20}
+                                    color={colors.textMuted}
+                                />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
-            </View>
+            </ResponsiveContainer>
 
-            <View style={styles.filterContainer}>
-                <VirtualizedList
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    data={[
-                        { value: 'all' as ProviderFilter, label: t('models.filter.all') },
-                        ...getLocalProviders().map((provider) => ({
-                            value: provider as ProviderFilter,
-                            label: PROVIDER_LIST[provider as LLMProvider]?.isLocal
-                                ? provider === 'llama-cpp'
-                                    ? 'Llama.cpp'
-                                    : provider.charAt(0).toUpperCase() + provider.slice(1)
-                                : provider,
-                        })),
-                    ]}
-                    keyExtractor={(item) => item.value}
-                    renderItem={({ item }) =>
-                        renderProviderFilterChip(item.value, item.label)
-                    }
-                    contentContainerStyle={styles.filterList}
-                />
-            </View>
+            <ResponsiveContainer>
+                <View style={styles.filterContainer}>
+                    <VirtualizedList
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        data={[
+                            { value: 'all' as ProviderFilter, label: t('models.filter.all') },
+                            ...getLocalProviders().map((provider) => ({
+                                value: provider as ProviderFilter,
+                                label: PROVIDER_LIST[provider as LLMProvider]?.isLocal
+                                    ? provider === 'llama-cpp'
+                                        ? 'Llama.cpp'
+                                        : provider.charAt(0).toUpperCase() + provider.slice(1)
+                                    : provider,
+                            })),
+                        ]}
+                        keyExtractor={(item) => item.value}
+                        renderItem={({ item }) =>
+                            renderProviderFilterChip(item.value, item.label)
+                        }
+                        contentContainerStyle={styles.filterList}
+                    />
+                </View>
+            </ResponsiveContainer>
 
-            <View style={styles.filterContainer}>
-                <VirtualizedList
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    data={[
-                        { value: 'all' as ModelTypeFilter, label: t('models.filter.all') },
-                        ...MODEL_TYPE_PRESETS.map((type) => ({
-                            value: type.id as ModelTypeFilter,
-                            label: type.name,
-                        })),
-                    ]}
-                    keyExtractor={(item) => item.value}
-                    renderItem={({ item }) =>
-                        renderModelTypeFilterChip(item.value, item.label)
-                    }
-                    contentContainerStyle={styles.filterList}
-                />
-            </View>
+            <ResponsiveContainer>
+                <View style={styles.filterContainer}>
+                    <VirtualizedList
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        data={[
+                            { value: 'all' as ModelTypeFilter, label: t('models.filter.all') },
+                            ...MODEL_TYPE_PRESETS.map((type) => ({
+                                value: type.id as ModelTypeFilter,
+                                label: type.name,
+                            })),
+                        ]}
+                        keyExtractor={(item) => item.value}
+                        renderItem={({ item }) =>
+                            renderModelTypeFilterChip(item.value, item.label)
+                        }
+                        contentContainerStyle={styles.filterList}
+                    />
+                </View>
+            </ResponsiveContainer>
 
             {/* Web Warning */}
             {isWeb && (
-                <View
-                    style={[
-                        styles.webWarning,
-                        { backgroundColor: colors.warning + '20' },
-                    ]}
-                >
-                    <Ionicons
-                        name="warning"
-                        size={20}
-                        color={colors.warning}
-                    />
-                    <Text style={[styles.webWarningText, { color: colors.warning }]}>
-                        {t('models.web.unsupported')}
-                    </Text>
-                </View>
+                <ResponsiveContainer>
+                    <View
+                        style={[
+                            styles.webWarning,
+                            { backgroundColor: colors.warning + '20' },
+                        ]}
+                    >
+                        <Ionicons
+                            name="warning"
+                            size={20}
+                            color={colors.warning}
+                        />
+                        <Text style={[styles.webWarningText, { color: colors.warning }]}>
+                            {t('models.web.unsupported')}
+                        </Text>
+                    </View>
+                </ResponsiveContainer>
             )}
 
             {/* Loading State */}
@@ -612,6 +620,11 @@ const styles = StyleSheet.create({
     listContent: {
         padding: Spacing.md,
         paddingTop: Spacing.xs,
+        ...(Platform.OS === 'web' ? {
+            maxWidth: Layout.wideContentMaxWidth,
+            alignSelf: 'center',
+            width: '100%',
+        } : {}),
     },
     modelItem: {
         borderRadius: BorderRadius.md,

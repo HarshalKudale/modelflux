@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     KeyboardAvoidingView,
     Platform,
@@ -220,13 +220,15 @@ export function PersonaEditorScreen({ personaId, onBack }: PersonaEditorScreenPr
 
                 {/* Sticky Bottom Action Bar */}
                 <View style={[styles.bottomBar, { backgroundColor: colors.cardBackground, borderTopColor: colors.border }]}>
-                    <Button
-                        title={isSaving ? t('common.loading') : t('common.save')}
-                        onPress={handleSave}
-                        loading={isSaving}
-                        disabled={!isValid || isSaving}
-                        fullWidth
-                    />
+                    <ResponsiveContainer>
+                        <Button
+                            title={isSaving ? t('common.loading') : t('common.save')}
+                            onPress={handleSave}
+                            loading={isSaving}
+                            disabled={!isValid || isSaving}
+                            fullWidth
+                        />
+                    </ResponsiveContainer>
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>

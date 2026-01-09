@@ -5,15 +5,15 @@
  * Provider dropdown at top, switch statement renders the appropriate editor.
  */
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Colors, FontSizes, Spacing } from '../../config/theme';
+import { Colors, FontSizes, Layout, Spacing } from '../../config/theme';
 import { LLMProvider, LLMProviderKey } from '../../core/types';
 import { useLLMStore } from '../../state';
 import { showConfirm } from '../../utils/alert';
-import { Dropdown } from '../components/common';
+import { Dropdown, ResponsiveContainer } from '../components/common';
 import { useAppColorScheme, useLocale } from '../hooks';
 
 import {
@@ -174,7 +174,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
             </View>
 
             {/* Provider Dropdown */}
-            <View style={styles.providerSection}>
+            <ResponsiveContainer maxWidth={Layout.wideContentMaxWidth} style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.md }}>
                 <Dropdown
                     label={t('llm.editor.providerType')}
                     value={provider}
@@ -182,7 +182,7 @@ export function LLMEditorScreen({ configId, presetProvider, onBack }: LLMEditorS
                     onSelect={handleProviderChange}
                     disabled={isEditing} // Lock provider type when editing
                 />
-            </View>
+            </ResponsiveContainer>
 
             {/* Provider-specific Editor */}
             <View style={styles.editorContainer}>
@@ -220,6 +220,11 @@ const styles = StyleSheet.create({
     },
     editorContainer: {
         flex: 1,
+        ...(Platform.OS === 'web' ? {
+            maxWidth: Layout.wideContentMaxWidth,
+            alignSelf: 'center',
+            width: '100%',
+        } : {}),
     },
     errorContainer: {
         flex: 1,

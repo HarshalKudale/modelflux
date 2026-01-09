@@ -4,7 +4,7 @@
  * Handles configuration for Anthropic Claude providers.
  * Supports: name, apiKey, temperature, topP, maxTokens
  */
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PROVIDER_LIST } from '../../../../config/providerPresets';
