@@ -3,8 +3,6 @@
  * No GestureHandlerRootView wrapper - not needed on web and can interfere with events
  */
 import '@/src/polyfills';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -27,10 +25,11 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+    // Load fonts from local assets for clean bundling paths
     const [loaded, error] = useFonts({
         SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-        ...FontAwesome.font,
-        ...Ionicons.font,
+        FontAwesome: require('../assets/fonts/FontAwesome.ttf'),
+        Ionicons: require('../assets/fonts/Ionicons.ttf'),
     });
 
     const [appReady, setAppReady] = useState(false);
