@@ -48,16 +48,21 @@ jobs:
       - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
 
-      - name: Build APK with EAS (Local)
+      - name: Build AAB with EAS (Local)
         run: eas build --platform android --profile production --local --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Upload APK artifact
+      - name: Build APK with EAS (Local)
+        run: eas build --platform android --profile production-apk --local --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: android-builds
           path: |
-            *.apk
-            build-*.tar.gz
+            build-*.aab
+            build-*.apk
           retention-days: 14
