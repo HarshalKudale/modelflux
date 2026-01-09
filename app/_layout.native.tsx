@@ -4,7 +4,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -30,6 +30,8 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
+  const [appReady, setAppReady] = useState(false);
+
   // Initialize stores
   const loadSettings = useSettingsStore((s) => s.loadSettings);
   const loadConfigs = useLLMStore((s) => s.loadConfigs);
@@ -54,18 +56,20 @@ export default function RootLayout() {
 
       // Re-attach to any background downloads that were running
       await reattachBackgroundDownloads();
+      setAppReady(true);
     };
 
     initializeApp();
   }, []);
 
   useEffect(() => {
-    if (loaded) {
+    if (loaded && appReady) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [loaded, appReady]);
 
-  if (!loaded) {
+  // Wait for both fonts and app data to be ready
+  if (!loaded || !appReady) {
     return null;
   }
 
