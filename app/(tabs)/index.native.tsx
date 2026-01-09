@@ -3,7 +3,7 @@
  * 
  * Drawer-based navigation with swipe gestures.
  */
-import { Colors } from '@/src/config/theme';
+import { Colors, Layout } from '@/src/config/theme';
 import { Sidebar } from '@/src/ui/components/sidebar';
 import { useAppColorScheme } from '@/src/ui/hooks';
 import { ChatScreen } from '@/src/ui/screens';
@@ -68,7 +68,7 @@ export default function HomeScreen() {
 
     const translateX = drawerAnimation.interpolate({
         inputRange: [0, 1],
-        outputRange: [-280, 0],
+        outputRange: [-Layout.sidebarWidth, 0],
     });
 
     return (
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
         left: 0,
         top: 0,
         bottom: 0,
-        width: 280,
+        width: Layout.sidebarWidth,
         zIndex: 20,
     },
 });
