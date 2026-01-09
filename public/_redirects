@@ -1,0 +1,13 @@
+# Never rewrite static assets
+/assets/* /assets/:splat 200
+/_expo/* /_expo/:splat 200
+/*.ttf /:splat 200
+/*.otf /:splat 200
+/*.woff /:splat 200
+/*.woff2 /:splat 200
+/*.css /:splat 200
+/*.js /:splat 200
+/*.map /:splat 200
+
+# SPA fallback (LAST)
+/* /index.html 200
