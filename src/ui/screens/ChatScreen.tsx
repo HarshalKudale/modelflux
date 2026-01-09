@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BorderRadius, Colors, FontSizes, Shadows, Spacing } from '../../config/theme';
-import { DownloadedModel } from '../../core/types';
+import { ConversationType, DownloadedModel } from '../../core/types';
 import { isLocalProvider, useConversationStore, useLLMStore, useSourceStore } from '../../state';
 import { ChatHeader, MessageInput, MessageList, SourceSelector } from '../components/chat';
 import { ModelPicker } from '../components/common';
@@ -37,6 +37,8 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
     // Source selection for RAG
     const [selectedSourceIds, setSelectedSourceIds] = useState<number[]>([]);
     const [showSourceSelector, setShowSourceSelector] = useState(false);
+    // Conversation type for new conversations
+    const [pendingConversationType, setPendingConversationType] = useState<ConversationType>('chat');
 
     const colorScheme = useAppColorScheme();
     const colors = Colors[colorScheme];
@@ -166,10 +168,11 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
 
         if (!currentConversationId) {
             try {
-                await createConversation(pendingProviderId, pendingModel, pendingPersonaId);
+                await createConversation(pendingProviderId, pendingModel, pendingPersonaId, pendingConversationType);
                 setPendingProviderId(undefined);
                 setPendingModel(undefined);
                 setPendingPersonaId(undefined);
+                setPendingConversationType('chat');
                 setTimeout(async () => {
                     await sendMessage(message, sourcesToUse);
                 }, 100);
@@ -283,9 +286,11 @@ export function ChatScreen({ onMenuPress }: ChatScreenProps) {
                         selectedProviderId={pendingProviderId}
                         selectedModel={pendingModel}
                         selectedPersonaId={pendingPersonaId}
+                        selectedConversationType={pendingConversationType}
                         onProviderChange={handleProviderChange}
                         onModelChange={handleModelChange}
                         onPersonaChange={handlePersonaChange}
+                        onConversationTypeChange={setPendingConversationType}
                         onNavigateToProviders={() => router.push('/llm-management')}
                         onNavigateToPersonas={() => router.push('/persona-list')}
                         onNavigateToModels={() => router.push('/model-list')}

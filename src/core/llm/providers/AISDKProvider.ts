@@ -11,7 +11,7 @@ import { fetch as expoFetch } from 'expo/fetch';
 import { createOllama } from 'ollama-ai-provider-v2';
 
 import { LLMConfig } from '../../types';
-import { LLMError, LLMErrorCode, LLMRequest, LLMStreamChunk } from '../types';
+import { LLMError, LLMErrorCode, LLMGenerateRequest, LLMRequest, LLMStreamChunk } from '../types';
 
 /**
  * Creates an AI SDK provider instance based on the LLMConfig
@@ -172,6 +172,113 @@ export class AISDKProvider {
         console.log('[AISDKProvider] Interrupting...');
         if (this.abortController) {
             this.abortController.abort();
+            this.abortController = null;
+        }
+    }
+
+    /**
+     * Stream generate-style completion using AI SDK's streamText with system + prompt
+     * Used for generate-mode conversations
+     */
+    async *sendGenerateStream(
+        request: LLMGenerateRequest
+    ): AsyncGenerator<LLMStreamChunk, void, unknown> {
+        const { llmConfig, system, prompt, model, temperature, onToken, onThinking } = request;
+        const provider = getSDKProvider(llmConfig);
+        const actualModel = model || llmConfig.defaultModel;
+
+        console.log('[AISDKProvider] Starting generate stream', {
+            provider: llmConfig.provider,
+            model: actualModel,
+            systemLength: system.length,
+            promptLength: prompt.length,
+        });
+
+        this.abortController = new AbortController();
+
+        try {
+            // Enable thinking mode for Ollama by default
+            const providerOptions = llmConfig.provider === 'ollama'
+                ? { ollama: { think: true } }
+                : undefined;
+
+            // Use provider settings from config, with request-level override for temperature
+            const settings = llmConfig.providerSettings || {};
+
+            const result = streamText({
+                model: provider(actualModel),
+                system,   // System prompt as separate param
+                prompt,   // Single prompt string (not messages array)
+                temperature: temperature ?? settings.temperature,
+                topP: settings.topP,
+                maxOutputTokens: settings.maxOutputTokens,
+                presencePenalty: settings.presencePenalty,
+                frequencyPenalty: settings.frequencyPenalty,
+                abortSignal: this.abortController.signal,
+                providerOptions,
+            });
+
+            let fullContent = '';
+            let thinkingContent = '';
+
+            // Use fullStream to access both text and reasoning content
+            for await (const part of result.fullStream) {
+                switch (part.type) {
+                    case 'text-delta': {
+                        fullContent += part.text;
+                        if (onToken) {
+                            onToken(fullContent);
+                        }
+                        yield { content: part.text, done: false };
+                        break;
+                    }
+                    case 'reasoning-delta': {
+                        thinkingContent += part.text;
+                        if (onThinking) {
+                            onThinking(thinkingContent);
+                        }
+                        yield { content: '', thinking: part.text, done: false };
+                        break;
+                    }
+                    case 'error': {
+                        console.error('[AISDKProvider] Generate stream error:', part.error);
+                        break;
+                    }
+                    case 'finish': {
+                        // Stream finished
+                        break;
+                    }
+                }
+            }
+
+            // Final chunk
+            yield { content: '', thinking: thinkingContent || undefined, done: true };
+
+            console.log('[AISDKProvider] Generate stream complete', {
+                contentLength: fullContent.length,
+                thinkingLength: thinkingContent.length,
+            });
+        } catch (error) {
+            console.error('[AISDKProvider] Generate error:', error);
+
+            if (error instanceof Error && error.name === 'AbortError') {
+                throw new LLMError(
+                    'Request cancelled',
+                    LLMErrorCode.CANCELLED,
+                    llmConfig.provider
+                );
+            }
+
+            if (error instanceof LLMError) {
+                throw error;
+            }
+
+            throw new LLMError(
+                error instanceof Error ? error.message : 'Unknown error',
+                LLMErrorCode.UNKNOWN,
+                llmConfig.provider
+            );
+        } finally {
             this.abortController = null;
         }
     }

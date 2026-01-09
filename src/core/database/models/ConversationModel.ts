@@ -8,6 +8,7 @@ export default class ConversationModel extends Model {
     static table = 'conversations';
 
     @field('title') title!: string;
+    @field('type') type!: string;
     @field('provider_id') providerId!: string;
     @field('model_id') modelId!: string;
     @field('provider_type') providerType!: string;

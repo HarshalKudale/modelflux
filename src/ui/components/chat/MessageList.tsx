@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashListRef } from '@shopify/flash-list';
 import React, { useCallback, useEffect, useRef } from 'react';
-import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors, FontSizes, Spacing } from '../../../config/theme';
-import { DownloadedModel, Message } from '../../../core/types';
+import { ConversationType, DownloadedModel, Message } from '../../../core/types';
 import { useLLMStore } from '../../../state';
 import { useAppColorScheme } from '../../hooks';
 import { ModelPicker, VirtualizedList } from '../common';
@@ -19,10 +19,12 @@ interface MessageListProps {
     selectedProviderId?: string;
     selectedModel?: string;
     selectedPersonaId?: string;
+    selectedConversationType?: ConversationType;
     // Callbacks for parent state updates
     onProviderChange?: (providerId: string) => void;
     onModelChange?: (model: string, downloadedModel?: DownloadedModel) => void;
     onPersonaChange?: (personaId: string | undefined) => void;
+    onConversationTypeChange?: (type: ConversationType) => void;
     // Navigation
     onNavigateToProviders?: () => void;
     onNavigateToPersonas?: () => void;
@@ -43,9 +45,11 @@ export function MessageList({
     selectedProviderId,
     selectedModel,
     selectedPersonaId,
+    selectedConversationType = 'chat',
     onProviderChange,
     onModelChange,
     onPersonaChange,
+    onConversationTypeChange,
     onNavigateToProviders,
     onNavigateToPersonas,
     onNavigateToModels,
@@ -136,10 +140,65 @@ export function MessageList({
                     />
                 )}
 
+                {/* Conversation Type Toggle */}
+                {hasConfigs && onConversationTypeChange && (
+                    <View style={styles.typeToggleContainer}>
+                        <Text style={[styles.typeToggleLabel, { color: colors.textSecondary }]}>
+                            Mode:
+                        </Text>
+                        <View style={[styles.typeToggle, { backgroundColor: colors.backgroundSecondary }]}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.typeToggleButton,
+                                    selectedConversationType === 'chat' && { backgroundColor: colors.tint },
+                                ]}
+                                onPress={() => onConversationTypeChange('chat')}
+                            >
+                                <Ionicons
+                                    name="chatbubbles-outline"
+                                    size={16}
+                                    color={selectedConversationType === 'chat' ? '#fff' : colors.textSecondary}
+                                />
+                                <Text
+                                    style={[
+                                        styles.typeToggleText,
+                                        { color: selectedConversationType === 'chat' ? '#fff' : colors.textSecondary },
+                                    ]}
+                                >
+                                    Chat
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[
+                                    styles.typeToggleButton,
+                                    selectedConversationType === 'generate' && { backgroundColor: colors.tint },
+                                ]}
+                                onPress={() => onConversationTypeChange('generate')}
+                            >
+                                <Ionicons
+                                    name="flash-outline"
+                                    size={16}
+                                    color={selectedConversationType === 'generate' ? '#fff' : colors.textSecondary}
+                                />
+                                <Text
+                                    style={[
+                                        styles.typeToggleText,
+                                        { color: selectedConversationType === 'generate' ? '#fff' : colors.textSecondary },
+                                    ]}
+                                >
+                                    Generate
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
                 {/* Tip text */}
                 {hasConfigs && (
                     <Text style={[styles.tipText, { color: colors.textMuted }]}>
-                        Type your message below to begin
+                        {selectedConversationType === 'generate'
+                            ? 'Generate mode: Each message is independent'
+                            : 'Chat mode: Full conversation history is used'}
                     </Text>
                 )}
             </View>
@@ -369,5 +428,31 @@ const styles = StyleSheet.create({
         fontSize: FontSizes.sm,
         lineHeight: 20,
         fontStyle: 'italic',
+    },
+    typeToggleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.sm,
+        marginTop: Spacing.md,
+    },
+    typeToggleLabel: {
+        fontSize: FontSizes.sm,
+    },
+    typeToggle: {
+        flexDirection: 'row',
+        borderRadius: 8,
+        padding: 4,
+    },
+    typeToggleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: Spacing.xs,
+        paddingHorizontal: Spacing.sm,
+        borderRadius: 6,
+    },
+    typeToggleText: {
+        fontSize: FontSizes.sm,
+        fontWeight: '500',
     },
 });

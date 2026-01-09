@@ -9,6 +9,7 @@ import {
     ILLMProvider,
     LLMError,
     LLMErrorCode,
+    LLMGenerateRequest,
     LLMRequest,
     LLMStreamChunk
 } from '../types';
@@ -38,5 +39,15 @@ export class LlamaCppProvider implements ILLMProvider {
 
     async testConnection(_llmConfig: LLMConfig): Promise<boolean> {
         return false;
+    }
+
+    async *sendGenerateStream(
+        _request: LLMGenerateRequest
+    ): AsyncGenerator<LLMStreamChunk, void, unknown> {
+        throw new LLMError(
+            'Llama.cpp is not supported on web platform.',
+            LLMErrorCode.PROVIDER_NOT_SUPPORTED,
+            'llama-cpp'
+        );
     }
 }

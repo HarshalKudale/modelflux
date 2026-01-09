@@ -35,6 +35,23 @@ export interface LLMRequest {
 }
 
 /**
+ * Request parameters for generate-style completion
+ * Uses system + prompt instead of messages array
+ */
+export interface LLMGenerateRequest {
+    llmConfig: LLMConfig;
+    system: string;        // System prompt
+    prompt: string;        // User prompt (single string)
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    signal?: AbortSignal;
+    thinkingEnabled?: boolean;
+    onToken?: (content: string) => void;
+    onThinking?: (content: string) => void;
+}
+
+/**
  * Generated image in response
  */
 export interface LLMResponseImage {
@@ -117,6 +134,15 @@ export interface ILLMProvider {
      */
     sendMessageStream(
         request: LLMRequest
+    ): AsyncGenerator<LLMStreamChunk, void, unknown>;
+
+    /**
+     * Stream generate-style completion.
+     * Uses system + prompt instead of messages array.
+     * Yields LLMStreamChunk for each token.
+     */
+    sendGenerateStream(
+        request: LLMGenerateRequest
     ): AsyncGenerator<LLMStreamChunk, void, unknown>;
 
     /**

@@ -26,6 +26,7 @@ function modelToConversation(model: ConversationModel): Conversation {
     return {
         id: model.id,
         title: model.title,
+        type: (model.type as Conversation['type']) || 'chat',
         providerId: model.providerId,
         modelId: model.modelId,
         providerType: model.providerType as Conversation['providerType'],
@@ -72,6 +73,7 @@ class ConversationRepository implements IConversationRepository {
                 // Use prepareCreate with custom ID
                 (record._raw as any).id = entity.id;
                 record.title = entity.title;
+                record.type = entity.type || 'chat';
                 record.providerId = entity.providerId;
                 record.modelId = entity.modelId;
                 record.providerType = entity.providerType;
@@ -92,6 +94,7 @@ class ConversationRepository implements IConversationRepository {
             const model = await this.collection.find(entity.id);
             await model.update((record) => {
                 record.title = entity.title;
+                record.type = entity.type || 'chat';
                 record.providerId = entity.providerId;
                 record.modelId = entity.modelId;
                 record.providerType = entity.providerType;

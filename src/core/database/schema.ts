@@ -7,13 +7,14 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-    version: 1,
+    version: 2,
     tables: [
         // Conversations table
         tableSchema({
             name: 'conversations',
             columns: [
                 { name: 'title', type: 'string' },
+                { name: 'type', type: 'string' }, // ConversationType: 'chat' | 'generate'
                 { name: 'provider_id', type: 'string' },
                 { name: 'model_id', type: 'string' },
                 { name: 'provider_type', type: 'string' },

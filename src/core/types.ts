@@ -12,6 +12,13 @@ export const generateId = (): string => {
 };
 
 /**
+ * Conversation type determines how messages are sent to the LLM
+ * - chat: Full message history is sent (messages array)
+ * - generate: Only system prompt + current prompt sent (system + prompt params)
+ */
+export type ConversationType = 'chat' | 'generate';
+
+/**
  * LLM Provider keys - enum for type-safe provider references
  * Use this enum instead of hardcoding provider strings
  */
@@ -146,6 +153,7 @@ export interface LLMConfig {
 export interface Conversation {
     id: string;
     title: string;
+    type: ConversationType;
     createdAt: number;
     updatedAt: number;
 

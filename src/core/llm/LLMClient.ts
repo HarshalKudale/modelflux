@@ -4,6 +4,7 @@ import { aisdkProvider, ExecuTorchProvider, LlamaCppProvider } from './providers
 // Unified interface for all providers
 interface ILLMClient {
     sendMessageStream(request: import('./types').LLMRequest): AsyncGenerator<import('./types').LLMStreamChunk, void, unknown>;
+    sendGenerateStream(request: import('./types').LLMGenerateRequest): AsyncGenerator<import('./types').LLMStreamChunk, void, unknown>;
     interrupt(): void;
     fetchModels(config: LLMConfig): Promise<string[]>;
     testConnection(config: LLMConfig): Promise<boolean>;

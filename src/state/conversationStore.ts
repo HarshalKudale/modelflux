@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { LLMError, llmClientFactory } from '../core/llm';
 import { conversationRepository, messageRepository } from '../core/storage';
-import { Conversation, Message, generateId } from '../core/types';
+import { Conversation, ConversationType, Message, generateId } from '../core/types';
 import { logger } from '../services/LoggerService';
 import { isLocalProvider, useExecutorchLLMStore } from './executorchLLMStore';
 import { useLLMStore } from './llmStore';
@@ -28,7 +28,7 @@ interface ConversationStoreState {
 
 interface ConversationStoreActions {
     loadConversations: () => Promise<void>;
-    createConversation: (llmId?: string, model?: string, personaId?: string) => Promise<Conversation>;
+    createConversation: (llmId?: string, model?: string, personaId?: string, type?: ConversationType) => Promise<Conversation>;
     startNewConversation: () => void;
     selectConversation: (id: string | null) => Promise<void>;
     deleteConversation: (id: string) => Promise<void>;
@@ -80,7 +80,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         }
     },
 
-    createConversation: async (llmId, model, personaId) => {
+    createConversation: async (llmId, model, personaId, type = 'chat') => {
         const settings = useSettingsStore.getState().settings;
         const llmConfigs = useLLMStore.getState().configs;
 
@@ -101,9 +101,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         const conversation: Conversation = {
             id: generateId(),
             title: 'New Conversation',
+            type,
             createdAt: now,
             updatedAt: now,
-            // New fields
+            // Provider fields
             providerId,
             modelId,
             providerType,
@@ -337,26 +338,59 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
 
             // Clear current message for this conversation before starting
             get().clearCurrentMessage(currentConversationId);
-            logger.log('ConversationStore', 'Calling sendMessageStream with', chatMessages.length, 'messages');
 
             // Set isStreaming=true - use new callbacks for streaming updates
             set({ isStreaming: true });
 
-            // Use new modelId field
+            // Use modelId field
             const currentModelId = conversation.modelId || '';
 
-            const stream = client.sendMessageStream({
-                llmConfig,
-                messages: chatMessages,
-                model: currentModelId,
-                thinkingEnabled: conversation.thinkingEnabled,
-                onToken: (content: string) => {
-                    get().updateCurrentMessage(currentConversationId, content);
-                },
-                onThinking: (content: string) => {
-                    get().updateCurrentThinkingMessage(currentConversationId, content);
-                },
-            });
+            // Choose stream method based on conversation type
+            let stream: AsyncGenerator<import('../core/llm/types').LLMStreamChunk, void, unknown>;
+
+            if (updatedConversation.type === 'generate') {
+                // Generate mode: use system + prompt (no message history)
+                const systemPrompt = [
+                    updatedConversation.personaPrompt,
+                    updatedConversation.contextPrompt
+                ].filter(Boolean).join('\n\n');
+
+                // Build prompt with context if present
+                let prompt = userMessage.content;
+                if (contextResult.contextString) {
+                    prompt = `<context>\n${contextResult.contextString}\n</context>\n${userMessage.content}`;
+                }
+
+                logger.log('ConversationStore', 'Calling sendGenerateStream (generate mode)');
+                stream = client.sendGenerateStream({
+                    llmConfig,
+                    system: systemPrompt,
+                    prompt,
+                    model: currentModelId,
+                    thinkingEnabled: conversation.thinkingEnabled,
+                    onToken: (content: string) => {
+                        get().updateCurrentMessage(currentConversationId, content);
+                    },
+                    onThinking: (content: string) => {
+                        get().updateCurrentThinkingMessage(currentConversationId, content);
+                    },
+                });
+            } else {
+                // Chat mode: use full message history
+                logger.log('ConversationStore', 'Calling sendMessageStream with', chatMessages.length, 'messages');
+                stream = client.sendMessageStream({
+                    llmConfig,
+                    messages: chatMessages,
+                    model: currentModelId,
+                    thinkingEnabled: conversation.thinkingEnabled,
+                    onToken: (content: string) => {
+                        get().updateCurrentMessage(currentConversationId, content);
+                    },
+                    onThinking: (content: string) => {
+                        get().updateCurrentThinkingMessage(currentConversationId, content);
+                    },
+                });
+            }
 
             // Wait for stream to complete - callbacks update currentMessageMap
             for await (const chunk of stream) {

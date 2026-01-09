@@ -15,6 +15,7 @@ import {
     ILLMProvider,
     LLMError,
     LLMErrorCode,
+    LLMGenerateRequest,
     LLMRequest,
     LLMStreamChunk
 } from '../types';
@@ -223,6 +224,31 @@ export class LlamaCppProvider implements ILLMProvider {
 
     async testConnection(llmConfig: LLMConfig): Promise<boolean> {
         return this.getStoreState().isReady;
+    }
+
+    /**
+     * Stream generate-style completion.
+     * For local providers, converts system + prompt to messages format.
+     */
+    async *sendGenerateStream(
+        request: LLMGenerateRequest
+    ): AsyncGenerator<LLMStreamChunk, void, unknown> {
+        // Convert generate request to message request format
+        const messageRequest: LLMRequest = {
+            llmConfig: request.llmConfig,
+            messages: [
+                ...(request.system ? [{ role: 'system' as const, content: request.system }] : []),
+                { role: 'user' as const, content: request.prompt },
+            ],
+            model: request.model,
+            temperature: request.temperature,
+            maxTokens: request.maxTokens,
+            signal: request.signal,
+            thinkingEnabled: request.thinkingEnabled,
+            onToken: request.onToken,
+            onThinking: request.onThinking,
+        };
+        yield* this.sendMessageStream(messageRequest);
     }
 
     private wrapError(error: unknown): LLMError {
