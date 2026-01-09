@@ -2,14 +2,6 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - master
-  pull_request:
-    branches:
-      - main
-      - master
 
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
