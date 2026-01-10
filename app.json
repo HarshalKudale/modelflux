@@ -44,6 +44,12 @@
       "eas": {
         "projectId": "b5f904e5-d73d-4452-9f9a-e46d3640477b"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "http://localhost:3001/api/manifest"
     }
   }
 }
