@@ -2,7 +2,7 @@ import '@/src/polyfills';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -78,6 +78,20 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const settings = useSettingsStore((s) => s.settings);
+  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
+
+  // Check if onboarding is needed after initial mount
+  useEffect(() => {
+    if (!hasCheckedOnboarding) {
+      setHasCheckedOnboarding(true);
+      if (!settings.onboardingCompleted) {
+        // Navigate to welcome screen
+        router.replace('/welcome' as any);
+      }
+    }
+  }, [hasCheckedOnboarding, settings.onboardingCompleted, router]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -157,6 +171,21 @@ function RootLayoutNav() {
           />
           <Stack.Screen
             name="logs"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
+          <Stack.Screen
+            name="welcome"
+            options={{
+              headerShown: false,
+              presentation: 'fullScreenModal',
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="help"
             options={{
               headerShown: false,
               presentation: 'modal',

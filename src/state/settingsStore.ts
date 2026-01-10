@@ -23,6 +23,8 @@ interface SettingsStoreActions {
     setRagModel: (modelId: string | null) => Promise<void>;
     setRagEnabled: (enabled: boolean) => Promise<void>;
     updateRagSettings: (ragSettings: Partial<RAGSettings>) => Promise<void>;
+    // Onboarding
+    completeOnboarding: () => Promise<void>;
     clearError: () => void;
 }
 
@@ -135,6 +137,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
                 ...ragSettings,
             },
         });
+    },
+
+    // Onboarding
+    completeOnboarding: async () => {
+        await get().updateSettings({ onboardingCompleted: true });
     },
 
     clearError: () => {

@@ -360,6 +360,8 @@ export interface AppSettings {
     // RAG tracking for source processing
     ragTrackingProvider?: RAGProvider;
     ragTrackingModelId?: string;
+    // Onboarding state
+    onboardingCompleted: boolean;
 }
 
 /**
@@ -430,4 +432,5 @@ export const DEFAULT_SETTINGS: AppSettings = {
     lastAppVersion: '1.0.0',
     language: 'en',
     ragSettings: DEFAULT_RAG_SETTINGS,
+    onboardingCompleted: false,
 };

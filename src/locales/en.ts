@@ -397,4 +397,100 @@ export const en: Record<string, string> = {
     "common.selectLLM": "Select LLM",
     "common.defaultError": "Error",
     "common.code": "code",
+
+    // Welcome Onboarding (first launch)
+    "onboarding.welcome": "Welcome to ModelFlux",
+    "onboarding.slide1.title": "Your AI Companion",
+    "onboarding.slide1.text": "Chat with multiple AI providers - OpenAI, Anthropic, Ollama, and run models locally on your device.",
+    "onboarding.slide2.title": "Privacy First",
+    "onboarding.slide2.text": "Run AI models locally with no data leaving your device. Your conversations stay yours.",
+    "onboarding.slide3.title": "Document Context",
+    "onboarding.slide3.text": "Use your PDF documents as context for more relevant and accurate conversations.",
+    "onboarding.slide4.title": "Get Help Anytime",
+    "onboarding.slide4.text": "Need help? Visit Settings → Help & Tutorials to learn about all features.",
+    "onboarding.getStarted": "Get Started",
+    "onboarding.next": "Next",
+    "onboarding.github": "View on GitHub",
+    "onboarding.website": "Visit Website",
+
+    // Settings - App Section
+    "settings.app.title": "App",
+    "settings.app.help": "Help & Tutorials",
+    "settings.app.help.desc": "Learn how to use ModelFlux features",
+
+    // Help Screen (stateless feature guides)
+    "help.title": "Help & Tutorials",
+    "help.selectFeature": "Select a feature to learn more",
+    "help.feature.providers": "Adding Providers",
+    "help.feature.providers.desc": "Connect to AI services like OpenAI, Anthropic, or Ollama",
+    "help.feature.rag": "Setting up RAG",
+    "help.feature.rag.desc": "Use PDF documents as context for conversations",
+    "help.feature.models": "Downloading Models",
+    "help.feature.models.desc": "Download local AI models to use offline",
+    "help.feature.conversation": "Starting Conversations",
+    "help.feature.conversation.desc": "Create and manage AI conversations",
+    "help.feature.switchModels": "Switching Models",
+    "help.feature.switchModels.desc": "Change providers or models during a chat",
+    "help.feature.persona": "Using Personas",
+    "help.feature.persona.desc": "Customize AI behavior with personas",
+
+    // Help slides - Providers
+    "help.providers.slide1.title": "Open Settings",
+    "help.providers.slide1.text": "Tap the gear icon in the sidebar or navigation to open Settings.",
+    "help.providers.slide2.title": "Manage Providers",
+    "help.providers.slide2.text": "Select 'Manage LLM Providers' to see all configured providers.",
+    "help.providers.slide3.title": "Add New Provider",
+    "help.providers.slide3.text": "Tap the + button to add a new provider. Choose from OpenAI, Anthropic, Ollama, or local models.",
+    "help.providers.slide4.title": "Configure & Test",
+    "help.providers.slide4.text": "Enter your API key or server URL, then test the connection before saving.",
+
+    // Help slides - RAG
+    "help.rag.slide1.title": "What is RAG?",
+    "help.rag.slide1.text": "RAG (Retrieval-Augmented Generation) lets the AI use your documents to provide more accurate answers.",
+    "help.rag.slide2.title": "Configure RAG Provider",
+    "help.rag.slide2.text": "Go to Settings → Manage RAG Providers and add a provider with an embedding model.",
+    "help.rag.slide3.title": "Add Documents",
+    "help.rag.slide3.text": "In a conversation, tap 'Add Context' to select PDF documents as sources.",
+    "help.rag.slide4.title": "Ask Questions",
+    "help.rag.slide4.text": "The AI will now use your documents to answer questions more accurately.",
+
+    // Help slides - Models
+    "help.models.slide1.title": "Browse Models",
+    "help.models.slide1.text": "Go to Settings → Models to browse available models for download.",
+    "help.models.slide2.title": "Download a Model",
+    "help.models.slide2.text": "Tap the download button on any model. Downloads continue in the background.",
+    "help.models.slide3.title": "Select Provider",
+    "help.models.slide3.text": "Models work with specific providers: .pte for ExecuTorch, .gguf for Llama.cpp.",
+    "help.models.slide4.title": "Use in Chat",
+    "help.models.slide4.text": "Select a local provider in chat and choose your downloaded model.",
+
+    // Help slides - Conversation
+    "help.conversation.slide1.title": "Start a New Chat",
+    "help.conversation.slide1.text": "Tap 'New Chat' in the sidebar to start a fresh conversation.",
+    "help.conversation.slide2.title": "Select Provider & Model",
+    "help.conversation.slide2.text": "Use the model picker at the top to choose your AI provider and model.",
+    "help.conversation.slide3.title": "Optional: Add Persona",
+    "help.conversation.slide3.text": "Select a persona to customize how the AI responds to you.",
+    "help.conversation.slide4.title": "Start Chatting",
+    "help.conversation.slide4.text": "Type your message and tap send. The AI will respond based on your settings.",
+
+    // Help slides - Switch Models
+    "help.switchModels.slide1.title": "Open Model Picker",
+    "help.switchModels.slide1.text": "Tap the model name at the top of the chat to open the model picker.",
+    "help.switchModels.slide2.title": "Choose New Provider",
+    "help.switchModels.slide2.text": "Select a different provider from the list to see its available models.",
+    "help.switchModels.slide3.title": "Select Model",
+    "help.switchModels.slide3.text": "Pick a model from the selected provider. Your conversation history is preserved.",
+    "help.switchModels.slide4.title": "Continue Chatting",
+    "help.switchModels.slide4.text": "The new model will now respond to your messages in the same conversation.",
+
+    // Help slides - Persona
+    "help.persona.slide1.title": "What are Personas?",
+    "help.persona.slide1.text": "Personas customize how the AI behaves - its personality, expertise, and response style.",
+    "help.persona.slide2.title": "Create a Persona",
+    "help.persona.slide2.text": "Go to Settings → Personas → Create Persona to define a new character.",
+    "help.persona.slide3.title": "Configure Behavior",
+    "help.persona.slide3.text": "Set the persona's name, description, personality traits, and system prompt.",
+    "help.persona.slide4.title": "Use in Chat",
+    "help.persona.slide4.text": "When starting a new chat, select your persona from the persona picker.",
 };

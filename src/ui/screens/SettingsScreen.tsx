@@ -30,7 +30,8 @@ type ScreenType =
     | 'language-select'
     | 'rag-settings'
     | 'rag-provider-list'
-    | 'rag-provider-editor';
+    | 'rag-provider-editor'
+    | 'help';
 
 interface SettingsScreenProps {
     onNavigate: (screen: ScreenType, params?: Record<string, string>) => void;
@@ -304,6 +305,26 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                             <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                         </TouchableOpacity>
                     </SettingsSection>
+
+                    {/* ===== APP SECTION (Native Only) ===== */}
+                    {Platform.OS !== 'web' && (
+                        <SettingsSection title={t('settings.app.title')}>
+                            <TouchableOpacity
+                                style={[styles.settingItem, styles.linkItem]}
+                                onPress={() => onNavigate('help')}
+                            >
+                                <View style={styles.settingInfo}>
+                                    <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                        {t('settings.app.help')}
+                                    </Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textMuted }]}>
+                                        {t('settings.app.help.desc')}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                            </TouchableOpacity>
+                        </SettingsSection>
+                    )}
 
                     {/* ===== ABOUT SECTION ===== */}
                     <SettingsSection title={t('settings.about.title')}>
