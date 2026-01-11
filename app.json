@@ -41,10 +41,7 @@
       "baseUrl": "/app"
     },
     "extra": {
-      "router": {
-        "origin": false,
-        "baseUrl": "/app"
-      },
+      "router": {},
       "eas": {
         "projectId": "b5f904e5-d73d-4452-9f9a-e46d3640477b"
       }
