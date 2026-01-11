@@ -1,22 +1,26 @@
 name: Build Android APK
 
 on:
-  push:
-    branches:
-      - main
-      - master
-  pull_request:
-    branches:
-      - main
-      - master
   workflow_dispatch:
+
+env:
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+  NODE_OPTIONS: --openssl-legacy-provider
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
+      # Free disk (Android builds are huge)
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -24,45 +28,49 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: yarn
 
-      - name: Enable Corepack and Install Yarn
+      - name: Enable Corepack & Yarn
         run: |
           corepack enable
           corepack prepare yarn@1.22.22 --activate
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "17"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Expo Prebuild
-        run: npx expo prebuild --platform android --clean
+      # Install EAS
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
 
-      - name: Build AAB with EAS (Local)
-        run: eas build --platform android --profile production --local --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      # Cache EAS local Android toolchain
+      - name: Cache EAS build tools
+        uses: actions/cache@v3
+        with:
+          path: ~/.eas-build-local
+          key: ${{ runner.os }}-eas-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-eas-
 
-      - name: Build APK with EAS (Local)
-        run: eas build --platform android --profile production-apk --local --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Verify EAS
+        run: eas --version
+
+      # Build production AAB (Play Store)
+      - name: Build Android App Bundle
+        run: |
+          export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
+          eas build --platform android --profile production --local --non-interactive --output=app-prod.aab
+
+      # Build production APK (sideload)
+      - name: Build Android APK
+        run: |
+          export NODE_OPTIONS="--openssl-legacy-provider --max_old_space_size=4096"
+          eas build --platform android --profile production-apk --local --non-interactive --output=app-prod.apk
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: android-builds
           path: |
-            build-*.aab
-            build-*.apk
+            app-prod.aab
+            app-prod.apk
           retention-days: 14
