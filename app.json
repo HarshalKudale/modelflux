@@ -37,10 +37,14 @@
       "expo-router"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "baseUrl": "/app"
     },
     "extra": {
-      "router": {},
+      "router": {
+        "origin": false,
+        "baseUrl": "/app"
+      },
       "eas": {
         "projectId": "b5f904e5-d73d-4452-9f9a-e46d3640477b"
       }
