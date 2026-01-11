@@ -1,0 +1,15 @@
+{
+    "version": 1,
+    "include": [
+        "/*"
+    ],
+    "exclude": [
+        "/app/_expo/*",
+        "/app/assets/*",
+        "/app/*.js",
+        "/app/*.css",
+        "/app/*.woff",
+        "/app/*.woff2",
+        "/app/*.ttf"
+    ]
+}

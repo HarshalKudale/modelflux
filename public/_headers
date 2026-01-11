@@ -1,0 +1,30 @@
+# JavaScript files
+/app/*.js
+  Content-Type: application/javascript
+
+/app/_expo/static/js/*
+  Content-Type: application/javascript
+
+# CSS files
+/app/*.css
+  Content-Type: text/css
+
+/app/_expo/static/css/*
+  Content-Type: text/css
+
+# Font files
+*.woff
+  Content-Type: font/woff
+
+*.woff2
+  Content-Type: font/woff2
+
+*.ttf
+  Content-Type: font/ttf
+
+*.otf
+  Content-Type: font/otf
+
+# Assets
+/app/assets/*
+  Cache-Control: public, max-age=31536000, immutable
