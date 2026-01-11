@@ -4,12 +4,13 @@
         "/*"
     ],
     "exclude": [
-        "/app/_expo/*",
-        "/app/assets/*",
-        "/app/*.js",
-        "/app/*.css",
-        "/app/*.woff",
-        "/app/*.woff2",
-        "/app/*.ttf"
+        "/_expo/*",
+        "/assets/*",
+        "/*.js",
+        "/*.css",
+        "/*.woff",
+        "/*.woff2",
+        "/*.ttf",
+        "/*.ico"
     ]
 }
