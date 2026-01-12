@@ -1,0 +1,232 @@
+name: OTA Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+env:
+  OTA_SERVER_URL: ${{ secrets.OTA_SERVER_URL }}
+  RELEASE_SECRET: ${{ secrets.RELEASE_SECRET }}
+
+jobs:
+  ota-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Get Runtime Version
+        id: runtime
+        run: |
+          RUNTIME_VERSION=$(node -p "require('./app.json').expo.runtimeVersion")
+          echo "version=$RUNTIME_VERSION" >> $GITHUB_OUTPUT
+          echo "Runtime version: $RUNTIME_VERSION"
+
+      - name: Export Bundle
+        run: npx expo export --output-dir dist
+
+      - name: Generate Asset Metadata
+        id: assets
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const crypto = require('crypto');
+
+          const distDir = './dist';
+          const metadata = JSON.parse(fs.readFileSync(path.join(distDir, 'metadata.json'), 'utf8'));
+          const expoConfig = JSON.parse(fs.readFileSync(path.join(distDir, 'expoConfig.json'), 'utf8'));
+
+          // Generate update ID from metadata hash
+          const metadataBuffer = fs.readFileSync(path.join(distDir, 'metadata.json'));
+          const hash = crypto.createHash('sha256').update(metadataBuffer).digest('hex');
+          const updateId = [
+            hash.substring(0, 8),
+            hash.substring(8, 12),
+            hash.substring(12, 16),
+            hash.substring(16, 20),
+            hash.substring(20, 32)
+          ].join('-');
+
+          // Helper to compute hashes
+          function getAssetHashes(filePath) {
+            const content = fs.readFileSync(filePath);
+            const sha256 = crypto.createHash('sha256').update(content).digest('base64url');
+            const md5 = crypto.createHash('md5').update(content).digest('hex');
+            return { hash: sha256, key: md5 };
+          }
+
+          // Get MIME type
+          function getMimeType(ext) {
+            const types = {
+              js: 'application/javascript',
+              json: 'application/json',
+              png: 'image/png',
+              jpg: 'image/jpeg',
+              jpeg: 'image/jpeg',
+              gif: 'image/gif',
+              webp: 'image/webp',
+              svg: 'image/svg+xml',
+              ttf: 'font/ttf',
+              otf: 'font/otf',
+              woff: 'font/woff',
+              woff2: 'font/woff2',
+            };
+            return types[ext.toLowerCase()] || 'application/octet-stream';
+          }
+
+          const owner = process.env.GITHUB_REPOSITORY.split('/')[0];
+          const repo = process.env.GITHUB_REPOSITORY.split('/')[1];
+          const tag = `ota-${Date.now()}`;
+
+          // Build platforms object with placeholder URLs (will be replaced after release creation)
+          const platforms = {};
+
+          for (const [platform, data] of Object.entries(metadata.fileMetadata)) {
+            const bundlePath = path.join(distDir, data.bundle);
+            const bundleHashes = getAssetHashes(bundlePath);
+
+            const assets = data.assets.map(asset => {
+              const assetPath = path.join(distDir, asset.path);
+              const hashes = getAssetHashes(assetPath);
+              return {
+                path: asset.path,
+                ext: asset.ext,
+                hash: hashes.hash,
+                key: hashes.key,
+                contentType: getMimeType(asset.ext),
+                fileExtension: `.${asset.ext}`,
+              };
+            });
+
+            platforms[platform] = {
+              bundle: data.bundle,
+              bundleHash: bundleHashes.hash,
+              bundleKey: bundleHashes.key,
+              assets
+            };
+          }
+
+          // Write outputs
+          fs.writeFileSync('asset-metadata.json', JSON.stringify({
+            updateId,
+            tag,
+            platforms,
+            expoConfig
+          }, null, 2));
+
+          console.log('Generated asset metadata');
+          console.log('Update ID:', updateId);
+          console.log('Tag:', tag);
+          EOF
+
+          # Read the tag
+          TAG=$(node -p "require('./asset-metadata.json').tag")
+          UPDATE_ID=$(node -p "require('./asset-metadata.json').updateId")
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "update_id=$UPDATE_ID" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Pre-release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.assets.outputs.tag }}
+          name: "OTA Update ${{ steps.assets.outputs.tag }}"
+          body: |
+            ${{ github.event.inputs.commit_message || github.event.head_commit.message || 'OTA Update' }}
+          prerelease: true
+          files: dist/**/*
+
+      - name: Register Release with OTA Server
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const https = require('https');
+          const http = require('http');
+
+          const metadata = JSON.parse(fs.readFileSync('asset-metadata.json', 'utf8'));
+          const runtimeVersion = '${{ steps.runtime.outputs.version }}';
+          const tag = '${{ steps.assets.outputs.tag }}';
+          const owner = process.env.GITHUB_REPOSITORY.split('/')[0];
+          const repo = process.env.GITHUB_REPOSITORY.split('/')[1];
+
+          // Build asset URLs using GitHub release download format
+          const baseUrl = `https://github.com/${owner}/${repo}/releases/download/${tag}`;
+
+          const platforms = {};
+          for (const [platform, data] of Object.entries(metadata.platforms)) {
+            platforms[platform] = {
+              launchAsset: {
+                url: `${baseUrl}/${encodeURIComponent(data.bundle)}`,
+                hash: data.bundleHash,
+                key: data.bundleKey,
+                contentType: 'application/javascript',
+                fileExtension: '.bundle'
+              },
+              assets: data.assets.map(asset => ({
+                url: `${baseUrl}/${encodeURIComponent(asset.path)}`,
+                hash: asset.hash,
+                key: asset.key,
+                contentType: asset.contentType,
+                fileExtension: asset.fileExtension
+              }))
+            };
+          }
+
+          const payload = {
+            runtimeVersion,
+            updateId: metadata.updateId,
+            commitHash: '${{ github.sha }}',
+            commitMessage: `${{ github.event.inputs.commit_message || github.event.head_commit.message || 'OTA Update' }}`,
+            createdAt: new Date().toISOString(),
+            expoConfig: metadata.expoConfig,
+            platforms
+          };
+
+          const serverUrl = new URL(process.env.OTA_SERVER_URL + '/api/releases');
+          const isHttps = serverUrl.protocol === 'https:';
+          const client = isHttps ? https : http;
+
+          const options = {
+            hostname: serverUrl.hostname,
+            port: serverUrl.port || (isHttps ? 443 : 80),
+            path: serverUrl.pathname,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.RELEASE_SECRET}`
+            }
+          };
+
+          const req = client.request(options, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+              console.log('Response:', res.statusCode, body);
+              if (res.statusCode >= 400) {
+                process.exit(1);
+              }
+            });
+          });
+
+          req.on('error', (e) => {
+            console.error('Error:', e);
+            process.exit(1);
+          });
+
+          req.write(JSON.stringify(payload));
+          req.end();
+          EOF
