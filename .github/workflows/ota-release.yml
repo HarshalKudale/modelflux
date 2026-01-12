@@ -48,7 +48,7 @@ jobs:
 
           const distDir = './dist';
           const metadata = JSON.parse(fs.readFileSync(path.join(distDir, 'metadata.json'), 'utf8'));
-          const expoConfig = JSON.parse(fs.readFileSync(path.join(distDir, 'expoConfig.json'), 'utf8'));
+          const expoConfig = JSON.parse(fs.readFileSync('./app.json', 'utf8')).expo;
 
           // Generate update ID from metadata hash
           const metadataBuffer = fs.readFileSync(path.join(distDir, 'metadata.json'));
