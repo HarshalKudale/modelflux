@@ -169,8 +169,8 @@ async function dismissDownloadNotification(modelId: string) {
  * Get the models directory path (in public Downloads folder)
  */
 function getModelsDirPath(): string {
-    // Use public Downloads folder: /storage/emulated/0/Download/LLMHub/models
-    return `${RNFS.DownloadDirectoryPath}/LLMHub/models`;
+    // Use public Downloads folder: /storage/emulated/0/Download/modelflux/models
+    return `${RNFS.DownloadDirectoryPath}/modelflux/models`;
 }
 
 /**
@@ -200,7 +200,7 @@ async function requestStoragePermission(): Promise<boolean> {
             PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
             {
                 title: 'Storage Permission',
-                message: 'LLMHub needs storage access to save models to Downloads folder',
+                message: 'Modelflux needs storage access to save models to Downloads folder',
                 buttonPositive: 'OK',
             }
         );
@@ -731,7 +731,7 @@ export async function reattachBackgroundDownloads(): Promise<void> {
 
 /**
  * Delete a downloaded model and clean up files
- * Only deletes files if they are in the LLMHub folder (downloaded models)
+ * Only deletes files if they are in the modelflux folder (downloaded models)
  * Imported models are only removed from database, not deleted from disk
  */
 export async function deleteDownloadedModel(modelId: string): Promise<void> {
@@ -742,10 +742,10 @@ export async function deleteDownloadedModel(modelId: string): Promise<void> {
         const model = await downloadedModelRepository.getByModelId(modelId);
 
         if (model) {
-            // Only delete files if they are in the LLMHub folder (downloaded models)
-            const isLLMHubModel = model.localPath?.includes('/LLMHub/');
+            // Only delete files if they are in the modelflux folder (downloaded models)
+            const isModelfluxModel = model.localPath?.includes('/modelflux/');
 
-            if (isLLMHubModel) {
+            if (isModelfluxModel) {
                 const modelDirPath = getModelDirPath(modelId);
                 const exists = await RNFS.exists(modelDirPath);
                 if (exists) {

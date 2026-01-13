@@ -141,7 +141,7 @@ export const useExecutorchRagStore = create<ExecutorchRagStore>((set, get) => ({
             // Create vector store with embeddings
             console.log('[ExecutorchRagStore] Creating vector store...');
             const store = await new OPSQLiteVectorStore({
-                name: 'llmhub-rag',
+                name: 'modelflux-rag',
                 embeddings: embeddingsInstance,
             }).load();
 

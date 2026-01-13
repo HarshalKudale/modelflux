@@ -1,5 +1,5 @@
 {
-  "name": "llmhub",
+  "name": "modelflux",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
@@ -47,7 +47,6 @@
     "expo-sharing": "^14.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
-    "expo-updates": "~29.0.16",
     "expo-web-browser": "~15.0.10",
     "llama.rn": "^0.10.0-rc.3",
     "ollama-ai-provider-v2": "^2.0.0",

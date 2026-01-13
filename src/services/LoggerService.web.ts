@@ -50,7 +50,7 @@ function getLogDateString(): string {
 function getTimestamp(): string {
     return new Date().toISOString();
 }
-const STORAGE_KEY_PREFIX = 'llmhub_logs_';
+const STORAGE_KEY_PREFIX = 'modelflux_logs_';
 const MAX_ENTRIES_PER_DAY = 10000;
 const MAX_DAYS_TO_KEEP = 7;
 

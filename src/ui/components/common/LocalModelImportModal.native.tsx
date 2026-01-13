@@ -21,10 +21,10 @@ import { useAppColorScheme, useLocale } from '../../hooks';
 
 // Get the models directory path (same as ModelDownloadService)
 function getModelsDirPath(): string {
-    return `${RNFS.DownloadDirectoryPath}/LLMHub/models`;
+    return `${RNFS.DownloadDirectoryPath}/modelflux/models`;
 }
 
-// Copy a file to the LLMHub models directory
+// Copy a file to the modelflux models directory
 async function copyFileToModelsDir(sourceUri: string, modelId: string): Promise<string> {
     // Decode URI only for extracting the filename
     const decodedUri = decodeURIComponent(sourceUri);
@@ -182,8 +182,8 @@ export function LocalModelImportModal({
             // Generate a unique model ID for this import
             const modelId = `local-${Date.now()}`;
 
-            // Copy files to LLMHub/models directory
-            console.log('[LocalModelImport] Copying files to LLMHub/models directory...');
+            // Copy files to modelflux/models directory
+            console.log('[LocalModelImport] Copying files to modelflux/models directory...');
 
             const copiedModelPath = await copyFileToModelsDir(modelPath, modelId);
             let copiedTokenizerPath: string | undefined;

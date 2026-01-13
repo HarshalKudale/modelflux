@@ -193,7 +193,7 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
             // Create/load vector store
             console.log('[RAGRuntimeStore] Creating/loading vector store...');
             const store = await new OPSQLiteVectorStore({
-                name: 'llmhub-rag',
+                name: 'modelflux-rag',
                 embeddings: embeddingsInstance,
             }).load();
 
@@ -289,7 +289,7 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
 
             // Reload vector store after clearing
             const store = await new OPSQLiteVectorStore({
-                name: 'llmhub-rag',
+                name: 'modelflux-rag',
                 embeddings: state.embeddings,
             }).load();
 

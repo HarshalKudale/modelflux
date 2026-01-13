@@ -5,11 +5,11 @@ export const APP_VERSION = '1.0.0';
 
 // Storage keys
 export const STORAGE_KEYS = {
-    CONVERSATIONS: 'llmhub:conversations',
-    MESSAGES_PREFIX: 'llmhub:messages:',
-    LLM_CONFIGS: 'llmhub:llm_configs',
-    SETTINGS: 'llmhub:settings',
-    PERSONAS: 'llmhub:personas',
+    CONVERSATIONS: 'modelflux:conversations',
+    MESSAGES_PREFIX: 'modelflux:messages:',
+    LLM_CONFIGS: 'modelflux:llm_configs',
+    SETTINGS: 'modelflux:settings',
+    PERSONAS: 'modelflux:personas',
 } as const;
 
 // Validation limits
