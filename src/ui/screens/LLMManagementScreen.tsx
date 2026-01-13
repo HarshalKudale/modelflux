@@ -158,7 +158,7 @@ export function LLMManagementScreen({ onNavigate, onBack }: LLMManagementScreenP
                                         onPress={() => handleEdit(config)}
                                         onTest={() => handleTestConnection(config)}
                                         onSetDefault={() => handleSetDefault(config)}
-                                        onDelete={config.id === 'executorch-default' ? undefined : () => handleDelete(config)}
+                                        onDelete={info.isDeletable ? () => handleDelete(config) : undefined}
                                     />
                                 );
                             })}

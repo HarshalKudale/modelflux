@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getFirstLocalProvider } from '../config/providerPresets';
 import { settingsRepository } from '../core/storage';
 import { AppSettings, DEFAULT_SETTINGS, RAGProvider, RAGSettings, ThemeMode } from '../core/types';
 import { localeService } from '../services/LocaleService';
@@ -124,7 +125,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             ragSettings: {
                 ...current,
                 isEnabled: enabled,
-                provider: enabled ? (current.provider === 'none' ? 'executorch' : current.provider) : 'none',
+                provider: enabled ? (current.provider === 'none' ? (getFirstLocalProvider() as RAGProvider || 'none') : current.provider) : 'none',
             },
         });
     },

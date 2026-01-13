@@ -15,26 +15,10 @@
  */
 
 import { Q } from '@nozbe/watermelondb';
+import { getDefaultLocalConfig, getLocalProviders } from '../../config/providerPresets';
 import { database } from '../database';
 import { LLMConfigModel } from '../database/models';
 import { LLMConfig, LLMProvider, LLMProviderCategory, generateId } from '../types';
-
-// Local provider types that are fixed and non-removable
-const LOCAL_PROVIDER_TYPES: LLMProvider[] = ['executorch', 'llama-cpp'];
-
-// Default configurations for local providers (auto-created if not present)
-const DEFAULT_LOCAL_CONFIGS: Record<string, Omit<LLMConfig, 'id' | 'createdAt' | 'updatedAt'>> = {
-    'executorch': {
-        name: 'ExecuTorch (Local)',
-        provider: 'executorch',
-        baseUrl: '',
-        defaultModel: '',
-        supportsStreaming: true,
-        isLocal: true,
-        isEnabled: true,
-    },
-    // llama-cpp can be added here when implemented
-};
 
 /**
  * Convert WatermelonDB model to LLMConfig type
@@ -227,14 +211,14 @@ class LLMProviderRepository implements ILLMProviderRepository {
      * Get the category of a provider type
      */
     getProviderCategory(providerType: LLMProvider): LLMProviderCategory {
-        return LOCAL_PROVIDER_TYPES.includes(providerType) ? 'local' : 'remote';
+        return getLocalProviders().includes(providerType) ? 'local' : 'remote';
     }
 
     /**
      * Check if a provider type is a local provider
      */
     isLocalProvider(providerType: LLMProvider): boolean {
-        return LOCAL_PROVIDER_TYPES.includes(providerType);
+        return getLocalProviders().includes(providerType);
     }
 
     /**
@@ -242,19 +226,20 @@ class LLMProviderRepository implements ILLMProviderRepository {
      * Called during app initialization to auto-create local provider configs
      */
     async ensureLocalProviders(): Promise<void> {
-        for (const providerType of LOCAL_PROVIDER_TYPES) {
+        const localProviderTypes = getLocalProviders();
+        for (const providerType of localProviderTypes) {
             const existing = await this.getProviderByType(providerType);
-            if (!existing && DEFAULT_LOCAL_CONFIGS[providerType]) {
+            const defaultConfig = getDefaultLocalConfig(providerType);
+            if (!existing && defaultConfig) {
                 const now = Date.now();
                 const config: LLMConfig = {
-                    ...DEFAULT_LOCAL_CONFIGS[providerType],
-                    id: `${providerType}-default`,
+                    ...defaultConfig,
                     createdAt: now,
                     updatedAt: now,
                 };
 
                 await database.write(async () => {
-                    await this.collection.create((record) => {
+                    await this.collection.create((record: LLMConfigModel) => {
                         (record._raw as any).id = config.id;
                         record.name = config.name;
                         record.provider = config.provider;

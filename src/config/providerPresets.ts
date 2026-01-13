@@ -187,3 +187,48 @@ export const isLocalProvider = (provider: LLMProvider): boolean => {
 export const getProviderConfig = (provider: LLMProvider): ProviderConfig => {
     return PROVIDER_LIST[provider];
 };
+
+/** Get the first local provider (for default fallback) */
+export const getFirstLocalProvider = (): LLMProvider | null => {
+    const localProviders = getLocalProviders();
+    return localProviders.length > 0 ? localProviders[0] : null;
+};
+
+/**
+ * Generate a default LLMConfig for a local provider
+ * Used for auto-creating local provider configs in stores
+ */
+export const getDefaultLocalConfig = (provider: LLMProvider): {
+    id: string;
+    name: string;
+    provider: LLMProvider;
+    baseUrl: string;
+    defaultModel: string;
+    supportsStreaming: boolean;
+    isLocal: boolean;
+    isEnabled: boolean;
+} | null => {
+    const config = PROVIDER_LIST[provider];
+    if (!config || !config.isLocal) return null;
+
+    return {
+        id: `${provider}-default`,
+        name: config.name,
+        provider: config.id,
+        baseUrl: config.defaultBaseUrl,
+        defaultModel: '',
+        supportsStreaming: true,
+        isLocal: true,
+        isEnabled: true,
+    };
+};
+
+/**
+ * Get all default local configs
+ * Returns configs for all local providers that are addable or are built-in
+ */
+export const getAllDefaultLocalConfigs = (): ReturnType<typeof getDefaultLocalConfig>[] => {
+    return getLocalProviders()
+        .map(provider => getDefaultLocalConfig(provider))
+        .filter((config): config is NonNullable<typeof config> => config !== null);
+};

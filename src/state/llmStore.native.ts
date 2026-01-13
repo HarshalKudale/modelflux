@@ -3,36 +3,10 @@
  * Includes auto-creation of local providers
  */
 import { create } from 'zustand';
-import { PROVIDER_LIST } from '../config/providerPresets';
+import { getAllDefaultLocalConfigs, getLocalProviders, PROVIDER_LIST } from '../config/providerPresets';
 import { llmClientFactory } from '../core/llm';
 import { llmConfigRepository } from '../core/storage';
-import { LLMConfig, LLMProvider, LLMProviderKey, generateId } from '../core/types';
-
-const DEFAULT_EXECUTORCH_CONFIG: LLMConfig = {
-    id: 'executorch-default',
-    name: 'ExecuTorch (Local)',
-    provider: 'executorch',
-    baseUrl: '',
-    defaultModel: '',
-    supportsStreaming: true,
-    isLocal: true,
-    isEnabled: true,
-    createdAt: 0,
-    updatedAt: 0,
-};
-
-const DEFAULT_LLAMA_CPP_CONFIG: LLMConfig = {
-    id: 'llama-cpp-default',
-    name: 'Llama.cpp (Local)',
-    provider: 'llama-cpp',
-    baseUrl: '',
-    defaultModel: '',
-    supportsStreaming: true,
-    isLocal: true,
-    isEnabled: true,
-    createdAt: 0,
-    updatedAt: 0,
-};
+import { generateId, LLMConfig, LLMProvider } from '../core/types';
 
 interface LLMStoreState {
     configs: LLMConfig[];
@@ -75,30 +49,24 @@ export const useLLMStore = create<LLMStore>((set, get) => ({
 
             const now = Date.now();
 
-            // Ensure ExecuTorch is available
-            const hasExecuTorch = configs.some(c => c.provider === LLMProviderKey.Executorch);
-            if (!hasExecuTorch) {
-                const execuTorchConfig = {
-                    ...DEFAULT_EXECUTORCH_CONFIG,
-                    createdAt: now,
-                    updatedAt: now,
-                };
-                await llmConfigRepository.create(execuTorchConfig);
-                configs = [...configs, execuTorchConfig];
-                console.log('[LLMStore] Added default ExecuTorch config');
-            }
-
-            // Ensure Llama.cpp is available
-            const hasLlamaCpp = configs.some(c => c.provider === LLMProviderKey.LlamaCpp);
-            if (!hasLlamaCpp) {
-                const llamaCppConfig = {
-                    ...DEFAULT_LLAMA_CPP_CONFIG,
-                    createdAt: now,
-                    updatedAt: now,
-                };
-                await llmConfigRepository.create(llamaCppConfig);
-                configs = [...configs, llamaCppConfig];
-                console.log('[LLMStore] Added default Llama.cpp config');
+            // Ensure all local providers are available
+            const localProviderTypes = getLocalProviders();
+            for (const providerType of localProviderTypes) {
+                const hasProvider = configs.some(c => c.provider === providerType);
+                if (!hasProvider) {
+                    const defaultConfigs = getAllDefaultLocalConfigs();
+                    const defaultConfig = defaultConfigs.find(c => c?.provider === providerType);
+                    if (defaultConfig) {
+                        const localConfig: LLMConfig = {
+                            ...defaultConfig,
+                            createdAt: now,
+                            updatedAt: now,
+                        };
+                        await llmConfigRepository.create(localConfig);
+                        configs = [...configs, localConfig];
+                        console.log(`[LLMStore] Added default ${providerType} config`);
+                    }
+                }
             }
 
             set({ configs, isLoading: false });
