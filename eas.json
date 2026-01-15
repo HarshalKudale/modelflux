@@ -4,27 +4,50 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "base": {
+      "env": {
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.parallel=true"
+      },
+      "android": {
+        "gradleCommand": ":app:assembleRelease --max-workers=2"
+      }
+    },
     "apk": {
+      "extends": "base",
       "android": {
         "buildType": "apk"
       }
     },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
+      "extends": "base",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true
     },
     "production-apk": {
+      "extends": "base",
       "autoIncrement": true,
       "android": {
         "buildType": "apk"
+      }
+    },
+    "low-memory": {
+      "extends": "base",
+      "android": {
+        "buildType": "apk",
+        "env": {
+          "ORG_GRADLE_PROJECT_reactNativeArchitectures": "arm64-v8a"
+        },
+        "gradleCommand": ":app:assembleRelease --max-workers=1 --no-daemon"
       }
     }
   },
