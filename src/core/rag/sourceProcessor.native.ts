@@ -4,8 +4,8 @@
  * Stateless worker for processing source documents.
  * Extracts text from PDFs using react-native-pdfium, splits into chunks.
  */
-import { RecursiveCharacterTextSplitter } from '@react-native-rag/op-sqlite';
 import { readPDF } from 'react-native-pdfium';
+import { RecursiveCharacterTextSplitter } from 'react-native-rag';
 import { TEXT_SPLITTER_CHUNK_OVERLAP, TEXT_SPLITTER_CHUNK_SIZE } from '../../config/ragConstants';
 import { Source } from '../types';
 

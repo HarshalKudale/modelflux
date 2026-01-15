@@ -216,5 +216,5 @@ export const WELCOME_SLIDES: WelcomeSlide[] = [
  */
 export const ONBOARDING_LINKS = {
     github: 'https://github.com/HarshalKudale/lmhub',
-    website: 'https://modelflux.app',
+    website: 'https://modelflux.harshalkudale.com',
 };

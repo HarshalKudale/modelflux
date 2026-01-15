@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Linking,
     Platform,
     ScrollView,
     StyleSheet,
@@ -10,6 +11,7 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ONBOARDING_LINKS } from '../../config/helpData'; // Added import
 import { BorderRadius, Colors, FontSizes, Spacing } from '../../config/theme';
 import { ThemeMode } from '../../core/types';
 import { SUPPORTED_LANGUAGES } from '../../locales';
@@ -31,6 +33,7 @@ type ScreenType =
     | 'rag-settings'
     | 'rag-provider-list'
     | 'rag-provider-editor'
+    | 'licenses'
     | 'help';
 
 interface SettingsScreenProps {
@@ -338,6 +341,30 @@ export function SettingsScreen({ onNavigate, onBack }: SettingsScreenProps) {
                                 1.0.0
                             </Text>
                         </View>
+
+                        <TouchableOpacity
+                            style={styles.settingItem}
+                            onPress={() => Linking.openURL(ONBOARDING_LINKS.website)}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                    {t('settings.about.website')}
+                                </Text>
+                            </View>
+                            <Ionicons name="open-outline" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.settingItem, styles.linkItem]}
+                            onPress={() => onNavigate('licenses')}
+                        >
+                            <View style={styles.settingInfo}>
+                                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                                    {t('settings.about.licenses')}
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                        </TouchableOpacity>
                     </SettingsSection>
                 </ResponsiveContainer>
             </ScrollView>

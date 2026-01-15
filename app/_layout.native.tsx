@@ -191,6 +191,13 @@ function RootLayoutNav() {
               presentation: 'modal',
             }}
           />
+          <Stack.Screen
+            name="licenses"
+            options={{
+              headerShown: false,
+              presentation: 'modal',
+            }}
+          />
         </Stack>
       </ThemeProvider>
     </GestureHandlerRootView>

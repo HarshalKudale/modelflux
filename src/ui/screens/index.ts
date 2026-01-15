@@ -1,5 +1,6 @@
 export { ChatScreen } from './ChatScreen';
 export { LanguageSelectScreen } from './LanguageSelectScreen';
+export { LicensesScreen } from './LicensesScreen';
 export { LLMEditorScreen } from './LLMEditorScreen';
 export { LLMManagementScreen } from './LLMManagementScreen';
 export { LogsScreen } from './LogsScreen';

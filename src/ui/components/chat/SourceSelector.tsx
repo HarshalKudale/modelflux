@@ -6,7 +6,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     Modal,
     StyleSheet,
@@ -39,9 +39,25 @@ export function SourceSelector({
     const colors = Colors[colorScheme];
     const { t } = useLocale();
 
-    const { sources } = useSourceStore();
+    const { sources, loadSources } = useSourceStore();
+
+    // Load sources when modal becomes visible
+    useEffect(() => {
+        if (visible) {
+            console.log('[SourceSelector] Modal visible, loading sources...');
+            loadSources();
+        }
+    }, [visible, loadSources]);
+
+    // Debug: Log sources after they're loaded
+    useEffect(() => {
+        console.log('[SourceSelector] All sources:', sources.length, sources);
+        const filteredSources = sources.filter(s => !s.isProcessing);
+        console.log('[SourceSelector] Filtered sources (not processing):', filteredSources.length, filteredSources);
+    }, [sources]);
 
     const renderSource = ({ item }: { item: Source }) => {
+        console.log('[SourceSelector] Rendering source item:', item.id, item.name);
         const isSelected = selectedSourceIds.includes(item.id);
 
         return (
@@ -112,13 +128,15 @@ export function SourceSelector({
                     )}
 
                     {/* Sources list */}
-                    <VirtualizedList<Source>
-                        data={sources.filter(s => !s.isProcessing)}
-                        renderItem={renderSource}
-                        keyExtractor={(item) => item.id.toString()}
-                        contentContainerStyle={styles.listContent}
-                        ListEmptyComponent={renderEmpty}
-                    />
+                    <View style={{ flex: 1, minHeight: 200 }}>
+                        <VirtualizedList<Source>
+                            data={sources.filter(s => !s.isProcessing)}
+                            renderItem={renderSource}
+                            keyExtractor={(item) => item.id.toString()}
+                            contentContainerStyle={styles.listContent}
+                            ListEmptyComponent={renderEmpty}
+                        />
+                    </View>
 
                     {/* Done button */}
                     <View style={styles.footer}>
@@ -147,6 +165,7 @@ const styles = StyleSheet.create({
         maxHeight: '70%',
         borderTopLeftRadius: BorderRadius.xl,
         borderTopRightRadius: BorderRadius.xl,
+        paddingBottom: Spacing.xl,
     },
     header: {
         flexDirection: 'row',

@@ -45,6 +45,8 @@ export const en: Record<string, string> = {
     "settings.import.summary": "Imported:\n• {llmConfigs} provider(s)\n• {conversations} conversation(s)\n• {messages} message(s)",
     "settings.import.failed": "Import Failed",
     "settings.about.title": "About",
+    "settings.about.website": "Visit Website",
+    "settings.about.licenses": "Third-Party Licenses",
 
     // Personas - Character Card V2
     "settings.personas.title": "Personas",
