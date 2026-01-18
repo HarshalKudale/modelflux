@@ -63,12 +63,12 @@ class EmbeddingFactory implements IEmbeddingFactory {
         console.log('[EmbeddingFactory] Model path:', model.modelFilePath);
         console.log('[EmbeddingFactory] Tokenizer path:', model.tokenizerFilePath);
 
-        const assets = {
-            modelSource: { source: model.modelFilePath, type: 1 },
-            tokenizerSource: { source: model.tokenizerFilePath, type: 1 },
-        };
-
-        return new ExecuTorchEmbeddings(assets);
+        // Pass file paths directly as strings (file:// URIs)
+        // ResourceFetcher.getType() correctly handles file:// strings as LOCAL_FILE type
+        return new ExecuTorchEmbeddings({
+            modelSource: model.modelFilePath,
+            tokenizerSource: model.tokenizerFilePath,
+        });
     }
 
     /**

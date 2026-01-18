@@ -503,7 +503,7 @@ export async function startDownload(model: DownloadableModel): Promise<void> {
         // Create and start download tasks
         for (const file of files) {
             const taskId = getTaskId(modelId, file.fileType);
-            const destination = `${modelDirPath}${file.filename} `;
+            const destination = `${modelDirPath}${file.filename}`;
 
             const metadata: DownloadMetadata = {
                 modelId,

@@ -235,21 +235,23 @@ export function SourcesModal({ visible, onClose }: SourcesModalProps) {
             );
         }
 
-        if (isStale && sources.length > 0) {
+        if (isStale) {
             return (
                 <View style={[styles.statusBar, { backgroundColor: colors.warning + '20' }]}>
                     <Ionicons name="warning-outline" size={18} color={colors.warning || '#F59E0B'} />
                     <Text style={[styles.statusText, { color: colors.warning || '#F59E0B', flex: 1 }]}>
                         {t('rag.stale')}
                     </Text>
-                    <TouchableOpacity
-                        onPress={handleReprocess}
-                        style={[styles.reprocessButton, { backgroundColor: colors.tint }]}
-                    >
-                        <Text style={styles.reprocessButtonText}>
-                            {t('rag.reprocess')}
-                        </Text>
-                    </TouchableOpacity>
+                    {sources.length > 0 && (
+                        <TouchableOpacity
+                            onPress={handleReprocess}
+                            style={[styles.reprocessButton, { backgroundColor: colors.tint }]}
+                        >
+                            <Text style={styles.reprocessButtonText}>
+                                {t('rag.reprocess')}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             );
         }

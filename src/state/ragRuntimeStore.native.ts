@@ -198,8 +198,15 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
             }).load();
 
             // Check if stale (fingerprint mismatch with persisted fingerprint)
-            const isStale = state.lastUsedFingerprint !== null &&
+            const fingerprintMismatch = state.lastUsedFingerprint !== null &&
                 state.lastUsedFingerprint !== newFingerprint;
+
+            // Check if there are sources to reprocess
+            const sources = await sourceRepository.findAll();
+            const hasSourcesToReprocess = sources.length > 0;
+
+            // Only mark as stale if fingerprint changed AND there are sources to reprocess
+            const isStale = fingerprintMismatch && hasSourcesToReprocess;
 
             if (isStale) {
                 console.log('[RAGRuntimeStore] Sources are STALE - need reprocessing');
@@ -211,7 +218,11 @@ export const useRAGRuntimeStore = create<RAGRuntimeStore>((set, get) => ({
                     status: 'stale',
                 });
             } else {
-                console.log('[RAGRuntimeStore] Sources are up to date');
+                if (fingerprintMismatch && !hasSourcesToReprocess) {
+                    console.log('[RAGRuntimeStore] Fingerprint changed but no sources - updating fingerprint');
+                } else {
+                    console.log('[RAGRuntimeStore] Sources are up to date');
+                }
                 // Update persisted fingerprint via settings
                 const currentSettings = await settingsRepository.get();
                 await settingsRepository.update({
